@@ -1,0 +1,45 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: donggu-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  crawler:
+    build:
+      context: ./crawler
+      dockerfile: Dockerfile
+    container_name: donggu-crawler
+    volumes:
+      - ./crawler:/app
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+    command: tail -f /dev/null
+
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: donggu-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  postgres_data:
