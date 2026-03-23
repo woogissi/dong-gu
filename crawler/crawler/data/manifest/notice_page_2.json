@@ -1,0 +1,77 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=list",
+  "page_no": 2,
+  "count": 10,
+  "items": [
+    {
+      "article_no": "82049",
+      "title_hint": "2026학년도 대학안전관리계획 게시",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=82049&article.offset=10&articleLimit=10",
+      "published_at_hint": "2026-02-27",
+      "row_text": "1200 2026학년도 대학안전관리계획 게시 안전관리팀 2026-02-27 728"
+    },
+    {
+      "article_no": "81429",
+      "title_hint": "캠퍼스 내 전동킥보드 이용 주의사항 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=81429&article.offset=10&articleLimit=10",
+      "published_at_hint": "2026-02-24",
+      "row_text": "1199 캠퍼스 내 전동킥보드 이용 주의사항 안내 안전관리팀 2026-02-24 727"
+    },
+    {
+      "article_no": "81428",
+      "title_hint": "2026학년도 신입생을 위한 가이드북 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=81428&article.offset=10&articleLimit=10",
+      "published_at_hint": "2026-02-24",
+      "row_text": "1198 2026학년도 신입생을 위한 가이드북 안내 학생지원팀 2026-02-24 5386"
+    },
+    {
+      "article_no": "81414",
+      "title_hint": "2026학년도 제19기 동의대학교 홍보대사 모집",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=81414&article.offset=10&articleLimit=10",
+      "published_at_hint": "2026-02-23",
+      "row_text": "1197 2026학년도 제19기 동의대학교 홍보대사 모집 대외협력팀 2026-02-23 895"
+    },
+    {
+      "article_no": "81364",
+      "title_hint": "제9기 입학홍보대사 WE DEU 모집공고",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=81364&article.offset=10&articleLimit=10",
+      "published_at_hint": "2026-02-23",
+      "row_text": "1196 제9기 입학홍보대사 WE DEU 모집공고 입학관리팀 2026-02-23 858"
+    },
+    {
+      "article_no": "81190",
+      "title_hint": "2026학년도 신입생 수강신청 관련 안내(신입생 필독)",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=81190&article.offset=10&articleLimit=10",
+      "published_at_hint": "2026-02-20",
+      "row_text": "1195 2026학년도 신입생 수강신청 관련 안내(신입생 필독) 학사지원팀 2026-02-20 18728"
+    },
+    {
+      "article_no": "81153",
+      "title_hint": "2026학년도 신입생 입학식 및 오리엔테이션 행사 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=81153&article.offset=10&articleLimit=10",
+      "published_at_hint": "2026-02-20",
+      "row_text": "1194 2026학년도 신입생 입학식 및 오리엔테이션 행사 안내 학생지원팀 2026-02-20 9050"
+    },
+    {
+      "article_no": "81016",
+      "title_hint": "2026-1학기 등록금 납부 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=81016&article.offset=10&articleLimit=10",
+      "published_at_hint": "2026-02-12",
+      "row_text": "1193 2026-1학기 등록금 납부 안내 경리팀 2026-02-12 12104"
+    },
+    {
+      "article_no": "80824",
+      "title_hint": "동의대학교 주차장 이용 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=80824&article.offset=10&articleLimit=10",
+      "published_at_hint": "2026-02-09",
+      "row_text": "1192 동의대학교 주차장 이용 안내 안전관리팀 2026-02-09 2064"
+    },
+    {
+      "article_no": "80822",
+      "title_hint": "[필독] 교내 소방차전용구역 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=80822&article.offset=10&articleLimit=10",
+      "published_at_hint": "2026-02-09",
+      "row_text": "1191 [필독] 교내 소방차전용구역 안내 안전관리팀 2026-02-09 397"
+    }
+  ]
+}
