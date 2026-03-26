@@ -1,17 +1,17 @@
-from app.api.routes.chat import router as chat_router
-from app.api.routes.health import router as health_router
-from app.api.routes.kakao import router as kakao_router
-from app.api.routes.search import router as search_router
 from fastapi import FastAPI
+from app.api.router import api_router
 
-app = FastAPI(title="DEU Chatbot API")
+# FastAPI 애플리케이션 생성
+app = FastAPI(
+    title="DEU Chatbot API",
+    description="동의대학교 챗봇 백엔드 서버",
+    version="1.0.0"
+)
 
-app.include_router(health_router, prefix="/api/v1")
-app.include_router(search_router, prefix="/api/v1")
-app.include_router(chat_router, prefix="/api/v1")
-app.include_router(kakao_router, prefix="/api/v1")
+# API 라우터 등록
+app.include_router(api_router)
 
-
+# 서버 상태 확인용 엔드포인트
 @app.get("/")
 def root():
     return {"message": "DEU chatbot backend is running"}

@@ -17,6 +17,14 @@ services:
       - postgres
     command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 
+  cloudflared:
+      image: cloudflare/cloudflared:latest
+      container_name: donggu-cloudflared
+      command: tunnel --no-autoupdate --url http://backend:8000
+      depends_on:
+        - backend
+      restart: unless-stopped
+
   crawler:
     build:
       context: ./crawler
