@@ -5,3 +5,8 @@ pydantic-settings
 sqlalchemy
 psycopg[binary]
 python-dotenv
+
+# rag 사용 패키지
+sentence-transformers
+torch
+numpy
