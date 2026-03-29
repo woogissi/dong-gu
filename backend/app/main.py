@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api.router import api_router
+from backend.app.api.router import api_router
 
 # FastAPI 애플리케이션 생성
 app = FastAPI(

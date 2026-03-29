@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api import chat, health, kakao
+from backend.app.api import chat, health, kakao
 
 # 전체 API 라우터
 api_router = APIRouter(prefix="/api")
