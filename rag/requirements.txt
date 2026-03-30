@@ -1,8 +1,29 @@
-fastapi
-uvicorn[standard]
-pydantic
-pydantic-settings
-sqlalchemy
-psycopg[binary]
-python-dotenv
-openai
+# RAG core
+langchain==0.3.27
+langchain-community==0.3.29
+langchain-text-splitters==0.3.9
+
+# Embedding / Model
+sentence-transformers==5.1.0
+transformers==4.55.4
+#torch==2.8.0 GPU CUDA 추후 사용
+accelerate==1.10.0
+
+# Vector DB / PostgreSQL
+psycopg2-binary==2.9.10
+pgvector==0.4.1
+SQLAlchemy==2.0.43
+
+# Document parsing
+pypdf==6.0.0
+beautifulsoup4==4.13.4
+lxml==6.0.1
+
+# Data handling
+numpy==2.3.2
+pandas==2.3.1
+
+# Utilities
+python-dotenv==1.1.1
+tqdm==4.67.1
+requests==2.32.4
