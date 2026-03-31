@@ -1,13 +1,13 @@
 # crawler/extractors/board_detail_extractor.py
 
 import re
-import hashlib
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
+import hashlib                                                  # 해시코드 제작용
+from datetime import datetime, timezone, timedelta              # 수집시간용
+from pathlib import Path                                        # fallback시 path명을 얻기 위함
 from urllib.parse import urljoin, urlparse, parse_qs
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup                                   # html 파싱용
 
 
 HEADERS = {
@@ -18,7 +18,7 @@ HEADERS = {
     )
 }
 
-KST = timezone(timedelta(hours=9))
+KST = timezone(timedelta(hours=9))                              # 한국 시간대 객체
 
 
 class BoardDetailExtractor:
@@ -27,47 +27,47 @@ class BoardDetailExtractor:
         self.session.headers.update(HEADERS)
 
     def now_kst_iso(self) -> str:
-        return datetime.now(KST).isoformat(timespec="seconds")
+        return datetime.now(KST).isoformat(timespec="seconds")  # 현재 시각을 한국 시간 기준 ISO 문자열로 반환한다.
 
     def sha1_text(self, text: str) -> str:
-        return hashlib.sha1(text.encode("utf-8")).hexdigest()
+        return hashlib.sha1(text.encode("utf-8")).hexdigest()   # 문자열 텍스트를 SHA-1 해시 문자열로 바꾼다.
 
-    def normalize_text(self, text: str) -> str:
+    def normalize_text(self, text: str) -> str:                 # 한 줄용 텍스트 정리 함수
+        if not text:
+            return ""
+        text = text.replace("\xa0", " ")                        # HTML에서 자주 나오는 non-breaking space를 일반 공백으로 바꿈
+        text = re.sub(r"\s+", " ", text)                        # 여러 공백/줄바꿈/탭을 전부 한 칸 공백으로 줄임
+        return text.strip()
+
+    def normalize_multiline_text(self, text: str) -> str:       # 본문용 정리 함수
         if not text:
             return ""
         text = text.replace("\xa0", " ")
-        text = re.sub(r"\s+", " ", text)
+        text = re.sub(r"\r\n|\r", "\n", text)                   # 줄바꿈을 없애진 않음
+        text = re.sub(r"\n{3,}", "\n\n", text)                  # 너무 많은 빈 줄 줄임
+        text = re.sub(r"[ \t]+", " ", text)                     # 탭/공백만 정리
         return text.strip()
 
-    def normalize_multiline_text(self, text: str) -> str:
-        if not text:
-            return ""
-        text = text.replace("\xa0", " ")
-        text = re.sub(r"\r\n|\r", "\n", text)
-        text = re.sub(r"\n{3,}", "\n\n", text)
-        text = re.sub(r"[ \t]+", " ", text)
-        return text.strip()
-
-    def extract_article_no(self, url: str) -> str | None:
+    def extract_article_no(self, url: str) -> str | None:       # 게시글 번호 뽑기
         parsed = urlparse(url)
         qs = parse_qs(parsed.query)
-        article_no = qs.get("articleNo", [None])[0]
+        article_no = qs.get("articleNo", [None])[0]             # ex) mode=view&articleNo=79040 -> mode=view&articleNo=79040
         if article_no:
             return article_no
 
         match = re.search(r"articleNo=(\d+)", url)
         return match.group(1) if match else None
 
-    def make_doc_id(self, source_type: str, article_no: str) -> str:
+    def make_doc_id(self, source_type: str, article_no: str) -> str:    # 문서 고유 ID 생성 = source_type + article_no
         return f"deu_{source_type}_{article_no}"
 
-    def fetch(self, url: str) -> str:
+    def fetch(self, url: str) -> str:                           # 상세 페이지 html을 그대로 가져옴
         res = self.session.get(url, timeout=20)
         res.raise_for_status()
         return res.text
 
-    def find_title(self, soup: BeautifulSoup) -> str:
-        selectors = [
+    def find_title(self, soup: BeautifulSoup) -> str:           # 제목 찾기
+        selectors = [                                           # selectors 목록
             "h1", "h2", "h3", "h4",
             ".title", ".view-title",
             ".board_view .title",
@@ -75,17 +75,17 @@ class BoardDetailExtractor:
         ]
         for sel in selectors:
             node = soup.select_one(sel)
-            if node:
+            if node:                                                    # 일치하는 selectors가 있고, 비어있지 않으면 text 반환
                 text = self.normalize_text(node.get_text(" ", strip=True))
                 if text:
                     return text
 
         if soup.title:
-            return self.normalize_text(soup.title.get_text(" ", strip=True))
+            return self.normalize_text(soup.title.get_text(" ", strip=True))    # 없으면 title 태그로 찾아보기
 
-        return ""
+        return ""                                                        # 다 없으면 빈 텍스트 반환
 
-    def find_meta(self, html: str) -> dict:
+    def find_meta(self, html: str) -> dict:                                     
         full_text = self.normalize_text(BeautifulSoup(html, "html.parser").get_text(" ", strip=True))
 
         date_match = re.search(r"\d{4}-\d{2}-\d{2}", full_text)

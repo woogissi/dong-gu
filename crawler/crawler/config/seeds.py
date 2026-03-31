@@ -1,6 +1,6 @@
 # crawler/config/seeds.py
 
-SEED_URLS = [
+SEED_URLS = [       # 해당 크롤러는 밑의 주소의 정보를 크롤링함
     {
         "name": "deu_home",
         "url": "https://www.deu.ac.kr/www/index.do",

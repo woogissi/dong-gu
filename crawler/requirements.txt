@@ -8,3 +8,10 @@ pgvector==0.3.5
 
 python-dotenv==1.0.1
 pymupdf==1.24.10
+fastapi
+uvicorn[standard]
+psycopg[binary]
+python-dotenv
+pypdf 
+sentence-transformers torch
+python-dotenv

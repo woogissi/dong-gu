@@ -1,18 +1,44 @@
 services:
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./backend/Dockerfile
     container_name: donggu-backend
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      - ./backend:/app/backend
+      - ./rag:/app/rag
     env_file:
       - .env
+    environment:
+      PYTHONPATH: /app
     depends_on:
       - postgres
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  rag:
+    build:
+      context: .
+      dockerfile: ./rag/Dockerfile
+    container_name: donggu-rag
+    volumes:
+      - ./rag:/app/rag
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app
+    depends_on:
+      - postgres
+    command: tail -f /dev/null
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: donggu-cloudflared
+    command: tunnel --no-autoupdate --url http://backend:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
 
   crawler:
     build:
