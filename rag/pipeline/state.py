@@ -1,3 +1,8 @@
+"""
+rag의 전처리~후처리까지의 과정에서 발생하는
+데이터들 저장용 추후 db 적재 고려
+"""
+
 from dataclasses import dataclass, field
 from typing import List
 

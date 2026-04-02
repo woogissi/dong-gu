@@ -7,7 +7,6 @@ piplineState 생성
 실패시 fallback
 """
 #rag 흐름 제어
-# rag/pipeline/chat_pipeline.py
 
 from rag.pipeline.state import PipelineState
 from rag.schemas.query import Query
@@ -33,7 +32,7 @@ class ChatPipeline:
         state = PipelineState.from_query(query.text)
 
         try:
-            self._preprocess(state)
+            self._preprocess(state) #전처리 일반화, 추출, 재작성 수행
             self._retrieve(state)
             self._select_and_build_context(state)
             self._generate(state)

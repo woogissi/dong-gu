@@ -1,3 +1,7 @@
+"""
+llm 입력용 프롬포트 생성
+"""
+
 def build_prompt(query: str, context: str) -> str:
     return f"""질문:
 {query}
