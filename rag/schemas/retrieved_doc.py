@@ -3,7 +3,7 @@ rag 검색 문서 metadata 클래스
 구조 수정시 retrieval/retriever.py 수정
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class RetrievedDoc(BaseModel):
@@ -11,5 +11,9 @@ class RetrievedDoc(BaseModel):
     chunk_id: str
     content: str
     score: float = 0.0
-    source: str = ""
+
     title: str = ""
+    source: str = ""
+    category: str | None = None
+
+    metadata: dict = Field(default_factory=dict)
