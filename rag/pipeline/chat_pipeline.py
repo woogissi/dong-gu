@@ -7,8 +7,6 @@ piplineState 생성
 실패시 fallback
 """
 #rag 흐름 제어
-# rag/pipeline/chat_pipeline.py
-
 from rag.pipeline.state import PipelineState
 from rag.schemas.query import Query
 from rag.schemas.answer import Answer
