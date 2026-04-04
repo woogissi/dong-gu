@@ -1,3 +1,7 @@
+"""
+전달된 문서들의 content 결합
+"""
+
 from typing import List
 from rag.schemas.retrieved_doc import RetrievedDoc
 

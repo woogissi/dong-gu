@@ -31,7 +31,7 @@ class ChatPipeline:
         state = PipelineState.from_query(query.text)
 
         try:
-            self._preprocess(state)
+            self._preprocess(state) #전처리 일반화, 추출, 재작성 수행
             self._retrieve(state)
             self._select_and_build_context(state)
             self._generate(state)
