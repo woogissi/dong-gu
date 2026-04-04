@@ -158,15 +158,29 @@ class GeneralChatService:
         # fallback 응답
         return "안녕하세요. 동의대 관련 정보가 궁금하면 질문해 주세요."
 
-    def process_general_chat(self, utterance: str) -> str:
+    def process_general_chat(self, utterance: str, user_id: str) -> str:
         """
         일반 대화 전체 처리 흐름
 
         1. 의도 분류
         2. 응답 생성
+        3. DB 저장
         """
         general_intent = self.classify_general_intent(utterance)
-        return self.build_answer(general_intent)
+        answer = self.build_answer(general_intent)
+
+        from backend.app.utils.save_log import save_qa_log
+
+        save_qa_log(
+            user_id=user_id,
+            question=utterance,
+            answer=answer,
+            retrieved_chunks=[],
+            response_time=0.01,
+            intent_type="GENERAL"
+        )
+
+        return answer
 
 
 # 외부에서 바로 사용할 수 있도록 싱글톤처럼 생성
