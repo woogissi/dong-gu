@@ -1,19 +1,12 @@
-"""
-입력 질문 받기
-piplineState 생성
-전처리 -> 검색 -> 선택 -> 프롬프트 -> 생성 -> 검증
-순서 호출
-각 단계 결과 state에 저장
-실패시 fallback
-"""
-#rag 흐름 제어
+﻿"""RAG chat pipeline orchestration."""
+
 from rag.pipeline.state import PipelineState
 from rag.schemas.query import Query
 from rag.schemas.answer import Answer
-from rag.schemas.retrieved_doc import RetrievedDoc
 
 from rag.preprocess.normalizer import normalize_query
 from rag.preprocess.keyword_extractor import extract_keywords
+from rag.preprocess.entity_extractor import extract_entities, primary_category
 from rag.preprocess.query_rewriter import rewrite_query
 
 from rag.retrieval.retriever import retrieve_documents
@@ -31,21 +24,32 @@ class ChatPipeline:
         state = PipelineState.from_query(query.text)
 
         try:
-            self._preprocess(state) #전처리 일반화, 추출, 재작성 수행
+            self._preprocess(state)
             self._retrieve(state)
             self._select_and_build_context(state)
             self._generate(state)
             self._postprocess(state)
-
             return self._build_success_answer(state)
-
         except Exception as e:
             state.error = str(e)
             return self._build_fallback_answer(state)
 
+    # 전처리 단계
+    # - 질문 정규화
+    # - 키워드 추출
+    # - 엔티티 추출 및 카테고리 분류
+    # - 질문 재작성
     def _preprocess(self, state: PipelineState) -> None:
         state.normalized_query = normalize_query(state.original_query)
         state.keywords = extract_keywords(state.normalized_query)
+
+        entities = extract_entities(
+            query=state.normalized_query,
+            keywords=state.keywords,
+        )
+        state.set_entities(entities)
+        state.set_category(primary_category(entities))
+
         state.rewritten_query = rewrite_query(
             query=state.normalized_query,
             keywords=state.keywords,
@@ -69,7 +73,7 @@ class ChatPipeline:
         state.answer_text = generate_answer(state.prompt)
 
     def _postprocess(self, state: PipelineState) -> None:
-        # 나중에 검증/후처리 로직 추가
+        # TODO: response validation / polishing
         pass
 
     def _build_success_answer(self, state: PipelineState) -> Answer:
@@ -92,3 +96,4 @@ class ChatPipeline:
             sources=[],
             success=False,
         )
+
