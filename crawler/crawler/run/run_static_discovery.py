@@ -19,7 +19,7 @@ RAW_DOC_DIR = BASE_DIR / "raw" / "documents"
 CURATED_DOC_DIR = BASE_DIR / "curated" / "documents"
 LOG_DIR = BASE_DIR / "logs"
 
-for d in [RAW_HTML_DIR, RAW_DOC_DIR, CURATED_DOC_DIR, LOG_DIR]:
+for d in [RAW_HTML_DIR, RAW_DOC_DIR, CURATED_DOC_DIR, LOG_DIR]:     # 필요한 폴더들을 미리 생성
     d.mkdir(parents=True, exist_ok=True)
 
 manifest_writer = ManifestWriter()
@@ -27,12 +27,12 @@ url_classifier = URLClassifier()
 text_cleaner = TextCleaner()
 
 
-def save_json(path: Path, data: dict | list) -> None:
+def save_json(path: Path, data: dict | list) -> None:       # JSON 저장 함수
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def save_text(path: Path, text: str) -> None:
+def save_text(path: Path, text: str) -> None:               # html 원문 저장용 텍스트 파일 저장 함수
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
@@ -43,8 +43,8 @@ def log_error(message: str) -> None:
         f.write(message + "\n")
 
 
-def build_curated_document(raw_doc: dict) -> dict:
-    clean_text = text_cleaner.build_clean_text(
+def build_curated_document(raw_doc: dict) -> dict:      # raw 정적 문서를 curated 문서로 바꾸는 함수
+    clean_text = text_cleaner.build_clean_text(         # full_pipeline 보다 더 정제 열심히
         raw_text=raw_doc["raw_text"],
         table_text=raw_doc["table_text"],
     )
@@ -80,7 +80,7 @@ def build_curated_document(raw_doc: dict) -> dict:
     }
 
 
-def save_static_document(raw_doc: dict) -> None:
+def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type과 doc_id를 이용해 저장 경로 계산 함수
     source_type = raw_doc["source_type"]
     doc_id = raw_doc["doc_id"]
 
@@ -88,15 +88,15 @@ def save_static_document(raw_doc: dict) -> None:
     raw_path = RAW_DOC_DIR / source_type / f"{doc_id}.json"
     curated_path = CURATED_DOC_DIR / source_type / f"{doc_id}.json"
 
-    save_text(html_path, raw_doc["html"])
+    save_text(html_path, raw_doc["html"])       # 원문 저장
 
     raw_to_save = dict(raw_doc)
     raw_to_save["html_path"] = str(html_path.as_posix())
     raw_to_save.pop("html", None)
 
-    save_json(raw_path, raw_to_save)
-    save_json(curated_path, build_curated_document(raw_to_save))
-    manifest_writer.write_document_record(raw_to_save)
+    save_json(raw_path, raw_to_save)            # raw 저장
+    save_json(curated_path, build_curated_document(raw_to_save))        # curated 저장
+    manifest_writer.write_document_record(raw_to_save)      # manifest 기록
 
 
 def main(max_pages: int = 50, max_depth: int = 2):
@@ -110,24 +110,24 @@ def main(max_pages: int = 50, max_depth: int = 2):
 
     crawled_count = 0
 
-    while frontier.has_next() and crawled_count < max_pages:
-        item = frontier.pop_next()
+    while frontier.has_next() and crawled_count < max_pages:        # frontier에 방문할 URL이 남아있고, 최대 수집 페이지 수를 넘지 않으면 
+        item = frontier.pop_next()      # 큐에서 다음 URL을 꺼내서 정보를 꺼냄
         if not item:
             break
 
         url, depth, discovered_from = item
-        frontier.mark_visited(url)
+        frontier.mark_visited(url)      # 방문한 곳인지
 
         try:
-            url_type = url_classifier.classify(url)
+            url_type = url_classifier.classify(url)     # 정적페이지인지 다시 확인
 
             # 현재 static discovery는 정적 페이지만 대상으로 삼음
             if url_type != "static_page":
                 continue
 
-            source_type = url_classifier.infer_source_type(url)
-            raw_doc = extractor.extract_static_page(source_type=source_type, page_url=url)
-            save_static_document(raw_doc)
+            source_type = url_classifier.infer_source_type(url)     # source_type을 추정
+            raw_doc = extractor.extract_static_page(source_type=source_type, page_url=url)  # 실제 페이지를 가져와서 raw 문서 dict로 만듬
+            save_static_document(raw_doc)    
 
             manifest_writer.append_jsonl("discovery_edges.jsonl", {
                 "url": url,

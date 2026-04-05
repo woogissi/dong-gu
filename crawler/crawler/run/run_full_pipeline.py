@@ -27,29 +27,29 @@ for d in [RAW_HTML_DIR, RAW_DOC_DIR, RAW_ATTACH_DIR, CURATED_DOC_DIR, LOG_DIR]:
 manifest_writer = ManifestWriter()
 
 
-def save_json(path: Path, data: dict | list) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+def save_json(path: Path, data: dict | list) -> None:               # JSON 저장용 유틸 함수
+    path.parent.mkdir(parents=True, exist_ok=True)                  # 부모 폴더 없으면 생성
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")       # JSON pretty format, UTF-8 한글 안 깨지게 저장
 
 
-def save_text(path: Path, text: str) -> None:
+def save_text(path: Path, text: str) -> None:           # HTML 원문 같은 텍스트 파일 저장용 함수
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
 
-def log_error(message: str) -> None:
+def log_error(message: str) -> None:                    # 에러 로그를 콘솔에도 찍고 파일에도 남기는 함수
     print(message)
     with open(LOG_DIR / "crawl_errors.log", "a", encoding="utf-8") as f:
         f.write(message + "\n")
 
 
-def simple_clean_text(raw_text: str) -> str:
+def simple_clean_text(raw_text: str) -> str:            # 단순 본문 정리 함수
     if not raw_text:
         return ""
     return raw_text.strip()
 
 
-def merge_attachment_texts(downloaded_attachments: list[dict]) -> str | None:
+def merge_attachment_texts(downloaded_attachments: list[dict]) -> str | None:       # 첨부파일들에서 뽑은 텍스트를 문서 본문에 합칠 수 있는 하나의 문자열로 만드는 함수
     texts = []
 
     for item in downloaded_attachments:
@@ -62,7 +62,7 @@ def merge_attachment_texts(downloaded_attachments: list[dict]) -> str | None:
     return merged if merged else None
 
 
-def build_curated_document(raw_doc: dict) -> dict:
+def build_curated_document(raw_doc: dict) -> dict:                                  # raw 문서를 curated 문서로 바꾸는 함수
     attachment_text = merge_attachment_texts(raw_doc.get("downloaded_attachments", []))
 
     return {
@@ -96,7 +96,7 @@ def build_curated_document(raw_doc: dict) -> dict:
     }
 
 
-def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> None:
+def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> None:        # 핵심 함수
     source_type = raw_doc["source_type"]
     doc_id = raw_doc["doc_id"]
 
@@ -104,14 +104,14 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
     raw_path = RAW_DOC_DIR / source_type / f"{doc_id}.json"
     curated_path = CURATED_DOC_DIR / source_type / f"{doc_id}.json"
 
-    save_text(html_path, raw_doc["html"])
+    save_text(html_path, raw_doc["html"])           # 원본 html 저장
 
-    raw_to_save = dict(raw_doc)
+    raw_to_save = dict(raw_doc)                     # raw_doc 복사(원문 손실 방지)
     raw_to_save["html_path"] = str(html_path.as_posix())
     raw_to_save.pop("html", None)
 
     downloaded_attachments = []
-    if download_attachments and raw_to_save.get("attachments"):
+    if download_attachments and raw_to_save.get("attachments"):     # 첨부 다운로드가 켜져 있고, 실제 첨부가 있으면
         downloader = AttachmentDownloader()
         file_router = FileTextRouter()
 
@@ -119,8 +119,8 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
             try:
                 downloaded = downloader.download(source_type, doc_id, att)
 
-                parse_result = file_router.extract_text(downloaded["saved_path"])
-                downloaded["parser_type"] = parse_result.get("parser_type")
+                parse_result = file_router.extract_text(downloaded["saved_path"])       # 파일 경로를 파일 분기 router에 넘김
+                downloaded["parser_type"] = parse_result.get("parser_type")             # 결과 받기
                 downloaded["attachment_text"] = parse_result.get("attachment_text")
                 downloaded["page_count"] = parse_result.get("page_count")
                 downloaded["pages"] = parse_result.get("pages")
@@ -130,7 +130,7 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
                 downloaded_attachments.append(downloaded)
                 manifest_writer.write_file_parse_record(doc_id, downloaded, parse_result)
 
-            except Exception as e:
+            except Exception as e:              # 특정 첨부가 깨져도 계속 저장
                 message = f"[ATTACH DOWNLOAD/PARSE ERROR] doc_id={doc_id} file_url={att['file_url']} error={e}"
                 log_error(message)
                 manifest_writer.write_error_record(
@@ -147,7 +147,7 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
 
     manifest_writer.write_document_record(raw_to_save)
 
-    for att in raw_to_save["attachments"]:
+    for att in raw_to_save["attachments"]:              # 첨부 메타를 별도 attachment 문서로도 저장
         att_doc = {
             "doc_id": f"{doc_id}_att_{att['attachment_index']:03d}",
             "parent_doc_id": doc_id,
@@ -163,17 +163,17 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
         manifest_writer.write_attachment_record(doc_id, att_doc)
 
 
-def run_board_pipeline(source_type: str, list_url: str, pages: int = 2, parser_type: str = "default") -> None:
+def run_board_pipeline(source_type: str, list_url: str, pages: int = 2, parser_type: str = "default") -> None:      # 게시판형 seed를 처리하는 실행 함수
     list_extractor = BoardListExtractor()
 
-    if parser_type == "ipsi":
+    if parser_type == "ipsi":           # 입학처면 전용 파서, 아니면 일반 파서 사용
         detail_extractor = IpsiNoticeParser()
     else:
         detail_extractor = BoardDetailExtractor()
 
-    for page_no in range(1, pages + 1):
+    for page_no in range(1, pages + 1):     # 지정한 page만큼 탐색
         try:
-            list_result = list_extractor.extract_list(list_url, page_no=page_no, page_size=10)
+            list_result = list_extractor.extract_list(list_url, page_no=page_no, page_size=10)      # 목록 페이지 HTML을 읽고, 상세 URL 목록 추출
             print(f"[LIST] source={source_type} page={page_no} count={list_result['count']}")
 
             manifest_path = Path("crawler/data/manifest") / f"{source_type}_page_{page_no}.json"
@@ -184,12 +184,12 @@ def run_board_pipeline(source_type: str, list_url: str, pages: int = 2, parser_t
                 "items": list_result["items"],
             })
 
-            for item in list_result["items"]:
+            for item in list_result["items"]:           # 목록에서 나온 각 상세 URL을 하나씩 처리
                 try:
                     raw_doc = detail_extractor.extract_detail(source_type, item["detail_url"])
                     save_document_bundle(raw_doc, download_attachments=True)
                     print(f"[OK] saved {raw_doc['doc_id']}")
-                except Exception as e:
+                except Exception as e:                  # 상세 문서 하나 실패 시 다음 문서 계속 처리
                     message = f"[DETAIL ERROR] source={source_type} url={item['detail_url']} error={e}"
                     log_error(message)
                     manifest_writer.write_error_record(
@@ -198,7 +198,7 @@ def run_board_pipeline(source_type: str, list_url: str, pages: int = 2, parser_t
                         extra={"source_type": source_type, "url": item["detail_url"]},
                     )
 
-        except Exception as e:
+        except Exception as e:              # 목록 페이지 자체가 실패하면 그 페이지는 건너뜀
             message = f"[LIST ERROR] source={source_type} page={page_no} error={e}"
             log_error(message)
             manifest_writer.write_error_record(
@@ -208,7 +208,7 @@ def run_board_pipeline(source_type: str, list_url: str, pages: int = 2, parser_t
             )
 
 
-def run_static_pipeline(static_urls: list[dict]) -> None:
+def run_static_pipeline(static_urls: list[dict]) -> None:           # 정적 페이지 seed 처리 함수
     extractor = StaticPageExtractor(allowed_hosts=ALLOWED_HOSTS)
 
     for item in static_urls:
@@ -217,7 +217,7 @@ def run_static_pipeline(static_urls: list[dict]) -> None:
                 source_type=item["source_type"],
                 page_url=item["url"],
             )
-            save_document_bundle(raw_doc, download_attachments=False)
+            save_document_bundle(raw_doc, download_attachments=False)           # 현재 정적 페이지는 첨부파일을 다운하지 않음
             print(f"[STATIC OK] saved {raw_doc['doc_id']}")
         except Exception as e:
             message = f"[STATIC ERROR] source={item['source_type']} url={item['url']} error={e}"

@@ -11,7 +11,6 @@ pymupdf==1.24.10
 fastapi
 uvicorn[standard]
 psycopg[binary]
-python-dotenv
+
 pypdf 
 sentence-transformers torch
-python-dotenv

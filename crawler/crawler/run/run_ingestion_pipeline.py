@@ -12,7 +12,7 @@ CURATED_DIR = Path("crawler/data/curated/documents")
 CHUNK_DIR = Path("crawler/data/rag_ready/chunks")
 LOG_DIR = Path("crawler/data/logs")
 
-for d in [CHUNK_DIR, LOG_DIR]:
+for d in [CHUNK_DIR, LOG_DIR]:          # chunk 저장 폴더와 로그 폴더를 미리 만들어두는 코드
     d.mkdir(parents=True, exist_ok=True)
 
 manifest_writer = ManifestWriter()
@@ -20,44 +20,44 @@ version_manager = DocumentVersionManager(curated_base_dir=str(CURATED_DIR))
 chunker = DocumentChunker(max_chars=1200, overlap_chars=150)
 
 
-def load_json(path: Path) -> dict:
+def load_json(path: Path) -> dict:          # curated 문서 파일 하나를 dict로 읽어온다
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
-def save_json(path: Path, data: dict | list) -> None:
+def save_json(path: Path, data: dict | list) -> None:       # chunk 리스트를 JSON으로 저장
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def log_error(message: str) -> None:
+def log_error(message: str) -> None:        # 에러를 콘솔과 로그 파일에 동시에 남기는 함수
     print(message)
     with open(LOG_DIR / "ingestion_errors.log", "a", encoding="utf-8") as f:
         f.write(message + "\n")
 
 
-def collect_curated_documents() -> list[Path]:
+def collect_curated_documents() -> list[Path]:      # chunking 대상이 될 curated 문서 파일들을 전부 모으는 함수
     doc_paths = []
     if not CURATED_DIR.exists():
         return doc_paths
 
-    for source_type_dir in CURATED_DIR.iterdir():
+    for source_type_dir in CURATED_DIR.iterdir():   # curated/documents 하위 폴더 탐색
         if not source_type_dir.is_dir():
             continue
 
-        for file_path in source_type_dir.glob("*.json"):
+        for file_path in source_type_dir.glob("*.json"):        # 각 source_type 폴더 안의 JSON 문서 탐색
             doc_paths.append(file_path)
 
-    return sorted(doc_paths)
+    return sorted(doc_paths)        # 파일 경로를 정렬
 
 
-def save_chunks(source_type: str, doc_id: str, chunks: list[dict]) -> None:
+def save_chunks(source_type: str, doc_id: str, chunks: list[dict]) -> None:     # chunk 리스트를 파일로 저장하는 함수
     chunk_path = CHUNK_DIR / source_type / f"{doc_id}.json"
     save_json(chunk_path, chunks)
 
 
-def run_ingestion():
-    doc_paths = collect_curated_documents()
+def run_ingestion():                # 전체 ingestion 파이프라인 함수
+    doc_paths = collect_curated_documents()         # chunking할 curated 문서 파일들을 모으고, 몇 개인지 출력
     print(f"[INFO] curated documents found: {len(doc_paths)}")
 
     for path in doc_paths:
@@ -66,12 +66,12 @@ def run_ingestion():
             source_type = doc.get("source_type", "unknown")
             doc_id = doc["doc_id"]
 
-            version_result = version_manager.apply_version(source_type, dict(doc))
-            versioned_doc = version_result["document"]
-            decision = version_result["decision"]
+            version_result = version_manager.apply_version(source_type, dict(doc))      # 문서 복사하여 기존 문서와 비교하여 맞는 version을 판정
+            versioned_doc = version_result["document"]      # 버전 번호
+            decision = version_result["decision"]           # 판정 결과
 
-            chunks = chunker.chunk_document(versioned_doc)
-            save_chunks(source_type, doc_id, chunks)
+            chunks = chunker.chunk_document(versioned_doc)  # list로 청크 결과 받기
+            save_chunks(source_type, doc_id, chunks)        # 결과 저장
 
             manifest_writer.append_jsonl("chunking.jsonl", {
                 "doc_id": doc_id,
