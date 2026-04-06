@@ -34,6 +34,10 @@ async def kakao_webhook(request: Request):
     utterance = body.get("userRequest", {}).get("utterance", "").strip()
 
     primary_intent = primary_intent_classifier.classify(utterance)
+    if primary_intent == "PROFANITY":
+        return kakao_simple_text(
+        "부적절한 표현은 사용할 수 없어요."
+    )
 
     if primary_intent == "GENERAL":
         answer_text = general_chat_service.process_general_chat(
