@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from backend.app.api.router import api_router
 
+
 # FastAPI 애플리케이션 생성
 app = FastAPI(
     title="DEU Chatbot API",

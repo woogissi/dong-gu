@@ -74,10 +74,12 @@ CREATE TABLE IF NOT EXISTS source_sync_history (
 -- qa_logs
 CREATE TABLE IF NOT EXISTS qa_logs (
     id BIGSERIAL PRIMARY KEY,
+    user_id TEXT,
     question TEXT,
     answer TEXT,
     retrieved_chunks TEXT[],
     response_time FLOAT,
+    intent_type TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
