@@ -52,58 +52,42 @@ class PipelineState:
 
     @classmethod
     def from_query(cls, query: str) -> "PipelineState":
-        """
-        사용자 질문만으로 초기 PipelineState 생성
-        """
+        # 사용자 질문만으로 초기 PipelineState 생성
         return cls(original_query=query)
 
     def mark_fallback_used(self) -> None:
-        """
-        fallback 검색 또는 fallback 응답 사용 여부 표시
-        """
+        # fallback 검색 또는 fallback 응답 사용 여부 표시
         self.fallback_used = True
 
     def set_category(self, category: str | None) -> None:
-        """
-        추론된 카테고리 저장
-        """
+        # 추론된 카테고리 저장
         self.category = category
 
     def set_keywords(self, keywords: list[str]) -> None:
-        """
-        추출된 키워드 저장
-        """
+        # 추출된 키워드 저장
         self.keywords = keywords
 
     def set_entities(self, entities: dict[str, Any]) -> None:
-        """
-        추출된 엔티티 저장
-        예:
-        {
-            "department": "컴퓨터공학과",
-            "target": "신입생",
-            "topic": "수강신청",
-            "attribute": "기간"
-        }
-        """
+        # 추출된 엔티티 저장
+        # 예:
+        # {
+        #     "department": "컴퓨터공학과",
+        #     "target": "신입생",
+        #     "topic": "수강신청",
+        #     "attribute": "기간"
+        # } 
         self.entities = entities
 
     def set_retrieved_docs(self, docs: list[RetrievedDoc]) -> None:
-        """
-        1차 검색 결과 저장
-        """
+        # 1차 검색 결과 저장
         self.retrieved_docs = docs
 
     def set_reranked_docs(self, docs: list[RetrievedDoc]) -> None:
-        """
-        reranking 결과 저장
-        """
+        # reranking 결과 저장
         self.reranked_docs = docs
 
     def set_selected_docs(self, docs: list[RetrievedDoc]) -> None:
-        """
-        최종 선택된 문서 저장
-        """
+        # 최종 선택된 문서 저장
         self.selected_docs = docs
 
     def get_active_docs(self) -> list[RetrievedDoc]:
@@ -117,29 +101,22 @@ class PipelineState:
         return self.retrieved_docs
 
     def mark_success(self) -> None:
-        """
-        파이프라인 성공 처리
-        """
+        # 파이프라인 성공 처리
         self.success = True
         self.error = ""
 
     def mark_failure(self, error: str) -> None:
-        """
-        파이프라인 실패 처리
-        """
+        # 파이프라인 실패 처리
         self.success = False
         self.error = error
 
     def add_metadata(self, key: str, value: Any) -> None:
-        """
-        로깅/디버깅용 메타데이터 저장
-        """
+        # 로깅/디버깅용 메타데이터 저장
         self.metadata[key] = value
 
     def to_log_dict(self) -> dict[str, Any]:
-        """
-        로그 저장용 dict 반환
-        """
+        
+        # 로그 저장용 dict 반환
         return {
             "original_query": self.original_query,
             "normalized_query": self.normalized_query,
