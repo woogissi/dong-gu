@@ -2,13 +2,17 @@ from typing import Literal
 from rapidfuzz import fuzz
 
 
-# 일반 대화 의도 타입 정의 (타입 안정성 + 가독성)
+# 일반 대화 의도 타입 정의
 GeneralIntent = Literal[
-    "GREETING",        # 인사
-    "THANKS",          # 감사
-    "GOODBYE",         # 작별
-    "BOT_IDENTITY",    # 챗봇 정체 질문
-    "GENERAL_FALLBACK" # 위에 해당 안될 경우
+    "GREETING",          # 인사
+    "THANKS",            # 감사
+    "GOODBYE",           # 작별
+    "BOT_IDENTITY",      # 챗봇 정체 질문
+    "EMOTION",           # 배고파, 졸려, 힘들어 등
+    "REACTION",          # ㅋㅋㅋ, 헐, 와 등
+    "CONFIRMATION",      # 응, 네, 아니 등
+    "SMALL_TALK",        # 뭐해?, 잘 지내? 등
+    "GENERAL_FALLBACK"   # 위에 해당 안될 경우
 ]
 
 
@@ -22,7 +26,7 @@ class GeneralChatService:
         - 2차: RapidFuzz 유사도 비교
         """
 
-        # 각 의도별 대표 문장 예시 (유사도 비교용)
+        # 각 의도별 대표 문장 예시
         self.intent_examples = {
             "GREETING": [
                 "안녕", "안녕하세요", "안뇽", "하이", "ㅎㅇ",
@@ -40,48 +44,51 @@ class GeneralChatService:
                 "너 뭐야", "너 누구야", "정체가 뭐야",
                 "무슨 챗봇이야", "뭐하는 애야", "누구세요"
             ],
+            "EMOTION": [
+                "배고파", "졸려", "피곤해", "심심해",
+                "힘들어", "스트레스 받아", "우울해", "지친다"
+            ],
+            "REACTION": [
+                "ㅋㅋ", "ㅋㅋㅋ", "헐", "와", "오", "대박", "ㄷㄷ"
+            ],
+            "CONFIRMATION": [
+                "응", "네", "넵", "맞아", "아니", "아니야", "싫어", "그래"
+            ],
+            "SMALL_TALK": [
+                "뭐해", "뭐하냐", "잘 지내", "오늘 어때",
+                "심심하지", "밥 먹었어", "너 바빠"
+            ],
         }
 
-        # 빠른 분류를 위한 "핵심 키워드(뿌리 문자열)"
-        # → 완전 일치가 아니라 "포함"만 되어도 잡아냄
+        # 빠른 분류용 핵심 키워드
         self.greeting_roots = ["안녕", "하이", "반가", "ㅎㅇ", "헬로"]
         self.thanks_roots = ["감사", "고마", "고맙", "ㄳ", "땡큐"]
         self.goodbye_roots = ["잘가", "바이", "bye", "ㅂㅂ", "빠이", "수고", "종료", "끝"]
         self.identity_roots = ["너 뭐", "너 누구", "정체", "챗봇", "뭐하는 애"]
+        self.emotion_roots = [
+            "배고", "졸려", "피곤", "심심", "힘들", "우울", "스트레스", "지친",
+            "짜증", "외롭", "지루"
+        ]
+        self.reaction_roots = ["ㅋㅋ", "ㅎㅎ", "헐", "와", "오", "대박", "ㄷㄷ", "앗"]
+        self.confirmation_roots = ["응", "네", "넵", "예", "맞아", "아니", "아냐", "싫어", "그래"]
+        self.small_talk_roots = ["뭐해", "뭐하", "잘 지내", "어때", "바빠", "밥 먹었", "심심하지"]
 
     def normalize_text(self, text: str) -> str:
-        """
-        입력 텍스트 정규화
-
-        - 소문자 변환
-        - 공백 정리
-        - 문장 끝 특수문자 제거 (?, !, ~ 등)
-        """
         if not text:
             return ""
 
         text = text.strip().lower()
         text = " ".join(text.split())
 
-        # 문장 끝 불필요한 기호 제거
         while text and text[-1] in {"?", "!", ".", "~"}:
             text = text[:-1].strip()
 
         return text
 
     def contains_any_root(self, text: str, roots: list[str]) -> bool:
-        """
-        특정 키워드(뿌리 문자열)가 포함되어 있는지 확인
-        """
         return any(root in text for root in roots)
 
     def similarity_score(self, text: str, examples: list[str]) -> int:
-        """
-        RapidFuzz를 이용한 유사도 계산
-
-        - partial_ratio 사용 → 부분 일치에도 강함
-        - 여러 예시 중 가장 높은 점수 반환
-        """
         max_score = 0
 
         for example in examples:
@@ -92,23 +99,12 @@ class GeneralChatService:
         return max_score
 
     def classify_general_intent(self, utterance: str) -> GeneralIntent:
-        """
-        일반 대화 의도 분류 핵심 함수
-
-        흐름:
-        1. 텍스트 정규화
-        2. 키워드 기반 빠른 분류
-        3. 유사도 기반 보정
-        """
         text = self.normalize_text(utterance)
 
-        # 입력이 비어있으면 fallback
         if not text:
             return "GENERAL_FALLBACK"
 
-        # -----------------------------
         # 1차: 키워드 기반 빠른 분류
-        # -----------------------------
         if self.contains_any_root(text, self.greeting_roots):
             return "GREETING"
 
@@ -121,28 +117,33 @@ class GeneralChatService:
         if self.contains_any_root(text, self.identity_roots):
             return "BOT_IDENTITY"
 
-        # -----------------------------
+        if self.contains_any_root(text, self.emotion_roots):
+            return "EMOTION"
+
+        if self.contains_any_root(text, self.reaction_roots):
+            return "REACTION"
+
+        if self.contains_any_root(text, self.confirmation_roots):
+            return "CONFIRMATION"
+
+        if self.contains_any_root(text, self.small_talk_roots):
+            return "SMALL_TALK"
+
         # 2차: 유사도 기반 분류
-        # -----------------------------
         scores = {
             intent: self.similarity_score(text, examples)
             for intent, examples in self.intent_examples.items()
         }
 
-        # 가장 높은 점수의 intent 선택
         best_intent = max(scores, key=scores.get)
         best_score = scores[best_intent]
 
-        # 임계값 이하이면 fallback 처리
         if best_score < 55:
             return "GENERAL_FALLBACK"
 
         return best_intent
 
     def build_answer(self, general_intent: GeneralIntent) -> str:
-        """
-        의도에 따른 응답 생성
-        """
         if general_intent == "GREETING":
             return "안녕하세요! 동의대 신입생 정보 안내 챗봇 동구입니다."
 
@@ -155,17 +156,21 @@ class GeneralChatService:
         if general_intent == "BOT_IDENTITY":
             return "저는 동의대 신입생 정보 안내 챗봇 동구입니다."
 
-        # fallback 응답
-        return "안녕하세요. 동의대 관련 정보가 궁금하면 질문해 주세요."
+        if general_intent == "EMOTION":
+            return "아이고 그러셨군요. 필요하시면 학교 정보나 학사 관련 내용도 바로 도와드릴게요."
+
+        if general_intent == "REACTION":
+            return "ㅎㅎ 궁금한 게 있으면 편하게 말씀해주세요."
+
+        if general_intent == "CONFIRMATION":
+            return "좋아요. 이어서 궁금한 내용을 말씀해주세요."
+
+        if general_intent == "SMALL_TALK":
+            return "저는 동의대 신입생 안내를 도와드리는 중이에요. 궁금한 학교 정보가 있으면 말씀해주세요."
+
+        return "잘 이해하지 못했어요.\n간단한 단어로 질문해주시면 제가 더 잘 이해할 수 있어요!"
 
     def process_general_chat(self, utterance: str, user_id: str) -> str:
-        """
-        일반 대화 전체 처리 흐름
-
-        1. 의도 분류
-        2. 응답 생성
-        3. DB 저장
-        """
         general_intent = self.classify_general_intent(utterance)
         answer = self.build_answer(general_intent)
 
@@ -183,5 +188,4 @@ class GeneralChatService:
         return answer
 
 
-# 외부에서 바로 사용할 수 있도록 싱글톤처럼 생성
 general_chat_service = GeneralChatService()
