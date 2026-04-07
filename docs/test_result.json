@@ -1,27 +1,31 @@
 {
-  "original_query": "수강신청 기간 알려줘",
-  "normalized_query": "수강신청 기간 알려줘",
-  "rewritten_query": "수강신청 기간 알려줘 수강신청 기간 학사 수강 신청 일정 마감일 시점 접수 제출 정정 학사공지",
-  "keywords": ["수강신청", "기간", "학사", "수강", "신청"],
-  "entities": {
-    "category": ["수강", "학사"],
-    "target": [],
-    "time": ["기간"],
-    "department": [],
-    "action": ["신청"]
-  },
-  "question": "수강신청 기간 알려줘",
-  "answer": "제공된 문맥에는 수강신청 기간에 대한 구체적인 정보가 없습니다.",
-  "context": "테스트 문서 내용입니다.",
-  "sources": [
-    {
-      "doc_id": "doc-1",
-      "chunk_id": "chunk-1",
-      "title": "테스트 공지",
-      "content": "테스트 문서 내용입니다.",
-      "score": 0.9,
-      "source": "dummy"
-    }
+  "original_query": "휴학 어떻게 해?",
+  "normalized_query": "휴학 어떻게 해?",
+  "rewritten_query": "휴학 어떻게 해? 휴학 어떻게 방법 절차 안내 제출처 신청기간 복학절차 학적변동",
+  "keywords": [
+    "휴학",
+    "어떻게"
   ],
-  "success": true
+  "entities": {
+    "category": [
+      "휴학"
+    ],
+    "target": [],
+    "time": [],
+    "department": [],
+    "action": []
+  },
+  "category": "휴학",
+  "retrieval_strategy": "hybrid",
+  "retrieval_top_k": 10,
+  "fallback_used": false,
+  "retrieved_doc_count": 1,
+  "reranked_doc_count": 0,
+  "selected_doc_count": 1,
+  "context": "테스트 문서 내용입니다.",
+  "prompt": "질문:\n휴학 어떻게 해?\n\n문맥:\n테스트 문서 내용입니다.\n\n위 문맥만 바탕으로 답변하세요.\n",
+  "answer_text": "[DUMMY ANSWER]\n질문:\n휴학 어떻게 해?\n\n문맥:\n테스트 문서 내용입니다.\n\n위 문맥만 바탕으로 답변하세요.\n",
+  "success": true,
+  "error": "",
+  "metadata": {}
 }

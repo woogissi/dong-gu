@@ -2,6 +2,6 @@ from rag.pipeline.chat_pipeline import ChatPipeline
 from rag.schemas.query import Query
 
 pipeline = ChatPipeline()
-result = pipeline.run(Query(text="수강신청 기간 알려줘"))
+result = pipeline.run(Query(text="휴학 어떻게 해?"))
 
-print(result.model_dump())
+# print(result.model_dump())
