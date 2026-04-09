@@ -45,7 +45,7 @@ def log_error(message: str) -> None:
 
 
 def build_curated_document(raw_doc: dict) -> dict:      # raw 정적 문서를 curated 문서로 바꾸는 함수
-    clean_text = text_cleaner.build_clean_text(         # full_pipeline 보다 더 정제 열심히
+    normalize = text_cleaner.build_clean_text(         # full_pipeline 보다 더 정제 열심히
         raw_text=raw_doc["raw_text"],
         table_text=raw_doc["table_text"],
     )
@@ -70,7 +70,7 @@ def build_curated_document(raw_doc: dict) -> dict:      # raw 정적 문서를 c
         target_audience=raw_doc["target_audience"],
         keywords=raw_doc["keywords"],
         raw_text=raw_doc["raw_text"],
-        normalize=clean_text,
+        normalize=normalize,
         table_text=raw_doc["table_text"],
         attachment_text=raw_doc["attachment_text"],
         language=raw_doc["language"],

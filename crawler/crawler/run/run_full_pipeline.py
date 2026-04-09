@@ -167,7 +167,7 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
         manifest_writer.write_attachment_record(doc_id, att_doc)
 
 
-def run_board_pipeline(source_type: str, list_url: str, pages: int = 2, parser_type: str = "default") -> None:      # 게시판형 seed를 처리하는 실행 함수
+def run_board_pipeline(source_type: str, list_url: str, pages: int = 50, parser_type: str = "default") -> None:      # 게시판형 seed를 처리하는 실행 함수
     list_extractor = BoardListExtractor()
 
     if parser_type == "ipsi":           # 입학처면 전용 파서, 아니면 일반 파서 사용
@@ -260,7 +260,7 @@ def main():
         run_board_pipeline(
             source_type=seed["source_type"],
             list_url=seed["url"],
-            pages=2,
+            pages=50,
             parser_type=parser_type,
         )
 
