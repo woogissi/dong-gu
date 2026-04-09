@@ -14,6 +14,7 @@ _STOPWORDS = {
     "알려줘", "알려주세요", "궁금해", "궁금합니다",
     "가능", "있어", "있나요", "뭐", "무엇", "어디",
 }
+_ENTITY_GROUP_STOPWORDS = {"기간", "시점"}
 
 def _tokenize(text: str) -> list[str]:
     return re.findall(r"[가-힣A-Za-z0-9]+", text)
@@ -32,6 +33,8 @@ def extract_keywords(query: str) -> list[str]:
         ordered.setdefault(normalized, None)
 
     for entity, lexemes in ENTITY_LEXICON.items():
+        if entity in _ENTITY_GROUP_STOPWORDS:
+            continue
         if any(lexeme in query for lexeme in lexemes):
             ordered.setdefault(entity, None)
 

@@ -1,13 +1,9 @@
 ﻿"""RAG chat pipeline orchestration."""
 
 from rag.pipeline.state import PipelineState
+from rag.pipeline.preprocessor import QueryPreprocessor
 from rag.schemas.query import Query
 from rag.schemas.answer import Answer
-
-from rag.preprocess.normalizer import normalize_query
-from rag.preprocess.keyword_extractor import extract_keywords
-from rag.preprocess.entity_extractor import extract_entities, primary_category
-from rag.preprocess.query_rewriter import rewrite_query
 
 from rag.retrieval.retriever import retrieve_documents
 from rag.selection.topk_selector import select_topk
@@ -20,20 +16,26 @@ from rag.fallback.fallback.fallback_handler import handle_fallback
 
 
 class ChatPipeline:
+    def __init__(self) -> None:
+        self.preprocessor = QueryPreprocessor()
+
     def run(self, query: Query) -> Answer:
         state = PipelineState.from_query(query.text)
 
         try:
-            self._preprocess(state)
+            # self._preprocess(state)
+            self.preprocessor.run(state)
             self._retrieve(state)
             self._select_and_build_context(state)
             self._generate(state)
             self._postprocess(state)
-            state.mark_success()
+            state.success = True
+            state.error = ""
             return self._build_success_answer(state)
         except Exception as e:
-            state.mark_failure(str(e))
-            state.mark_fallback_used()
+            state.success = False
+            state.error = str(e)
+            state.fallback_used = True
             return self._build_fallback_answer(state)
         finally:
             print(state.to_log_dict())
@@ -43,21 +45,8 @@ class ChatPipeline:
     # - 키워드 추출
     # - 엔티티 추출 및 카테고리 분류
     # - 질문 재작성
-    def _preprocess(self, state: PipelineState) -> None:
-        state.normalized_query = normalize_query(state.original_query)
-        state.keywords = extract_keywords(state.normalized_query)
-
-        entities = extract_entities(
-            query=state.normalized_query,
-            keywords=state.keywords,
-        )
-        state.set_entities(entities)
-        state.set_category(primary_category(entities))
-
-        state.rewritten_query = rewrite_query(
-            query=state.normalized_query,
-            keywords=state.keywords,
-        )
+    # def _preprocess(self, state: PipelineState) -> None:
+    #     self.preprocessor.run(state)
 
     def _retrieve(self, state: PipelineState) -> None:
         state.retrieved_docs = retrieve_documents(
