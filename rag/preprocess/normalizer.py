@@ -26,7 +26,7 @@ def normalize_query(query: str) -> str:
     text = text.replace("\n", " ").replace("\t", " ")
     text = re.sub(r"\s+", " ", text).strip()
 
-    text = re.sub(r"[^0-9A-Za-z가-힣\s\-/?.:]", " ", text)
+    text = re.sub(r"[^0-9A-Za-z가-힣\s\-/?.:]", "", text)
     text = re.sub(r"\s+", " ", text).strip()
 
     for src, dst in _COLLOQUIAL_MAP.items():
