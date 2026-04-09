@@ -14,6 +14,8 @@ from rag.llm.answer_generator import generate_answer
 
 from rag.fallback.fallback.fallback_handler import handle_fallback
 
+from pprint import pprint
+
 
 class ChatPipeline:
     def __init__(self) -> None:
@@ -38,7 +40,7 @@ class ChatPipeline:
             state.fallback_used = True
             return self._build_fallback_answer(state)
         finally:
-            print(state.to_log_dict())
+            pprint(state.to_log_dict())
 
     # 전처리 단계
     # - 질문 정규화
