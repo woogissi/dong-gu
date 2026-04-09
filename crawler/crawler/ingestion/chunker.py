@@ -5,7 +5,7 @@ import hashlib
 
 
 class DocumentChunker:
-    def __init__(self, max_chars: int = 1200, overlap_chars: int = 150):        
+    def __init__(self, max_chars: int = 500, overlap_chars: int = 50):        
         self.max_chars = max_chars                                          # max_chars : chunk 최대 글자 수
         self.overlap_chars = overlap_chars                                  # overlap_chars : 강제 분할할 때 앞 chunk와 뒤 chunk가 일부 겹치게 할 글자 수
 
@@ -24,7 +24,7 @@ class DocumentChunker:
         if title:
             parts.append(f"[TITLE]\n{title}")                               # 문서 제목이 있으면 [TITLE] 태그와 함께 추가
 
-        clean_text = doc.get("clean_text")                  
+        clean_text = doc.get("normalize")                  
         if clean_text:
             parts.append(f"[BODY]\n{clean_text}")                           # 문서의 정제된 본문 텍스트가 있으면 [BODY] 태그와 함께 추가
 

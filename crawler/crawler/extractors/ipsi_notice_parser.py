@@ -42,6 +42,8 @@ class IpsiNoticeParser(BoardDetailExtractor):
             "#contents",
             ".content",
             "main",
+            "main-board-area",
+            ".fr-view",
         ]
         for sel in selectors:
             node = soup.select_one(sel)

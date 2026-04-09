@@ -9,6 +9,7 @@ from urllib.parse import urljoin, urlparse, parse_qs
 import requests
 from bs4 import BeautifulSoup                                   # html 파싱용
 
+from crawler.schemas.document_models import BoardDetailRawDocument      # JSON 구조
 
 HEADERS = {
     "User-Agent": (
@@ -123,6 +124,7 @@ class BoardDetailExtractor:
             "#content",
             ".content",
             "main",
+            ".fr-view",
         ]
         for sel in selectors:
             node = soup.select_one(sel)
@@ -212,55 +214,57 @@ class BoardDetailExtractor:
         return unique
 
     def build_raw_document(self, source_type: str, detail_url: str, html: str) -> dict:     # 최종 조립 함수
-        soup = BeautifulSoup(html, "html.parser")                           #html 파싱
-        article_no = self.extract_article_no(detail_url) or "unknown"       #article_no
-        title = self.find_title(soup)                                       #제목
-        meta = self.find_meta(html)                                         #메타
-        content_node = self.find_content_node(soup)                         #본문 노드
+        soup = BeautifulSoup(html, "html.parser")                                           # html 파싱
+        article_no = self.extract_article_no(detail_url) or "unknown"                       # article_no
+        title = self.find_title(soup)                                                       # 제목 
+        meta = self.find_meta(html)                                                         # 메타
+        content_node = self.find_content_node(soup)                                         # 본문 노드
 
         raw_text = ""
         if content_node:
-            raw_text = self.normalize_multiline_text(content_node.get_text("\n", strip=True))   #본문 텍스트
+            raw_text = self.normalize_multiline_text(content_node.get_text("\n", strip=True))   # 본문 텍스트
 
-        table_text = self.extract_table_text(content_node)                  #표텍스트
-        image_urls = self.extract_image_urls(content_node, detail_url)      #img url
-        attachments = self.extract_attachments(soup, detail_url)            #첨부파일
+        table_text = self.extract_table_text(content_node)                  # 표텍스트
+        image_urls = self.extract_image_urls(content_node, detail_url)      # 이미지 url
+        attachments = self.extract_attachments(soup, detail_url)            # 첨부파일
 
-        doc_id = self.make_doc_id(source_type, article_no)                  #id
+        doc_id = self.make_doc_id(source_type, article_no)
 
-        return {
-            "doc_id": doc_id,                                               #id
-            "parent_doc_id": None,                                          #부모 id
-            "university": "동의대학교",                                      #기본값 동의대
-            "campus": None,                                                 
-            "source_type": source_type,                                     #notice, academic_notice 등
-            "page_kind": "board_detail",
-            "category_lv1": None,
-            "category_lv2": None,
-            "department": meta["author"],                                   #작성자/부서
-            "title": title,
-            "summary": None,
-            "source_url": detail_url,                                       #상세 URL
-            "published_at": meta["published_at"],                           #작성일
-            "updated_at": meta["updated_at"],
-            "valid_from": None,
-            "valid_to": None,
-            "target_audience": [],
-            "keywords": [],
-            "raw_text": raw_text,
-            "clean_text": None,
-            "table_text": table_text,
-            "attachment_text": None,
-            "language": "ko",
-            "status": "active",
-            "version": 1,
-            "collected_at": self.now_kst_iso(),
-            "views": meta["views"],
-            "image_urls": image_urls,
-            "attachments": attachments,
-            "content_hash": self.sha1_text(raw_text or ""),                 #본문 해시
-            "html": html,
-        }
+        raw_doc = BoardDetailRawDocument(
+            doc_id=doc_id,
+            parent_doc_id=None,
+            university="동의대학교",                 # 기본값 동의대
+            campus=None,
+            source_type=source_type,                # notice, academic_notice 등
+            page_kind="board_detail",
+            category_lv1=None,
+            category_lv2=None,
+            department=meta["author"],              # 작성자/부서
+            title=title,
+            summary=None,
+            source_url=detail_url,                  # 상세 URL
+            published_at=meta["published_at"],      # 작성일
+            updated_at=meta["updated_at"],
+            valid_from=None,
+            valid_to=None,
+            target_audience=[],
+            keywords=[],
+            raw_text=raw_text,
+            normalize=None,
+            table_text=table_text,
+            attachment_text=None,
+            language="ko",
+            status="active",
+            version=1,
+            collected_at=self.now_kst_iso(),
+            views=meta["views"],
+            image_urls=image_urls,
+            attachments=attachments,
+            content_hash=self.sha1_text(raw_text or ""),        # 본문 해시
+            html=html,
+        )
+
+        return raw_doc.model_dump()
 
     def extract_detail(self, source_type: str, detail_url: str) -> dict:
         html = self.fetch(detail_url)

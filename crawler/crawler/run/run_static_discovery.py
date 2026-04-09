@@ -11,6 +11,7 @@ from crawler.discovery.frontier_manager import FrontierManager
 from crawler.extractors.static_page_extractor import StaticPageExtractor
 from crawler.storage.manifest_writer import ManifestWriter
 from crawler.normalize.text_cleaner import TextCleaner
+from crawler.schemas.document_models import CuratedDocument
 
 
 BASE_DIR = Path("crawler/data")
@@ -49,35 +50,37 @@ def build_curated_document(raw_doc: dict) -> dict:      # raw 정적 문서를 c
         table_text=raw_doc["table_text"],
     )
 
-    return {
-        "doc_id": raw_doc["doc_id"],
-        "parent_doc_id": raw_doc["parent_doc_id"],
-        "university": raw_doc["university"],
-        "campus": raw_doc["campus"],
-        "source_type": raw_doc["source_type"],
-        "page_kind": raw_doc["page_kind"],
-        "category_lv1": raw_doc["category_lv1"],
-        "category_lv2": raw_doc["category_lv2"],
-        "department": raw_doc["department"],
-        "title": raw_doc["title"],
-        "summary": raw_doc["summary"],
-        "source_url": raw_doc["source_url"],
-        "published_at": raw_doc["published_at"],
-        "updated_at": raw_doc["updated_at"],
-        "valid_from": raw_doc["valid_from"],
-        "valid_to": raw_doc["valid_to"],
-        "target_audience": raw_doc["target_audience"],
-        "keywords": raw_doc["keywords"],
-        "raw_text": raw_doc["raw_text"],
-        "clean_text": clean_text,
-        "table_text": raw_doc["table_text"],
-        "attachment_text": raw_doc["attachment_text"],
-        "language": raw_doc["language"],
-        "status": raw_doc["status"],
-        "version": raw_doc["version"],
-        "collected_at": raw_doc["collected_at"],
-        "content_hash": raw_doc["content_hash"],
-    }
+    curated_doc = CuratedDocument(
+        doc_id=raw_doc["doc_id"],
+        parent_doc_id=raw_doc["parent_doc_id"],
+        university=raw_doc["university"],
+        campus=raw_doc["campus"],
+        source_type=raw_doc["source_type"],
+        page_kind=raw_doc["page_kind"],
+        category_lv1=raw_doc["category_lv1"],
+        category_lv2=raw_doc["category_lv2"],
+        department=raw_doc["department"],
+        title=raw_doc["title"],
+        summary=raw_doc["summary"],
+        source_url=raw_doc["source_url"],
+        published_at=raw_doc["published_at"],
+        updated_at=raw_doc["updated_at"],
+        valid_from=raw_doc["valid_from"],
+        valid_to=raw_doc["valid_to"],
+        target_audience=raw_doc["target_audience"],
+        keywords=raw_doc["keywords"],
+        raw_text=raw_doc["raw_text"],
+        normalize=clean_text,
+        table_text=raw_doc["table_text"],
+        attachment_text=raw_doc["attachment_text"],
+        language=raw_doc["language"],
+        status=raw_doc["status"],
+        version=raw_doc["version"],
+        collected_at=raw_doc["collected_at"],
+        content_hash=raw_doc["content_hash"],
+    )
+
+    return curated_doc.model_dump()
 
 
 def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type과 doc_id를 이용해 저장 경로 계산 함수

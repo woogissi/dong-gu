@@ -5,6 +5,8 @@ import hashlib
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urljoin, urlparse, urldefrag
 
+from crawler.schemas.document_models import StaticPageRawDocument
+
 import requests
 from bs4 import BeautifulSoup
 
@@ -113,6 +115,7 @@ class StaticPageExtractor:
             ".content",
             ".sub-content",
             ".cont",
+            "#board_skin",
         ]
 
         for sel in selectors:
@@ -211,37 +214,38 @@ class StaticPageExtractor:
         outgoing_links = self.extract_internal_links(content_node, page_url)
         category_lv1, category_lv2 = self.infer_category(page_url, title)
 
-        return {
-            "doc_id": self.make_doc_id(page_url),       # 해시기반 id
-            "parent_doc_id": None,
-            "university": "동의대학교",
-            "campus": None,
-            "source_type": source_type,                 # homepage, library, dormitory 등
-            "page_kind": "static_page",
-            "category_lv1": category_lv1,               #infer_category()
-            "category_lv2": category_lv2,               #infer_category()
-            "department": None,
-            "title": title,
-            "summary": None,
-            "source_url": page_url,
-            "published_at": None,
-            "updated_at": None,
-            "valid_from": None,
-            "valid_to": None,
-            "target_audience": [],
-            "keywords": [],
-            "raw_text": raw_text,
-            "clean_text": None,
-            "table_text": table_text,
-            "attachment_text": None,
-            "language": "ko",
-            "status": "active",
-            "version": 1,
-            "collected_at": self.now_kst_iso(),
-            "views": None,
-            "image_urls": image_urls,
-            "attachments": [],
-            "outgoing_links": outgoing_links,
-            "content_hash": self.sha1_text(raw_text or ""),
-            "html": html,
-        }
+        raw_doc = StaticPageRawDocument(
+        doc_id=self.make_doc_id(page_url),      # 해시기반 id
+        parent_doc_id=None,
+        university="동의대학교",
+        campus=None,
+        source_type=source_type,                # homepage, library, dormitory 등
+        page_kind="static_page",
+        category_lv1=category_lv1,              #infer_category()
+        category_lv2=category_lv2,              #infer_category()
+        department=None,
+        title=title,
+        summary=None,
+        source_url=page_url,
+        published_at=None,
+        updated_at=None,
+        valid_from=None,
+        valid_to=None,
+        target_audience=[],
+        keywords=[],
+        raw_text=raw_text,
+        normalize=None,
+        table_text=table_text,
+        attachment_text=None,
+        language="ko",
+        status="active",
+        version=1,
+        collected_at=self.now_kst_iso(),
+        views=None,
+        image_urls=image_urls,
+        attachments=[],
+        outgoing_links=outgoing_links,
+        content_hash=self.sha1_text(raw_text or ""),
+        html=html,
+    )
+        return raw_doc.model_dump()

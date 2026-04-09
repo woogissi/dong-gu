@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from datetime import datetime
 
 from crawler.config.seeds import SEED_URLS
 from crawler.config.domains import ALLOWED_HOSTS
@@ -12,6 +13,7 @@ from crawler.extractors.static_page_extractor import StaticPageExtractor
 from crawler.extractors.attachment_downloader import AttachmentDownloader
 from crawler.parsers.file_text_router import FileTextRouter
 from crawler.storage.manifest_writer import ManifestWriter
+from crawler.schemas.document_models import CuratedDocument
 
 
 BASE_DIR = Path("crawler/data")
@@ -65,35 +67,37 @@ def merge_attachment_texts(downloaded_attachments: list[dict]) -> str | None:   
 def build_curated_document(raw_doc: dict) -> dict:                                  # raw 문서를 curated 문서로 바꾸는 함수
     attachment_text = merge_attachment_texts(raw_doc.get("downloaded_attachments", []))
 
-    return {
-        "doc_id": raw_doc["doc_id"],
-        "parent_doc_id": raw_doc["parent_doc_id"],
-        "university": raw_doc["university"],
-        "campus": raw_doc["campus"],
-        "source_type": raw_doc["source_type"],
-        "page_kind": raw_doc["page_kind"],
-        "category_lv1": raw_doc["category_lv1"],
-        "category_lv2": raw_doc["category_lv2"],
-        "department": raw_doc["department"],
-        "title": raw_doc["title"],
-        "summary": raw_doc["summary"],
-        "source_url": raw_doc["source_url"],
-        "published_at": raw_doc["published_at"],
-        "updated_at": raw_doc["updated_at"],
-        "valid_from": raw_doc["valid_from"],
-        "valid_to": raw_doc["valid_to"],
-        "target_audience": raw_doc["target_audience"],
-        "keywords": raw_doc["keywords"],
-        "raw_text": raw_doc["raw_text"],
-        "clean_text": simple_clean_text(raw_doc["raw_text"]),
-        "table_text": raw_doc["table_text"],
-        "attachment_text": attachment_text,
-        "language": raw_doc["language"],
-        "status": raw_doc["status"],
-        "version": raw_doc["version"],
-        "collected_at": raw_doc["collected_at"],
-        "content_hash": raw_doc["content_hash"],
-    }
+    curated_doc = CuratedDocument(
+        doc_id=raw_doc["doc_id"],
+        parent_doc_id=raw_doc["parent_doc_id"],
+        university=raw_doc["university"],
+        campus=raw_doc["campus"],
+        source_type=raw_doc["source_type"],
+        page_kind=raw_doc["page_kind"],
+        category_lv1=raw_doc["category_lv1"],
+        category_lv2=raw_doc["category_lv2"],
+        department=raw_doc["department"],
+        title=raw_doc["title"],
+        summary=raw_doc["summary"],
+        source_url=raw_doc["source_url"],
+        published_at=raw_doc["published_at"],
+        updated_at=raw_doc["updated_at"],
+        valid_from=raw_doc["valid_from"],
+        valid_to=raw_doc["valid_to"],
+        target_audience=raw_doc["target_audience"],
+        keywords=raw_doc["keywords"],
+        raw_text=raw_doc["raw_text"],
+        normalize=simple_clean_text(raw_doc["raw_text"]),
+        table_text=raw_doc["table_text"],
+        attachment_text=attachment_text,
+        language=raw_doc["language"],
+        status=raw_doc["status"],
+        version=raw_doc["version"],
+        collected_at=raw_doc["collected_at"],
+        content_hash=raw_doc["content_hash"],
+    )
+
+    return curated_doc.model_dump()
 
 
 def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> None:        # 핵심 함수
@@ -171,7 +175,12 @@ def run_board_pipeline(source_type: str, list_url: str, pages: int = 2, parser_t
     else:
         detail_extractor = BoardDetailExtractor()
 
+    current_year_start = f"{datetime.now().year}-01-01"
+    stop_crawling = False
+
     for page_no in range(1, pages + 1):     # 지정한 page만큼 탐색
+        if stop_crawling:
+            break
         try:
             list_result = list_extractor.extract_list(list_url, page_no=page_no, page_size=10)      # 목록 페이지 HTML을 읽고, 상세 URL 목록 추출
             print(f"[LIST] source={source_type} page={page_no} count={list_result['count']}")
@@ -185,6 +194,13 @@ def run_board_pipeline(source_type: str, list_url: str, pages: int = 2, parser_t
             })
 
             for item in list_result["items"]:           # 목록에서 나온 각 상세 URL을 하나씩 처리
+                published_at = item.get("published_at_hint")
+
+                # 날짜가 있고, 올해 1월 1일보다 이전이면 중단
+                if published_at and published_at < current_year_start:
+                    print(f"[STOP] {source_type} reached older post: {published_at} < {current_year_start}")
+                    stop_crawling = True
+                    break
                 try:
                     raw_doc = detail_extractor.extract_detail(source_type, item["detail_url"])
                     save_document_bundle(raw_doc, download_attachments=True)
