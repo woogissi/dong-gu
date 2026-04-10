@@ -14,3 +14,4 @@ psycopg[binary]
 
 pypdf 
 sentence-transformers torch
+pydantic>=2.0

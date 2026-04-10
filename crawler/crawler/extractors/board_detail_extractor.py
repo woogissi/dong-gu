@@ -195,6 +195,13 @@ class BoardDetailExtractor:
 
             file_name = link_text if link_text else Path(urlparse(full_url).path).name  # 링크 텍스트가 없으면 path를 이름으로
 
+             # 🔥 확장자 보정
+            url_path = urlparse(full_url).path
+            url_ext = Path(url_path).suffix
+
+            if not Path(file_name).suffix and url_ext:
+                file_name = file_name + url_ext
+
             results.append({                #첨부파일 구성
                 "attachment_index": idx,
                 "file_name": file_name,
