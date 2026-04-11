@@ -1,7 +1,7 @@
 # crawler/extractors/board_detail_extractor.py
 
 import re
-import hashlib                                                  # 해시코드 제작용
+from crawler.utils.content_hash import build_content_hash       # 해시코드 제작용
 from datetime import datetime, timezone, timedelta              # 수집시간용
 from pathlib import Path                                        # fallback시 path명을 얻기 위함
 from urllib.parse import urljoin, urlparse, parse_qs
@@ -30,8 +30,6 @@ class BoardDetailExtractor:
     def now_kst_iso(self) -> str:
         return datetime.now(KST).isoformat(timespec="seconds")  # 현재 시각을 한국 시간 기준 ISO 문자열로 반환한다.
 
-    def sha1_text(self, text: str) -> str:
-        return hashlib.sha1(text.encode("utf-8")).hexdigest()   # 문자열 텍스트를 SHA-1 해시 문자열로 바꾼다.
 
     def normalize_text(self, text: str) -> str:                 # 한 줄용 텍스트 정리 함수
         if not text:
@@ -236,6 +234,12 @@ class BoardDetailExtractor:
         attachments = self.extract_attachments(soup, detail_url)            # 첨부파일
 
         doc_id = self.make_doc_id(source_type, article_no)
+        hash = build_content_hash(
+                    raw_text=raw_text,
+                    table_text=table_text,
+                    attachment_text=None,
+                )
+
 
         raw_doc = BoardDetailRawDocument(
             doc_id=doc_id,
@@ -267,7 +271,7 @@ class BoardDetailExtractor:
             views=meta["views"],
             image_urls=image_urls,
             attachments=attachments,
-            content_hash=self.sha1_text(raw_text or ""),        # 본문 해시
+            content_hash=hash,        # 본문 해시
             html=html,
         )
 

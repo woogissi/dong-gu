@@ -10,21 +10,22 @@
   "department": null,
   "title": "동의대학교 DONG-EUI UNIVERSITY",
   "summary": null,
-  "source_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80309&article.offset=10&articleLimit=10",
+  "source_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80309&article.offset=20&articleLimit=10",
   "published_at": "2026-01-21",
   "updated_at": null,
   "valid_from": null,
   "valid_to": null,
   "target_audience": [],
   "keywords": [],
-  "raw_text": "[공지]\n학사정보 종합안내 가이드(2026)\n작성일:\n2026-01-21\n작성자:\n학사지원팀\n조회수:\n1393\n첨부파일\n0000-학사정보 종합안내 가이드(2026)－최종-260121.pdf\n학생들의 자기주도적 학사 설계와 원활한 교육과정 이수를 지원하기 위해 「학사정보 종합안내」 가이드를 배포합니다.\n학생들이 학사 제도를 충분히 숙지하고 활용할 수 있도록 해당 자료를 적극 활용하여 주시기 바랍니다.\n학사정보 종합안내 가이드 주요 내용(총 29개 항목)\n1. 수강신청, 장바구니, 재수강 등 수업 관련 사항\n2. 휴·복학, 전과, 제적 등 학적 변동 사항\n3. 다전공, 마이크로디그리, 학습경험인정제 등 이수 제도\n4. 졸업사정, 학사학위취득유예, 성적 및 증명서 발급 안내 등\n※ 상기 내용에 대학 자세한 정보는 홈페이지의 학사정보 종합안내 가이드 참조\n☞ 홈페이지 ⇒ 대학생활 ⇒ 학사정보 ⇒ 학사정보종합안내\nhttps://www.deu.ac.kr/www/academicguide.do\n목록\n이전글\n2026학년도 1학기 복학안내 (2026-01-20부터)\n다음글\n다전공 안내 가이드(2026)",
-  "clean_text": null,
+  "raw_text": "[공지]\n학사정보 종합안내 가이드(2026)\n작성일:\n2026-01-21\n작성자:\n학사지원팀\n조회수:\n1484\n첨부파일\n0000-학사정보 종합안내 가이드(2026)－최종-260121.pdf\n학생들의 자기주도적 학사 설계와 원활한 교육과정 이수를 지원하기 위해 「학사정보 종합안내」 가이드를 배포합니다.\n학생들이 학사 제도를 충분히 숙지하고 활용할 수 있도록 해당 자료를 적극 활용하여 주시기 바랍니다.\n학사정보 종합안내 가이드 주요 내용(총 29개 항목)\n1. 수강신청, 장바구니, 재수강 등 수업 관련 사항\n2. 휴·복학, 전과, 제적 등 학적 변동 사항\n3. 다전공, 마이크로디그리, 학습경험인정제 등 이수 제도\n4. 졸업사정, 학사학위취득유예, 성적 및 증명서 발급 안내 등\n※ 상기 내용에 대학 자세한 정보는 홈페이지의 학사정보 종합안내 가이드 참조\n☞ 홈페이지 ⇒ 대학생활 ⇒ 학사정보 ⇒ 학사정보종합안내\nhttps://www.deu.ac.kr/www/academicguide.do\n목록\n이전글\n이전글이 없습니다.\n다음글\n다전공 안내 가이드(2026)",
+  "normalize": null,
   "table_text": "",
   "attachment_text": null,
   "language": "ko",
   "status": "active",
   "version": 1,
-  "collected_at": "2026-03-23T23:52:15+09:00",
+  "collected_at": "2026-04-10T21:30:46+09:00",
+  "content_hash": "ca3b84adbb7859d5eeddb2105f13e7aace57d9fd",
   "views": null,
   "image_urls": [],
   "attachments": [
@@ -34,7 +35,6 @@
       "file_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=download&articleNo=80309&attachNo=123500"
     }
   ],
-  "content_hash": "27a7966084697a9b95e310a02f10e14ae873393c",
   "html_path": "crawler/data/raw/html/academic_notice/deu_academic_notice_80309.html",
   "downloaded_attachments": [
     {

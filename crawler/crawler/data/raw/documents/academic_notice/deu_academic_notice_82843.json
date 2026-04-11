@@ -17,14 +17,15 @@
   "valid_to": null,
   "target_audience": [],
   "keywords": [],
-  "raw_text": "2026학년도 1학기 개강 후 폐강 및 대체신청 안내\n작성일:\n2026-03-10\n작성자:\n학사지원팀\n조회수:\n117\n첨부파일\n1. 2026학년도 1학기 개강 후 폐강강좌 현황(전공).pdf\n2. 2026학년도 1학기 개강 후 폐강강좌 현황(교양,기타).pdf\n목록\n이전글\n2026학년도 1학기 수강신청 취소 안내\n다음글\n2026학년도 1학기 장기 결석자 관리 안내",
-  "clean_text": null,
+  "raw_text": "2026학년도 1학기 개강 후 폐강 및 대체신청 안내\n작성일:\n2026-03-10\n작성자:\n학사지원팀\n조회수:\n138\n첨부파일\n1. 2026학년도 1학기 개강 후 폐강강좌 현황(전공).pdf\n2. 2026학년도 1학기 개강 후 폐강강좌 현황(교양,기타).pdf\n목록\n이전글\n2026학년도 1학기 수강신청 취소 안내\n다음글\n2026학년도 1학기 장기 결석자 관리 안내",
+  "normalize": null,
   "table_text": "",
   "attachment_text": null,
   "language": "ko",
   "status": "active",
   "version": 1,
-  "collected_at": "2026-03-23T23:51:58+09:00",
+  "collected_at": "2026-04-10T21:29:56+09:00",
+  "content_hash": "f5a9a049aa69567d04a6e6ff34603c32decfeed5",
   "views": null,
   "image_urls": [
     "https://www.deu.ac.kr/_attach/deu/editor-image/2026/03/rMHCeybvGQLLnUMrRpTvFxYeiO.jpeg"
@@ -41,7 +42,6 @@
       "file_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=download&articleNo=82843&attachNo=128558"
     }
   ],
-  "content_hash": "f725a76ebe8e9013114fde24a81bf77b426d51d9",
   "html_path": "crawler/data/raw/html/academic_notice/deu_academic_notice_82843.html",
   "downloaded_attachments": [
     {

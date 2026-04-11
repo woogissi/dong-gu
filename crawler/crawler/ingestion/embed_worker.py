@@ -1,5 +1,7 @@
 # crawler/ingestion/embed_worker.py
 
+
+
 from typing import List                                                 # 타입 힌트용
 from sentence_transformers import SentenceTransformer                   # 임베딩 모델
 

@@ -149,6 +149,14 @@ class AttachmentDownloader:
         with open(save_path, "wb") as f:                                                            #첨부파일 바이너리로 저장
             f.write(res.content)
 
+        print(
+            f"[ATTACH DEBUG] url={file_url} "
+            f"orig_name={file_name} "
+            f"final_name={safe_name} "
+            f"content_type={content_type} "
+            f"content_disposition={content_disposition}"
+        )
+
         return {
             "attachment_index": attachment_index,
             "file_name": file_name,

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 
+from crawler.utils.content_hash import build_content_hash
 from crawler.config.seeds import SEED_URLS
 from crawler.config.domains import ALLOWED_HOSTS
 from crawler.extractors.board_list_extractor import BoardListExtractor
@@ -144,6 +145,15 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
                 )
 
     raw_to_save["downloaded_attachments"] = downloaded_attachments
+
+    attachment_text = merge_attachment_texts(downloaded_attachments)
+    raw_to_save["attachment_text"] = attachment_text
+    raw_to_save["content_hash"] = build_content_hash(
+        raw_text=raw_to_save.get("raw_text"),
+        table_text=raw_to_save.get("table_text"),
+        attachment_text=attachment_text,
+    )
+
     save_json(raw_path, raw_to_save)
 
     curated_doc = build_curated_document(raw_to_save)
@@ -178,6 +188,8 @@ def run_board_pipeline(source_type: str, list_url: str, pages: int = 50, parser_
     current_year_start = f"{datetime.now().year}-01-01"
     stop_crawling = False
 
+    seen_doc_ids = set()
+
     for page_no in range(1, pages + 1):     # 지정한 page만큼 탐색
         if stop_crawling:
             break
@@ -194,8 +206,14 @@ def run_board_pipeline(source_type: str, list_url: str, pages: int = 50, parser_
             })
 
             for item in list_result["items"]:           # 목록에서 나온 각 상세 URL을 하나씩 처리
+                raw_doc = detail_extractor.extract_detail(source_type, item["detail_url"])
+                if raw_doc["doc_id"] in seen_doc_ids:
+                    continue
+                seen_doc_ids.add(raw_doc["doc_id"])
+                save_document_bundle(raw_doc, download_attachments=True)
+                
                 published_at = item.get("published_at_hint")
-
+                
                 # 날짜가 있고, 올해 1월 1일보다 이전이면 중단
                 if published_at and published_at < current_year_start:
                     print(f"[STOP] {source_type} reached older post: {published_at} < {current_year_start}")

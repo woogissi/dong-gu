@@ -17,14 +17,15 @@
   "valid_to": null,
   "target_audience": [],
   "keywords": [],
-  "raw_text": "2026학년도 1학기 1학년 신입생 및 복학생 수강신청 안내\n작성일:\n2026-02-09\n작성자:\n학사지원팀\n조회수:\n25353\n첨부파일\n1. 학번, 비밀번호 조회·변경방법 및 학사공지 확인방법 안내.pdf\n2. 수강신청 및 시간표 확인방법 안내.pdf\n3. 학과사무실 위치, 번호 및 강의실 건물 안내.pdf\n4._2026학년도_1학기_계열교양_및_균형교양_강의시간표(20260213_1300_기준).pdf\n5._2026학년도_1학기_전공_시간표(20260213_1300_기준).pdf\n6._2026학년도_1학기_공통교양_시간표(20260213_1300_기준).pdf\n목록\n이전글\n2026학년도 1학기 비교과 마일리지 특별학점 신청 안내\n다음글\n2026학년도 1학기 수강신청 안내",
-  "clean_text": null,
+  "raw_text": "2026학년도 1학기 1학년 신입생 및 복학생 수강신청 안내\n작성일:\n2026-02-09\n작성자:\n학사지원팀\n조회수:\n25512\n첨부파일\n1. 학번, 비밀번호 조회·변경방법 및 학사공지 확인방법 안내.pdf\n2. 수강신청 및 시간표 확인방법 안내.pdf\n3. 학과사무실 위치, 번호 및 강의실 건물 안내.pdf\n4._2026학년도_1학기_계열교양_및_균형교양_강의시간표(20260213_1300_기준).pdf\n5._2026학년도_1학기_전공_시간표(20260213_1300_기준).pdf\n6._2026학년도_1학기_공통교양_시간표(20260213_1300_기준).pdf\n목록\n이전글\n2026학년도 1학기 비교과 마일리지 특별학점 신청 안내\n다음글\n2026학년도 1학기 수강신청 안내",
+  "normalize": null,
   "table_text": "",
   "attachment_text": null,
   "language": "ko",
   "status": "active",
   "version": 1,
-  "collected_at": "2026-03-23T23:52:24+09:00",
+  "collected_at": "2026-04-10T21:30:23+09:00",
+  "content_hash": "c93978a6511753d0e64373533a311b2cc034d311",
   "views": null,
   "image_urls": [
     "https://www.deu.ac.kr/_attach/deu/editor-image/2026/02/CIxMyORIJHQEpPPdsdaiBsQVlB.jpeg"
@@ -61,7 +62,6 @@
       "file_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=download&articleNo=80856&attachNo=124725"
     }
   ],
-  "content_hash": "2d87bf8d6ff92160f3c5413aab1bc2da8fe26958",
   "html_path": "crawler/data/raw/html/academic_notice/deu_academic_notice_80856.html",
   "downloaded_attachments": [
     {

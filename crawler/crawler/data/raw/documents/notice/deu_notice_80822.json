@@ -10,21 +10,22 @@
   "department": null,
   "title": "동의대학교 DONG-EUI UNIVERSITY",
   "summary": null,
-  "source_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=80822&article.offset=10&articleLimit=10",
+  "source_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=80822&article.offset=20&articleLimit=10",
   "published_at": "2026-02-09",
   "updated_at": null,
   "valid_from": null,
   "valid_to": null,
   "target_audience": [],
   "keywords": [],
-  "raw_text": "[필독] 교내 소방차전용구역 안내\n작성일:\n2026-02-09\n작성자:\n안전관리팀\n조회수:\n398\n첨부파일\n교내 소방차전용구역 안내도.pdf\n소방기본법 시행령.pdf\n소방차 진입\n·활동 전용구역 준수 안내\n우리대학교는 화재 등 긴급 상황 발생 시 신속한 소방 활동이 이루어질 수 있도록\n교내에 소방차 진입·활동 전용구역을 지정\n하여 운영하고 있습니다.\n해당구역은 소방차의 신속한 진입과 장비 전개를 위한 공간으로,\n차량 주차 또는 진입로를 막는 행위는 긴급 상황 시 인명 및 재산 피해를 확대\n시킬 수 있습니다.\n이에 따라 교내 구성원은 소방차 전용구역 및 진입로에 차량을 주차하거나 통행을 방해하는 일이 없도록 협조하여 주시기 바랍니다.\n해당 구역을 침범하거나 통행을 방해하는 경우, 교내 주차관리 규정에 따른 조치 및 관계 법령에 따른 제재가 이루어질 수 있으니 안전한 캠퍼스 조성을 위해 적극적인 협조를 부탁드립니다.\n목록\n이전글\n2026학년도 1학기 차량등록신청 안내\n다음글\n동의대학교 주차장 이용 안내",
-  "clean_text": null,
+  "raw_text": "[필독] 교내 소방차전용구역 안내\n작성일:\n2026-02-09\n작성자:\n안전관리팀\n조회수:\n617\n첨부파일\n교내 소방차전용구역 안내도.pdf\n소방기본법 시행령.pdf\n소방차 진입\n·활동 전용구역 준수 안내\n우리대학교는 화재 등 긴급 상황 발생 시 신속한 소방 활동이 이루어질 수 있도록\n교내에 소방차 진입·활동 전용구역을 지정\n하여 운영하고 있습니다.\n해당구역은 소방차의 신속한 진입과 장비 전개를 위한 공간으로,\n차량 주차 또는 진입로를 막는 행위는 긴급 상황 시 인명 및 재산 피해를 확대\n시킬 수 있습니다.\n이에 따라 교내 구성원은 소방차 전용구역 및 진입로에 차량을 주차하거나 통행을 방해하는 일이 없도록 협조하여 주시기 바랍니다.\n해당 구역을 침범하거나 통행을 방해하는 경우, 교내 주차관리 규정에 따른 조치 및 관계 법령에 따른 제재가 이루어질 수 있으니 안전한 캠퍼스 조성을 위해 적극적인 협조를 부탁드립니다.\n목록\n이전글\n2026학년도 1학기 차량등록신청 안내\n다음글\n동의대학교 주차장 이용 안내",
+  "normalize": null,
   "table_text": "",
   "attachment_text": null,
   "language": "ko",
   "status": "active",
   "version": 1,
-  "collected_at": "2026-03-23T23:51:48+09:00",
+  "collected_at": "2026-04-10T21:29:36+09:00",
+  "content_hash": "f3bc0375117eee5962730de427f5f10321b2aa51",
   "views": null,
   "image_urls": [
     "https://www.deu.ac.kr/_attach/deu/editor-image/2026/02/LoDkTmSpokqmWggBQwLqpIVDTo.jpg"
@@ -41,7 +42,6 @@
       "file_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=download&articleNo=80822&attachNo=124112"
     }
   ],
-  "content_hash": "886516ccf7b701898d9492418e3e9682b6551c4c",
   "html_path": "crawler/data/raw/html/notice/deu_notice_80822.html",
   "downloaded_attachments": [
     {

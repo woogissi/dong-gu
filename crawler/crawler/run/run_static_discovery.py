@@ -4,6 +4,7 @@ import json
 import time
 from pathlib import Path
 
+from crawler.utils.content_hash import build_content_hash
 from crawler.config.seeds import SEED_URLS
 from crawler.config.domains import ALLOWED_HOSTS
 from crawler.discovery.url_classifier import URLClassifier
@@ -96,6 +97,12 @@ def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type�
     raw_to_save = dict(raw_doc)
     raw_to_save["html_path"] = str(html_path.as_posix())
     raw_to_save.pop("html", None)
+
+    raw_to_save["content_hash"] = build_content_hash(
+        raw_text=raw_to_save.get("raw_text"),
+        table_text=raw_to_save.get("table_text"),
+        attachment_text=raw_to_save.get("attachment_text"),
+    )
 
     save_json(raw_path, raw_to_save)            # raw 저장
     save_json(curated_path, build_curated_document(raw_to_save))        # curated 저장

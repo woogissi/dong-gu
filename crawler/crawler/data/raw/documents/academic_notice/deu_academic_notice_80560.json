@@ -10,21 +10,22 @@
   "department": null,
   "title": "동의대학교 DONG-EUI UNIVERSITY",
   "summary": null,
-  "source_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80560&article.offset=10&articleLimit=10",
+  "source_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80560&article.offset=20&articleLimit=10",
   "published_at": "2026-01-30",
   "updated_at": null,
   "valid_from": null,
   "valid_to": null,
   "target_audience": [],
   "keywords": [],
-  "raw_text": "2026-1학기 서울디지털대학교(SDU) 학점교류 교과목 수강 안내\n작성일:\n2026-01-30\n작성자:\n학사지원팀\n조회수:\n178\n첨부파일\n[붙임] 2026-1학기 SDU연합 수강안내(학생안내용).pdf\n목록\n이전글\n학사학위취득유예(졸업유예) 신청자 및 미졸업자의 2026-1학기 수강 신청 및 현금 등록 방법 안내(미졸업자 국가장학금 및 학자금 대출 안내 포함)\n다음글\n2026-1학기 취업과창업 교과목 수강 안내(로그인, 비누 사이트 이용법 포함)",
-  "clean_text": null,
+  "raw_text": "2026-1학기 서울디지털대학교(SDU) 학점교류 교과목 수강 안내\n작성일:\n2026-01-30\n작성자:\n학사지원팀\n조회수:\n197\n첨부파일\n[붙임] 2026-1학기 SDU연합 수강안내(학생안내용).pdf\n목록\n이전글\n학사학위취득유예(졸업유예) 신청자 및 미졸업자의 2026-1학기 수강 신청 및 현금 등록 방법 안내(미졸업자 국가장학금 및 학자금 대출 안내 포함)\n다음글\n2026-1학기 취업과창업 교과목 수강 안내(로그인, 비누 사이트 이용법 포함)",
+  "normalize": null,
   "table_text": "",
   "attachment_text": null,
   "language": "ko",
   "status": "active",
   "version": 1,
-  "collected_at": "2026-03-23T23:52:43+09:00",
+  "collected_at": "2026-04-10T21:30:49+09:00",
+  "content_hash": "b525f44ebbbb4b3270d2d702d5a0f54b9f0d9a9f",
   "views": null,
   "image_urls": [
     "https://www.deu.ac.kr/_attach/deu/editor-image/2026/01/lltBbFqxltUXFlCyaYaygPxwlq.jpeg"
@@ -36,7 +37,6 @@
       "file_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=download&articleNo=80560&attachNo=123813"
     }
   ],
-  "content_hash": "fda30cf2eedbb8540a69cc14602af3dd26b4ca00",
   "html_path": "crawler/data/raw/html/academic_notice/deu_academic_notice_80560.html",
   "downloaded_attachments": [
     {

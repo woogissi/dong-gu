@@ -18,13 +18,14 @@
   "target_audience": [],
   "keywords": [],
   "raw_text": "KOREA\nENGLISH\n학장님 인사말\n추승우 학장\n051-890-3630\n송수진 부학장\n051-890-2061\n교육목표\n동의대학교 동의글로벌대학은 올바른 인성과 글로벌 소통 능력을 겸비한 창의적 실무 인재 육성을 교육목표로 합니\n 다. 동의글로벌대학은 학생들의 다국어 구사 능력과 문화적 포용력을 바탕으로 초연결 시대에 필요한 적응력과 현\n 장 중심의 융복합 커리큘럼을 통해 글로벌 비즈니스 전문성을 확보합니다. 이를 통해 미래를 선도하는 글로벌 리더\n 로 성장해 나아가는것을 최종 목표로 합니다.\n학과소개\n글로벌경영학과\n051-890-3634\n글로벌호스피탈리티경영학과\n051-890-3637\n...\n지능형컴퓨팅학과\n051-890-3635\n...\n자동차공학과\n051-890-3638\n...\n최종수정일\n2026.03.04",
-  "clean_text": null,
+  "normalize": null,
   "table_text": "",
   "attachment_text": null,
   "language": "ko",
   "status": "active",
   "version": 1,
-  "collected_at": "2026-03-24T00:01:17+09:00",
+  "collected_at": "2026-04-10T21:32:14+09:00",
+  "content_hash": "ac8b345480dc355c28ef428ec27e97a24efef386",
   "views": null,
   "image_urls": [
     "https://www.deu.ac.kr/_res/deu/www/img/sub/ico-sample.png",
@@ -32,6 +33,5 @@
   ],
   "attachments": [],
   "outgoing_links": [],
-  "content_hash": "ac8b345480dc355c28ef428ec27e97a24efef386",
   "html_path": "crawler/data/raw/html/webpage/static_7357ae589ad62901.html"
 }

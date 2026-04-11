@@ -17,14 +17,15 @@
   "valid_to": null,
   "target_audience": [],
   "keywords": [],
-  "raw_text": "2026학년도 1학기 1차 폐강 및 수강정정 안내\n작성일:\n2026-02-27\n작성자:\n학사지원팀\n조회수:\n405\n첨부파일\n2. 2026학년도 1학기 1차 폐강강좌현황(교양).xlsx\n1. 2026학년도 1학기 1차 폐강강좌현황(전공).xlsx\n목록\n이전글\n2026학년도 1학기 학습경험인정제 관련내용 및 신청, 관련서류 제출방법 안내\n다음글\n2026학년도 1학기 다전공 활성화 장학금 신청 안내",
-  "clean_text": null,
+  "raw_text": "2026학년도 1학기 1차 폐강 및 수강정정 안내\n작성일:\n2026-02-27\n작성자:\n학사지원팀\n조회수:\n433\n첨부파일\n2. 2026학년도 1학기 1차 폐강강좌현황(교양).xlsx\n1. 2026학년도 1학기 1차 폐강강좌현황(전공).xlsx\n목록\n이전글\n2026학년도 1학기 학습경험인정제 관련내용 및 신청, 관련서류 제출방법 안내\n다음글\n2026학년도 1학기 조기취업 출석인정(1차) 서류 접수 안내",
+  "normalize": null,
   "table_text": "",
   "attachment_text": null,
   "language": "ko",
   "status": "active",
   "version": 1,
-  "collected_at": "2026-03-23T23:52:00+09:00",
+  "collected_at": "2026-04-10T21:29:59+09:00",
+  "content_hash": "5ddf123ad1454d4ec4095cc3e7c08c148f332d15",
   "views": null,
   "image_urls": [
     "https://www.deu.ac.kr/_attach/deu/editor-image/2026/02/zeEsNibWuCyQdtFxymunYJvPNP.jpeg"
@@ -41,7 +42,6 @@
       "file_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=download&articleNo=81984&attachNo=126536"
     }
   ],
-  "content_hash": "7c73aa6f4e655ee65c7b549ae320955fd2870c03",
   "html_path": "crawler/data/raw/html/academic_notice/deu_academic_notice_81984.html",
   "downloaded_attachments": [
     {

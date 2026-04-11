@@ -2,6 +2,7 @@
 
 import re
 import hashlib
+from crawler.utils.content_hash import build_content_hash
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urljoin, urlparse, urldefrag
 
@@ -55,9 +56,15 @@ class StaticPageExtractor:
         return url
 
     def fetch(self, url: str) -> str:                       #정적 페이지 HTML을 실제로 가져오는 함수
-        res = self.session.get(url, timeout=20)
-        res.raise_for_status()
-        return res.text
+        try:
+            res = self.session.get(url, timeout=20)
+            res.raise_for_status()
+        except requests.exceptions.SSLError:
+            if "lib.deu.ac.kr" in url:
+                res = self.session.get(url, timeout=20, verify=False)       # 도서관 사이트 SSLhandshake failure 해결
+                res.raise_for_status()
+            else:
+                raise
 
     def make_doc_id(self, url: str) -> str:
         return f"static_{self.sha1_text(url)[:16]}"         #정적페이지는 articleNo가 없기 때문에 해시로 id생성
@@ -213,6 +220,11 @@ class StaticPageExtractor:
         image_urls = self.extract_image_urls(content_node, page_url)
         outgoing_links = self.extract_internal_links(content_node, page_url)
         category_lv1, category_lv2 = self.infer_category(page_url, title)
+        hash = build_content_hash(
+                    raw_text=raw_text,
+                    table_text=table_text,
+                    attachment_text=None,
+                )
 
         raw_doc = StaticPageRawDocument(
         doc_id=self.make_doc_id(page_url),      # 해시기반 id
@@ -245,7 +257,7 @@ class StaticPageExtractor:
         image_urls=image_urls,
         attachments=[],
         outgoing_links=outgoing_links,
-        content_hash=self.sha1_text(raw_text or ""),
+        content_hash=hash,
         html=html,
     )
         return raw_doc.model_dump()

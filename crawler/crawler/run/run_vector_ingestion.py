@@ -1,5 +1,10 @@
 # crawler/run/run_vector_ingestion.py
 
+import os
+
+os.environ.setdefault("HF_HOME", str(Path("crawler/.hf_cache").resolve()))
+os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(Path("crawler/.hf_cache/hub").resolve()))
+
 import json
 from pathlib import Path
 
