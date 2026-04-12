@@ -3,7 +3,6 @@
 import json
 from pathlib import Path
 
-from crawler.ingestion.document_version_manager import DocumentVersionManager
 from crawler.ingestion.chunker import DocumentChunker
 from crawler.storage.manifest_writer import ManifestWriter
 
@@ -16,7 +15,6 @@ for d in [CHUNK_DIR, LOG_DIR]:          # chunk 저장 폴더와 로그 폴더�
     d.mkdir(parents=True, exist_ok=True)
 
 manifest_writer = ManifestWriter()
-version_manager = DocumentVersionManager(curated_base_dir=str(CURATED_DIR))
 chunker = DocumentChunker(max_chars=500, overlap_chars=50)
 
 
@@ -66,23 +64,18 @@ def run_ingestion():                # 전체 ingestion 파이프라인 함수
             source_type = doc.get("source_type", "unknown")
             doc_id = doc["doc_id"]
 
-            version_result = version_manager.apply_version(source_type, dict(doc))      # 문서 복사하여 기존 문서와 비교하여 맞는 version을 판정
-            versioned_doc = version_result["document"]      # 버전 번호
-            decision = version_result["decision"]           # 판정 결과
-
-            chunks = chunker.chunk_document(versioned_doc)  # list로 청크 결과 받기
+            chunks = chunker.chunk_document(doc)  # list로 청크 결과 받기
             save_chunks(source_type, doc_id, chunks)        # 결과 저장
 
             manifest_writer.append_jsonl("chunking.jsonl", {
                 "doc_id": doc_id,
                 "source_type": source_type,
-                "decision": decision,
-                "version": versioned_doc["version"],
+                "version": doc["version"],
                 "chunk_count": len(chunks),
-                "source_url": versioned_doc.get("source_url"),
+                "source_url": doc.get("source_url"),
             })
 
-            print(f"[INGEST OK] {doc_id} decision={decision} chunks={len(chunks)}")
+            print(f"[INGEST OK] {doc_id} version={doc['version']} chunks={len(chunks)}")
 
         except Exception as e:
             message = f"[INGEST ERROR] file={path.as_posix()} error={e}"

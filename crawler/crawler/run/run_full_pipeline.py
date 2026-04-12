@@ -15,7 +15,7 @@ from crawler.extractors.attachment_downloader import AttachmentDownloader
 from crawler.parsers.file_text_router import FileTextRouter
 from crawler.storage.manifest_writer import ManifestWriter
 from crawler.schemas.document_models import CuratedDocument
-
+from crawler.ingestion.document_version_manager import DocumentVersionManager
 
 BASE_DIR = Path("crawler/data")
 RAW_HTML_DIR = BASE_DIR / "raw" / "html"
@@ -28,6 +28,7 @@ for d in [RAW_HTML_DIR, RAW_DOC_DIR, RAW_ATTACH_DIR, CURATED_DOC_DIR, LOG_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
 manifest_writer = ManifestWriter()
+version_manager = DocumentVersionManager(curated_base_dir=str(CURATED_DOC_DIR))
 
 
 def save_json(path: Path, data: dict | list) -> None:               # JSON 저장용 유틸 함수
@@ -65,7 +66,7 @@ def merge_attachment_texts(downloaded_attachments: list[dict]) -> str | None:   
     return merged if merged else None
 
 
-def build_curated_document(raw_doc: dict) -> dict:                                  # raw 문서를 curated 문서로 바꾸는 함수
+def build_curated_document(raw_doc: dict, version: int) -> dict:                                  # raw 문서를 curated 문서로 바꾸는 함수
     attachment_text = merge_attachment_texts(raw_doc.get("downloaded_attachments", []))
 
     curated_doc = CuratedDocument(
@@ -88,12 +89,12 @@ def build_curated_document(raw_doc: dict) -> dict:                              
         target_audience=raw_doc["target_audience"],
         keywords=raw_doc["keywords"],
         raw_text=raw_doc["raw_text"],
-        normalize=simple_clean_text(raw_doc["raw_text"]),
+        clean_text=simple_clean_text(raw_doc["raw_text"]),
         table_text=raw_doc["table_text"],
         attachment_text=attachment_text,
         language=raw_doc["language"],
         status=raw_doc["status"],
-        version=raw_doc["version"],
+        version=version,
         collected_at=raw_doc["collected_at"],
         content_hash=raw_doc["content_hash"],
     )
@@ -154,12 +155,30 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
         attachment_text=attachment_text,
     )
 
-    save_json(raw_path, raw_to_save)
+    # 먼저 "새 curated 후보"를 메모리에서 만든다
+    candidate_curated = build_curated_document(raw_to_save, version=1)
 
-    curated_doc = build_curated_document(raw_to_save)
-    save_json(curated_path, curated_doc)
+    # 저장 전에 기존 curated와 비교
+    version_result = version_manager.apply_version(source_type, dict(candidate_curated))
+    final_curated = version_result["document"]
+    decision = version_result["decision"]
+
+    # 비교 결과 version을 raw에도 맞춰줌
+    raw_to_save["version"] = final_curated["version"]
+
+    save_json(raw_path, raw_to_save)
+    save_json(curated_path, final_curated)
 
     manifest_writer.write_document_record(raw_to_save)
+    manifest_writer.append_jsonl("document_versioning.jsonl", {
+        "doc_id": doc_id,
+        "source_type": source_type,
+        "decision": decision,
+        "version": final_curated["version"],
+        "source_url": final_curated.get("source_url"),
+    })
+
+    print(f"[SAVE OK] doc_id={doc_id} decision={decision} version={final_curated['version']}")
 
     for att in raw_to_save["attachments"]:              # 첨부 메타를 별도 attachment 문서로도 저장
         att_doc = {

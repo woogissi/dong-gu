@@ -13,13 +13,15 @@ from crawler.extractors.static_page_extractor import StaticPageExtractor
 from crawler.storage.manifest_writer import ManifestWriter
 from crawler.normalize.text_cleaner import TextCleaner
 from crawler.schemas.document_models import CuratedDocument
-
+from crawler.ingestion.document_version_manager import DocumentVersionManager
 
 BASE_DIR = Path("crawler/data")
 RAW_HTML_DIR = BASE_DIR / "raw" / "html"
 RAW_DOC_DIR = BASE_DIR / "raw" / "documents"
 CURATED_DOC_DIR = BASE_DIR / "curated" / "documents"
 LOG_DIR = BASE_DIR / "logs"
+
+version_manager = DocumentVersionManager(curated_base_dir=str(CURATED_DOC_DIR))
 
 for d in [RAW_HTML_DIR, RAW_DOC_DIR, CURATED_DOC_DIR, LOG_DIR]:     # 필요한 폴더들을 미리 생성
     d.mkdir(parents=True, exist_ok=True)
@@ -45,7 +47,7 @@ def log_error(message: str) -> None:
         f.write(message + "\n")
 
 
-def build_curated_document(raw_doc: dict) -> dict:      # raw 정적 문서를 curated 문서로 바꾸는 함수
+def build_curated_document(raw_doc: dict, version: int) -> dict:      # raw 정적 문서를 curated 문서로 바꾸는 함수
     normalize = text_cleaner.build_clean_text(         # full_pipeline 보다 더 정제 열심히
         raw_text=raw_doc["raw_text"],
         table_text=raw_doc["table_text"],
@@ -76,7 +78,7 @@ def build_curated_document(raw_doc: dict) -> dict:      # raw 정적 문서를 c
         attachment_text=raw_doc["attachment_text"],
         language=raw_doc["language"],
         status=raw_doc["status"],
-        version=raw_doc["version"],
+        version=version,
         collected_at=raw_doc["collected_at"],
         content_hash=raw_doc["content_hash"],
     )
@@ -104,10 +106,28 @@ def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type�
         attachment_text=raw_to_save.get("attachment_text"),
     )
 
-    save_json(raw_path, raw_to_save)            # raw 저장
-    save_json(curated_path, build_curated_document(raw_to_save))        # curated 저장
-    manifest_writer.write_document_record(raw_to_save)      # manifest 기록
+    # 새 curated 후보 생성
+    candidate_curated = build_curated_document(raw_to_save, version=1)
 
+    # 저장 전에 기존 curated와 비교
+    version_result = version_manager.apply_version(source_type, dict(candidate_curated))
+    final_curated = version_result["document"]
+    decision = version_result["decision"]
+
+    raw_to_save["version"] = final_curated["version"]
+
+    save_json(raw_path, raw_to_save)            # raw 저장
+    save_json(curated_path, final_curated)        # curated 저장
+    manifest_writer.write_document_record(raw_to_save)      # manifest 기록
+    manifest_writer.append_jsonl("document_versioning.jsonl", {
+        "doc_id": doc_id,
+        "source_type": source_type,
+        "decision": decision,
+        "version": final_curated["version"],
+        "source_url": final_curated.get("source_url"),
+    })
+
+    print(f"[STATIC SAVE OK] doc_id={doc_id} decision={decision} version={final_curated['version']}")
 
 def main(max_pages: int = 50, max_depth: int = 2):
     frontier = FrontierManager(ALLOWED_HOSTS, max_depth=max_depth)
