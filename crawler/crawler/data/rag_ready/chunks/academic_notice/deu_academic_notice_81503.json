@@ -1,0 +1,18 @@
+[
+  {
+    "chunk_id": "deu_academic_notice_81503_chunk_001",
+    "doc_id": "deu_academic_notice_81503",
+    "chunk_index": 1,
+    "source_type": "academic_notice",
+    "title": "동의대학교 DONG-EUI UNIVERSITY",
+    "source_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=81503&article.offset=0&articleLimit=10",
+    "published_at": "2026-02-24",
+    "department": null,
+    "category_lv1": null,
+    "category_lv2": null,
+    "content": "[TITLE]\n동의대학교 DONG-EUI UNIVERSITY\n\n[BODY]\nAX마이크로디그리 K-MOOC강좌 수강 및 학점인정 관련 사항 안내\n작성일:\n2026-02-24\n작성자:\n학사지원팀\n조회수:\n116\n첨부파일\n1. 2026학년도 AX마이크로디그리 현황.xlsx\n목록\n이전글\n2026학년도 교육과정 경과조치 안내문(학점적용 관련 사항)_전학년 필독\n다음글\n2026학년도 1학기 학습경험인정제 관련내용 및 신청, 관련서류 제출방법 안내",
+    "content_length": 245,
+    "content_hash": "5c4c6c93e521928adf78763283c31b381d7144de",
+    "version": 1
+  }
+]

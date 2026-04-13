@@ -1,0 +1,18 @@
+[
+  {
+    "chunk_id": "deu_academic_notice_79040_chunk_001",
+    "doc_id": "deu_academic_notice_79040",
+    "chunk_index": 1,
+    "source_type": "academic_notice",
+    "title": "동의대학교 DONG-EUI UNIVERSITY",
+    "source_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=79040&article.offset=10&articleLimit=10",
+    "published_at": "2026-01-20",
+    "department": null,
+    "category_lv1": null,
+    "category_lv2": null,
+    "content": "[TITLE]\n동의대학교 DONG-EUI UNIVERSITY",
+    "content_length": 33,
+    "content_hash": "ad4f57f7bc4982be088b551f4a5b979c603d674c",
+    "version": 1
+  }
+]
