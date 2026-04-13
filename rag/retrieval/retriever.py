@@ -1,14 +1,31 @@
-"""
-검색 단일 진입점
-재작성된 쿼리, 키워드를 기준으로 검색 전략 적용
-검색 방식, 범위, tok-k 개수, fallback 여부 등
-검색 결과 RetrievedDoc 형식으로 반환
+"""Retrieval entrypoint.
+
+Week 3 defines the keyword retrieval contract. The actual PostgreSQL FTS
+implementation is planned for Week 4, so this function still returns a
+deterministic placeholder document for pipeline wiring.
 """
 
 from typing import List
+
+from rag.schemas.retrieval import RetrievalRequest
 from rag.schemas.retrieved_doc import RetrievedDoc
 
-def retrieve_documents(query: str, keywords: list[str]) -> List[RetrievedDoc]:
+
+def retrieve_documents(
+    query: str | None = None,
+    keywords: list[str] | None = None,
+    request: RetrievalRequest | None = None,
+) -> List[RetrievedDoc]:
+    if request is None:
+        request = RetrievalRequest(
+            query=query or "",
+            query_variants=[query] if query else [],
+            keywords=keywords or [],
+        )
+
+    if "empty_query" in request.fallback_triggers:
+        return []
+
     return [
         RetrievedDoc(
             doc_id="doc-1",
@@ -17,5 +34,12 @@ def retrieve_documents(query: str, keywords: list[str]) -> List[RetrievedDoc]:
             score=0.9,
             source="dummy",
             title="테스트 공지",
+            category=request.category,
+            metadata={
+                "strategy": request.strategy,
+                "query": request.query,
+                "keywords": request.keywords,
+                "filters": request.filters,
+            },
         )
-    ]
+    ][: request.top_k]

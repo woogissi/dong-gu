@@ -6,6 +6,7 @@ from rag.schemas.query import Query
 from rag.schemas.answer import Answer
 
 from rag.retrieval.retriever import retrieve_documents
+from rag.retrieval.search_strategy import build_retrieval_request
 from rag.selection.topk_selector import select_topk
 from rag.selection.context_builder import build_context
 
@@ -51,9 +52,13 @@ class ChatPipeline:
     #     self.preprocessor.run(state)
 
     def _retrieve(self, state: PipelineState) -> None:
+        request = build_retrieval_request(state)
+        state.retrieval_strategy = request.strategy
+        state.retrieval_top_k = request.top_k
+        state.metadata["retrieval_request"] = request.model_dump()
+        state.metadata["retrieval_strategy_log"] = request.log_fields
         state.retrieved_docs = retrieve_documents(
-            query=state.rewritten_query,
-            keywords=state.keywords,
+            request=request,
         )
 
     def _select_and_build_context(self, state: PipelineState) -> None:
