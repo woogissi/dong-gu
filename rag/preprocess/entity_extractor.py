@@ -83,7 +83,6 @@ def build_filters(entities: dict[str, list[str]]) -> dict[str, list[str]]:
         if values:
             filters[field] = values
 
-    # 수정됨: "time" 리스트 전체를 복사하지 않고, _TIME_SCOPE_VALUES에 해당하는 값만 교집합으로 추출
     time_values = filters.get("time", [])
     scope_matches = [val for val in time_values if val in _TIME_SCOPE_VALUES]
     
@@ -95,5 +94,4 @@ def build_filters(entities: dict[str, list[str]]) -> dict[str, list[str]]:
 
 def primary_category(entities: dict[str, list[str]]) -> str | None:
     categories = entities.get("category", [])
-    # 순서가 보장되므로 [0]은 사용자의 첫 번째 의도이거나 룰에 먼저 정의된 핵심 카테고리가 됨
     return categories[0] if categories else None

@@ -3,7 +3,6 @@
 - 특수문자 제거
 - 자주 쓰이는 구어체 표현 교정"""
 
-# Aho-Corasick 알고리즘, Synonym 필터 적용 고려
 
 from __future__ import annotations
 

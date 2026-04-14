@@ -5,7 +5,6 @@
 - 최대 12개 키워드 반환
 """
 
-# Kiwi, Mecab 한국어 형태소 분석기 적용 예정
 
 from __future__ import annotations
 
