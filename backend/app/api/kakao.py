@@ -61,7 +61,7 @@ async def kakao_webhook(request: Request):
             return kakao_simple_text(answer_text)
 
         import asyncio
-        await asyncio.sleep(3)
+        await asyncio.sleep(5)
 
         result = chat_pipeline.run(Query(text=utterance))
         return kakao_simple_text(result.answer)
