@@ -31,13 +31,14 @@ _CATEGORY_DOCUMENT_HINTS: dict[str, list[str]] = {
 
 def build_retrieval_request(state: PipelineState) -> RetrievalRequest:
     query_variants = _dedupe(
-        [
-            *state.rewritten_queries,
+        [ 
+            *(state.rewritten_queries or []),
             state.rewritten_query,
             state.normalized_query,
             state.original_query,
         ]
     )
+
     query = query_variants[0] if query_variants else state.original_query
     filters = _normalize_filters(state.filters)
     category = state.category or _first_value(filters.get("category", []))
@@ -133,8 +134,7 @@ def _filter_rules_applied(filters: dict[str, list[str]]) -> list[str]:
         rules.append("category_to_document_category_hint")
     return rules
 
-
-def _dedupe(values: list[str]) -> list[str]:
+def _dedupe(values: list[str | None]) -> list[str]:
     return list(dict.fromkeys(value for value in values if value))
 
 

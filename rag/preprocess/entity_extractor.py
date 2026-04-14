@@ -1,4 +1,9 @@
-﻿"""Rule-based entity extraction for university FAQ queries."""
+﻿"""엔티티 추출 모듈
+- 사용자 질문에서 핵심 엔티티 추출
+- 엔티티 그룹별 대표 키워드 선정
+- 시간 관련 표현 패턴 인식
+- 필터링 가능한 엔티티 구성
+"""
 
 from __future__ import annotations
 

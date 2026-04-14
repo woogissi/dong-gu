@@ -1,4 +1,4 @@
-"""Query preprocessing stage for the main RAG pipeline."""
+"""질문 전처리 모듈"""
 
 from __future__ import annotations
 

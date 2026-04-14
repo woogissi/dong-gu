@@ -19,6 +19,9 @@ filter_fields:
   time_scope:
     source: filters.time_scope
     behavior: date/time scope hint copied from exact time entities
+  document_category:
+    source: category_document_hints
+    behavior: derived retrieval filter mapped from category after supported input filter normalization
 
 category_document_hints:
   학사:

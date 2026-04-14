@@ -1,4 +1,7 @@
-﻿"""Rewrite query with intent/entity expansion for better retrieval."""
+﻿"""질문 리라이팅 모듈
+- 사용자 질문에서 핵심 키워드와 엔티티를 추출하여 확장
+- 의도 확장 규칙과 엔티티 기반 확장 규칙 적용
+- 중복 제거 및 정렬된 확장된 질문 리스트 반환"""
 
 from __future__ import annotations
 

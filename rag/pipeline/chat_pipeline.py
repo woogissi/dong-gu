@@ -1,4 +1,4 @@
-﻿"""RAG chat pipeline orchestration."""
+﻿"""RAG pipeline orchestration."""
 
 from rag.pipeline.state import PipelineState
 from rag.pipeline.preprocessor import QueryPreprocessor
@@ -21,6 +21,8 @@ from pprint import pprint
 class ChatPipeline:
     def __init__(self) -> None:
         self.preprocessor = QueryPreprocessor()
+        # retriever: Retriever = None,
+        # generator: AnswerGenerator = None 확장
 
     def run(self, query: Query) -> Answer:
         state = PipelineState.from_query(query.text)
@@ -43,13 +45,6 @@ class ChatPipeline:
         finally:
             pprint(state.to_log_dict())
 
-    # 전처리 단계
-    # - 질문 정규화
-    # - 키워드 추출
-    # - 엔티티 추출 및 카테고리 분류
-    # - 질문 재작성
-    # def _preprocess(self, state: PipelineState) -> None:
-    #     self.preprocessor.run(state)
 
     def _retrieve(self, state: PipelineState) -> None:
         request = build_retrieval_request(state)
