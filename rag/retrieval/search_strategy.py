@@ -107,15 +107,11 @@ def _normalize_filters(filters: dict[str, list[str]]) -> dict[str, list[str]]:
 
     return normalized
 
-# Fallback 트리거 예시:
-# - 쿼리가 비어있거나 공백만 있는 경우
-# - 키워드와 필터가 모두 없는 경우
-# - 필터는 있지만 키워드가 없는 경우 (키워드 없이 필터만으로 검색하는 경우)
-# - 기타 검색 전략에서 처리하기 어려운 입력 패턴이 감지된 경우
-# 실제 트리거는 서비스 요구사항과 과거 검색 실패 사례 분석을 기반으로 정의되어야 함
-# 트리거가 감지되면, 검색 전략은 fallback_used 플래그를 True로 설정하고, 필요에 따라 fallback_reason 필드에 트리거 원인을 기록할 수 있음
-# 예시 대응 방안:
-# - "검색어를 더 구체적으로 입력해주세요" 등
+
+# - TODO - 검색어가 너무 짧거나 일반적인 경우, 추가 정보를 요청하는 메시지로 대응
+# - TODO - 키워드 없이 필터만 있는 경우, "키워드 없이 필터만으로는 검색이 어려울 수 있습니다. 키워드를 추가해주세요" 등의 메시지로 대응
+# - TODO - 쿼리가 비어있거나 공백만 있는 경우, "검색어를 입력해주세요" 등의 메시지로 대응
+# - TODO - 기타 트리거에 대해서는, "입력하신 검색어로는 결과를 찾기 어려울 수 있습니다. 검색어를 더 구체적으로 입력하거나, 키워드와 필터를 추가해주세요" 등의 일반적인 메시지로 대응 
 def _fallback_triggers(
     *,
     query: str,
@@ -123,11 +119,13 @@ def _fallback_triggers(
     filters: dict[str, list[str]],
 ) -> list[str]:
     triggers: list[str] = []
+    has_keywords = bool(keywords)
+    has_filters = bool(filters)
     if not query.strip():
         triggers.append("empty_query")
-    if not keywords and not filters:
+    if not has_keywords and not has_filters:
         triggers.append("insufficient_search_terms")
-    if filters and not keywords:
+    if has_filters and not has_keywords:
         triggers.append("filter_only_query")
     return triggers
 
