@@ -21,11 +21,13 @@ from pprint import pprint
 class ChatPipeline:
     def __init__(self) -> None:
         self.preprocessor = QueryPreprocessor()
+        self.last_state: PipelineState | None = None
         # retriever: Retriever = None,
         # generator: AnswerGenerator = None 확장
 
     def run(self, query: Query) -> Answer:
         state = PipelineState.from_query(query.text)
+        self.last_state = state
 
         try:
             # self._preprocess(state)
