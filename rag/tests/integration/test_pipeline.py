@@ -12,8 +12,9 @@ from rag.schemas.query import Query
 
 BASE_DIR = os.path.dirname(__file__)
 
-# CSV 출력에 포함할 필드 목록입니다. 필요 없는 필드는 주석 처리하세요.
-# PipelineState(state.py)의 필드는 기본으로 모두 나열되어 있습니다.
+# CSV 출력에 포함할 필드 목록입니다. 필요 없는 필드는 주석 
+# PipelineState(state.py)의 필드는 기본으로 모두 나열
+
 CSV_FIELD_NAMES = [
     "index",
     "query",
@@ -46,10 +47,10 @@ CSV_FIELD_NAMES = [
     #"answer_text",
     "success",
     # "error",
-    "metadata",
+    #"metadata",
 ]
 
-# CSV에 저장할 때 너무 긴 답변은 잘라서 저장합니다.
+# CSV에 저장할 때 너무 긴 답변은 잘라서 저장
 MAX_ANSWER_LENGTH = 120
 
 
