@@ -1,8 +1,6 @@
-"""Retrieval entrypoint.
-
-Week 3 defines the keyword retrieval contract. The actual PostgreSQL FTS
-implementation is planned for Week 4, so this function still returns a
-deterministic placeholder document for pipeline wiring.
+"""문서 검색기 (Retriever)
+- 검색 전략에서 생성된 검색 요청을 받아서, 실제 검색 시스템과 통신하여 문서를 검색하는 역할
+- 현재는 더미 구현으로, 고정된 문서 하나를 반환하도록 되어 있음
 """
 
 from typing import List

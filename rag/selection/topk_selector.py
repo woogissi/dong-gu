@@ -1,3 +1,5 @@
+"""Top-K 선택기
+"""
 
 from typing import List
 from rag.schemas.retrieved_doc import RetrievedDoc

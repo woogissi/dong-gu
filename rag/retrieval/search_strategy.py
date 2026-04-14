@@ -1,7 +1,6 @@
-"""Keyword retrieval strategy planning for Week 3.
-
-This module does not execute database search yet. It converts query
-understanding output into a stable retrieval contract and log payload.
+"""키워드 검색
+- 쿼리와 키워드, 필터를 활용하여 검색 요청을 구성
+- 검색 요청에는 쿼리 변형, 키워드, 필터, 카테고리, top_k, fallback 트리거 등이 포함됨
 """
 
 from __future__ import annotations
@@ -108,7 +107,15 @@ def _normalize_filters(filters: dict[str, list[str]]) -> dict[str, list[str]]:
 
     return normalized
 
-
+# Fallback 트리거 예시:
+# - 쿼리가 비어있거나 공백만 있는 경우
+# - 키워드와 필터가 모두 없는 경우
+# - 필터는 있지만 키워드가 없는 경우 (키워드 없이 필터만으로 검색하는 경우)
+# - 기타 검색 전략에서 처리하기 어려운 입력 패턴이 감지된 경우
+# 실제 트리거는 서비스 요구사항과 과거 검색 실패 사례 분석을 기반으로 정의되어야 함
+# 트리거가 감지되면, 검색 전략은 fallback_used 플래그를 True로 설정하고, 필요에 따라 fallback_reason 필드에 트리거 원인을 기록할 수 있음
+# 예시 대응 방안:
+# - "검색어를 더 구체적으로 입력해주세요" 등
 def _fallback_triggers(
     *,
     query: str,
@@ -134,6 +141,9 @@ def _filter_rules_applied(filters: dict[str, list[str]]) -> list[str]:
         rules.append("category_to_document_category_hint")
     return rules
 
+# - 유틸 함수
+# - _dedupe: 리스트에서 None과 중복을 제거하면서 순서를 유지
+# - _first_value: 리스트에서 첫 번째 값을 안전하게 추출 (없으면 None 반환)
 def _dedupe(values: list[str | None]) -> list[str]:
     return list(dict.fromkeys(value for value in values if value))
 

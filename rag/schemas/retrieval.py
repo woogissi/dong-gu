@@ -1,4 +1,8 @@
-"""Retrieval request/response contracts shared by strategy and retrievers."""
+"""요청/응답 스키마
+- 검색 요청과 응답의 구조를 정의하는 Pydantic 모델
+- 검색 요청에는 쿼리, 키워드, 필터, 카테고리, 검색 전략, top_k, fallback 트리거 등이 포함됨
+- 검색 응답에는 검색 요청, 검색된 문서 목록, fallback 사용 여부, 로그 필드 등이 포함됨
+"""
 
 from __future__ import annotations
 
