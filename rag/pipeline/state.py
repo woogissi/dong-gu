@@ -24,6 +24,7 @@ class PipelineState:
     entities: dict[str, Any] = field(default_factory=dict)
     filters: dict[str, list[str]] = field(default_factory=dict)
     category: str | None = None
+    query_vector: list[float] = field(default_factory=list)
 
     retrieval_strategy: str = "lexical"
     retrieval_top_k: int = 10

@@ -15,12 +15,15 @@ from rag.llm.answer_generator import generate_answer
 
 from rag.fallback.fallback.fallback_handler import handle_fallback
 
+from rag.embedding.koe5_embedder import KoE5Embedder
+
 from pprint import pprint
 
 
 class ChatPipeline:
     def __init__(self) -> None:
         self.preprocessor = QueryPreprocessor()
+        self.embedder = KoE5Embedder()
         self.last_state: PipelineState | None = None
         # retriever: Retriever = None,
         # generator: AnswerGenerator = None 확장
@@ -30,8 +33,8 @@ class ChatPipeline:
         self.last_state = state
 
         try:
-            # self._preprocess(state)
             self.preprocessor.run(state)
+            self._embed_query(state)
             self._retrieve(state)
             self._select_and_build_context(state)
             self._generate(state)
@@ -44,9 +47,14 @@ class ChatPipeline:
             state.error = str(e)
             state.fallback_used = True
             return self._build_fallback_answer(state)
-        finally:
-            pprint(state.to_log_dict())
+        # finally:
+        #     pprint(state.to_log_dict())
 
+
+    def _embed_query(self, state: PipelineState) -> None:
+        # 쿼리 텍스트를 임베딩하여 벡터 생성
+        query_text = state.rewritten_query or state.normalized_query or state.original_query
+        state.query_vector = self.embedder.embed_query(query_text)
 
     def _retrieve(self, state: PipelineState) -> None:
         request = build_retrieval_request(state)
@@ -70,7 +78,7 @@ class ChatPipeline:
         state.answer_text = generate_answer(state.prompt)
 
     def _postprocess(self, state: PipelineState) -> None:
-        # TODO: response validation / polishing
+        # : response validation / polishing
         pass
 
     def _build_success_answer(self, state: PipelineState) -> Answer:
