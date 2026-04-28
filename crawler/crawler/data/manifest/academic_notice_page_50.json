@@ -1,0 +1,98 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=list",
+  "page_no": 50,
+  "count": 13,
+  "items": [
+    {
+      "article_no": "82127",
+      "title_hint": "2026학년도 1학기 출석인정 신청 및 처리안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=82127&article.offset=490&articleLimit=10",
+      "published_at_hint": "2026-03-03",
+      "row_text": "공지 2026학년도 1학기 출석인정 신청 및 처리안내 학사지원팀 2026-03-03 332"
+    },
+    {
+      "article_no": "80310",
+      "title_hint": "다전공 안내 가이드(2026)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80310&article.offset=490&articleLimit=10",
+      "published_at_hint": "2026-01-21",
+      "row_text": "공지 다전공 안내 가이드(2026) 학사지원팀 2026-01-21 570"
+    },
+    {
+      "article_no": "80309",
+      "title_hint": "학사정보 종합안내 가이드(2026)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80309&article.offset=490&articleLimit=10",
+      "published_at_hint": "2026-01-21",
+      "row_text": "공지 학사정보 종합안내 가이드(2026) 학사지원팀 2026-01-21 1539"
+    },
+    {
+      "article_no": "65180",
+      "title_hint": "코로나19 재확산 및 사회적 거리두기 2단계 격상에 따른 학사지원팀 단축근무 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65180&article.offset=490&articleLimit=10",
+      "published_at_hint": "2020-08-25",
+      "row_text": "474 코로나19 재확산 및 사회적 거리두기 2단계 격상에 따른 학사지원팀 단축근무 안내 학사지원팀 2020-08-25 1270"
+    },
+    {
+      "article_no": "65179",
+      "title_hint": "코로나19 재확산에 따른 2020-2학기 학부 수업 운영계획 변경 안내(1차 학사조치)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65179&article.offset=490&articleLimit=10",
+      "published_at_hint": "2020-08-20",
+      "row_text": "473 코로나19 재확산에 따른 2020-2학기 학부 수업 운영계획 변경 안내(1차 학사조치) 학사지원팀 2020-08-20 4051"
+    },
+    {
+      "article_no": "65178",
+      "title_hint": "2020학년도 2학기 1차 폐강 및 수강정정안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65178&article.offset=490&articleLimit=10",
+      "published_at_hint": "2020-08-18",
+      "row_text": "472 2020학년도 2학기 1차 폐강 및 수강정정안내 학사지원팀 2020-08-18 4667"
+    },
+    {
+      "article_no": "65173",
+      "title_hint": "조기취업자 출석인정 접수(2020-2학기)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65173&article.offset=490&articleLimit=10",
+      "published_at_hint": "2020-08-18",
+      "row_text": "471 조기취업자 출석인정 접수(2020-2학기) 학사지원팀 2020-08-18 1895"
+    },
+    {
+      "article_no": "65172",
+      "title_hint": "2020학년도 2학기 1학년 신입생 수강신청 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65172&article.offset=490&articleLimit=10",
+      "published_at_hint": "2020-08-06",
+      "row_text": "470 2020학년도 2학기 1학년 신입생 수강신청 안내 학사지원팀 2020-08-06 14325"
+    },
+    {
+      "article_no": "65170",
+      "title_hint": "개인별미이수과목(학점사정표) 조회 관련 안내_2020.08.08(토)부터 조회 가능",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65170&article.offset=490&articleLimit=10",
+      "published_at_hint": "2020-08-03",
+      "row_text": "469 개인별미이수과목(학점사정표) 조회 관련 안내_2020.08.08(토)부터 조회 가능 학사지원팀 2020-08-03 4391"
+    },
+    {
+      "article_no": "64645",
+      "title_hint": "2020학년도 2학기 동일 교원 담당 분반 교과목 합반 성적처리 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=64645&article.offset=490&articleLimit=10",
+      "published_at_hint": "2020-08-03",
+      "row_text": "468 2020학년도 2학기 동일 교원 담당 분반 교과목 합반 성적처리 안내 학사지원팀 2020-08-03 3056"
+    },
+    {
+      "article_no": "64644",
+      "title_hint": "2020학년도 2학기 수강신청 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=64644&article.offset=490&articleLimit=10",
+      "published_at_hint": "2020-07-31",
+      "row_text": "467 2020학년도 2학기 수강신청 안내 관리자 2020-07-31 38229"
+    },
+    {
+      "article_no": "65171",
+      "title_hint": "2020학년도 2학기 집중이수제 운영 교과목 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65171&article.offset=490&articleLimit=10",
+      "published_at_hint": "2020-07-30",
+      "row_text": "466 2020학년도 2학기 집중이수제 운영 교과목 안내 학사지원팀 2020-07-30 3118"
+    },
+    {
+      "article_no": "64620",
+      "title_hint": "2020-2학기 재수강[대체과목포함] 이수 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=64620&article.offset=490&articleLimit=10",
+      "published_at_hint": "2020-07-28",
+      "row_text": "465 2020-2학기 재수강[대체과목포함] 이수 안내 학사지원팀 2020-07-28 3429"
+    }
+  ]
+}

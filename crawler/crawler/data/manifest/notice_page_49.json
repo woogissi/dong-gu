@@ -1,0 +1,77 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=list",
+  "page_no": 49,
+  "count": 10,
+  "items": [
+    {
+      "article_no": "51452",
+      "title_hint": "2021학년도 2학기 차량등록신청 안내(재학생 및 외부인)",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=51452&article.offset=480&articleLimit=10",
+      "published_at_hint": "2021-08-18",
+      "row_text": "732 2021학년도 2학기 차량등록신청 안내(재학생 및 외부인) 안전관리팀 2021-08-18 10694"
+    },
+    {
+      "article_no": "52154",
+      "title_hint": "2021-2학기 등록금 납부 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52154&article.offset=480&articleLimit=10",
+      "published_at_hint": "2021-08-12",
+      "row_text": "731 2021-2학기 등록금 납부 안내 경리팀 2021-08-12 37462"
+    },
+    {
+      "article_no": "52279",
+      "title_hint": "2021학년도 2학기 시간제등록생 모집 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52279&article.offset=480&articleLimit=10",
+      "published_at_hint": "2021-08-10",
+      "row_text": "730 2021학년도 2학기 시간제등록생 모집 안내 학사지원팀 2021-08-10 9323"
+    },
+    {
+      "article_no": "52278",
+      "title_hint": "[대학혁신사업] 학습튜터 양성과정 프로그램(2차)",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52278&article.offset=480&articleLimit=10",
+      "published_at_hint": "2021-08-09",
+      "row_text": "729 [대학혁신사업] 학습튜터 양성과정 프로그램(2차) 대학혁신지원사업단 2021-08-09 8010"
+    },
+    {
+      "article_no": "52277",
+      "title_hint": "2021학년도 2학기 봉사시간 신청 및 인정 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52277&article.offset=480&articleLimit=10",
+      "published_at_hint": "2021-08-05",
+      "row_text": "728 2021학년도 2학기 봉사시간 신청 및 인정 안내 지역콜라보센터 2021-08-05 14392"
+    },
+    {
+      "article_no": "52356",
+      "title_hint": "[대학혁신사업] '혁신사업 참여 콘테스트' 8월 월간 프로그램 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52356&article.offset=480&articleLimit=10",
+      "published_at_hint": "2021-08-05",
+      "row_text": "727 [대학혁신사업] '혁신사업 참여 콘테스트' 8월 월간 프로그램 안내 대학혁신지원사업단 2021-08-05 8013"
+    },
+    {
+      "article_no": "52355",
+      "title_hint": "[긴급] 7월 30일(금) 전산정보원 시스템 보안패치 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52355&article.offset=480&articleLimit=10",
+      "published_at_hint": "2021-07-29",
+      "row_text": "726 [긴급] 7월 30일(금) 전산정보원 시스템 보안패치 안내 관리자 2021-07-29 8541"
+    },
+    {
+      "article_no": "52276",
+      "title_hint": "2021학년도 2학기 시외통학버스 신청 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52276&article.offset=480&articleLimit=10",
+      "published_at_hint": "2021-07-28",
+      "row_text": "725 2021학년도 2학기 시외통학버스 신청 안내 학생지원팀 2021-07-28 11612"
+    },
+    {
+      "article_no": "52173",
+      "title_hint": "[대학혁신사업] 학생상담센터 개인상담",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52173&article.offset=480&articleLimit=10",
+      "published_at_hint": "2021-07-26",
+      "row_text": "724 [대학혁신사업] 학생상담센터 개인상담 대학혁신지원사업단 2021-07-26 8635"
+    },
+    {
+      "article_no": "52287",
+      "title_hint": "[대학혁신사업] 동의에서 세계속으로(외국문화 체험)",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52287&article.offset=480&articleLimit=10",
+      "published_at_hint": "2021-07-26",
+      "row_text": "723 [대학혁신사업] 동의에서 세계속으로(외국문화 체험) 대학혁신지원사업단 2021-07-26 8168"
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=list",
+  "page_no": 16,
+  "count": 10,
+  "items": [
+    {
+      "article_no": "52299",
+      "title_hint": "랜섬웨어 피해예방 5대 수칙",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52299&article.offset=150&articleLimit=10",
+      "published_at_hint": "2024-11-01",
+      "row_text": "1062 랜섬웨어 피해예방 5대 수칙 관리자 2024-11-01 10964"
+    },
+    {
+      "article_no": "52298",
+      "title_hint": "하나 트래블로그 ISIC 국제학생증 체크카드 국제학생증 인증비 19,000원 지원 행사",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52298&article.offset=150&articleLimit=10",
+      "published_at_hint": "2024-11-01",
+      "row_text": "1061 하나 트래블로그 ISIC 국제학생증 체크카드 국제학생증 인증비 19,000원 지원 행사 학사지원팀 2024-11-01 11217"
+    },
+    {
+      "article_no": "52011",
+      "title_hint": "[후원의 집] 밝은세상안과 11~12월 우대 혜택 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52011&article.offset=150&articleLimit=10",
+      "published_at_hint": "2024-10-31",
+      "row_text": "1060 [후원의 집] 밝은세상안과 11~12월 우대 혜택 안내 대외협력팀 2024-10-31 10503"
+    },
+    {
+      "article_no": "52431",
+      "title_hint": "[안전관리팀] 교내 길고양이 집 철거 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52431&article.offset=150&articleLimit=10",
+      "published_at_hint": "2024-10-28",
+      "row_text": "1059 [안전관리팀] 교내 길고양이 집 철거 안내 안전관리팀 2024-10-28 11901"
+    },
+    {
+      "article_no": "52430",
+      "title_hint": "[중앙도서관] 2024 '도서관 이용자 만족도' 조사 실시",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52430&article.offset=150&articleLimit=10",
+      "published_at_hint": "2024-10-25",
+      "row_text": "1058 [중앙도서관] 2024 '도서관 이용자 만족도' 조사 실시 중앙도서관 2024-10-25 10700"
+    },
+    {
+      "article_no": "51967",
+      "title_hint": "2024학년도 2학기 등록금 분할3차 납부 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=51967&article.offset=150&articleLimit=10",
+      "published_at_hint": "2024-10-24",
+      "row_text": "1057 2024학년도 2학기 등록금 분할3차 납부 안내 경리팀 2024-10-24 10517"
+    },
+    {
+      "article_no": "52429",
+      "title_hint": "[안전관리팀] 교내 주차위반 단속 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52429&article.offset=150&articleLimit=10",
+      "published_at_hint": "2024-10-24",
+      "row_text": "1056 [안전관리팀] 교내 주차위반 단속 안내 안전관리팀 2024-10-24 11140"
+    },
+    {
+      "article_no": "52215",
+      "title_hint": "2025학년도 1학기 재입학 안내(한의과대학 한정)",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52215&article.offset=150&articleLimit=10",
+      "published_at_hint": "2024-10-23",
+      "row_text": "1055 2025학년도 1학기 재입학 안내(한의과대학 한정) 학사지원팀 2024-10-23 10994"
+    },
+    {
+      "article_no": "52214",
+      "title_hint": "[중앙도서관] 2024년 '영상 공모전' 개최",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52214&article.offset=150&articleLimit=10",
+      "published_at_hint": "2024-10-18",
+      "row_text": "1054 [중앙도서관] 2024년 '영상 공모전' 개최 중앙도서관 2024-10-18 10495"
+    },
+    {
+      "article_no": "51966",
+      "title_hint": "(조사완료) 2024년 대학일자리플러스센터  체감도 및 필요도 조사 참여 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=51966&article.offset=150&articleLimit=10",
+      "published_at_hint": "2024-10-04",
+      "row_text": "1053 (조사완료) 2024년 대학일자리플러스센터  체감도 및 필요도 조사 참여 안내 취업지원팀 2024-10-04 11171"
+    }
+  ]
+}

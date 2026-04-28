@@ -1,0 +1,77 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=list",
+  "page_no": 41,
+  "count": 10,
+  "items": [
+    {
+      "article_no": "52504",
+      "title_hint": "[홍보팀] 2022학년도 제15기 홍보대사 최종합격자 발표",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52504&article.offset=400&articleLimit=10",
+      "published_at_hint": "2022-03-22",
+      "row_text": "812 [홍보팀] 2022학년도 제15기 홍보대사 최종합격자 발표 홍보팀 2022-03-22 8871"
+    },
+    {
+      "article_no": "52503",
+      "title_hint": "2022학년도 1학기 등록금 분할2차 납부 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52503&article.offset=400&articleLimit=10",
+      "published_at_hint": "2022-03-21",
+      "row_text": "811 2022학년도 1학기 등록금 분할2차 납부 안내 경리팀 2022-03-21 8291"
+    },
+    {
+      "article_no": "52501",
+      "title_hint": "[중앙도서관] 2022 원북원부산 선정도서 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52501&article.offset=400&articleLimit=10",
+      "published_at_hint": "2022-03-21",
+      "row_text": "810 [중앙도서관] 2022 원북원부산 선정도서 안내 중앙도서관 2022-03-21 8080"
+    },
+    {
+      "article_no": "52498",
+      "title_hint": "[국제언어교육원]2022학년도 1학기 외국어 특강 수강생 모집",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52498&article.offset=400&articleLimit=10",
+      "published_at_hint": "2022-03-18",
+      "row_text": "809 [국제언어교육원]2022학년도 1학기 외국어 특강 수강생 모집 국제언어교육원 2022-03-18 8371"
+    },
+    {
+      "article_no": "52496",
+      "title_hint": "[학생상담센터] 개인상담 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52496&article.offset=400&articleLimit=10",
+      "published_at_hint": "2022-03-18",
+      "row_text": "808 [학생상담센터] 개인상담 안내 학생상담센터 2022-03-18 8928"
+    },
+    {
+      "article_no": "52495",
+      "title_hint": "[교수학습개발센터] 2022학년도 학습지원 프로그램 수요조사 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52495&article.offset=400&articleLimit=10",
+      "published_at_hint": "2022-03-17",
+      "row_text": "807 [교수학습개발센터] 2022학년도 학습지원 프로그램 수요조사 안내 교수학습개발센터 2022-03-17 8891"
+    },
+    {
+      "article_no": "51740",
+      "title_hint": "제15기 동의대학교 일반홍보대사 1차 서류 합격자 및 면접일정 공지",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=51740&article.offset=400&articleLimit=10",
+      "published_at_hint": "2022-03-15",
+      "row_text": "806 제15기 동의대학교 일반홍보대사 1차 서류 합격자 및 면접일정 공지 홍보팀 2022-03-15 8947"
+    },
+    {
+      "article_no": "52494",
+      "title_hint": "[중앙도서관] D-VR/AR SPACE 오픈 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52494&article.offset=400&articleLimit=10",
+      "published_at_hint": "2022-03-15",
+      "row_text": "805 [중앙도서관] D-VR/AR SPACE 오픈 안내 중앙도서관 2022-03-15 8867"
+    },
+    {
+      "article_no": "52206",
+      "title_hint": "[교수학습개발센터] 학생 대상 프로그램 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52206&article.offset=400&articleLimit=10",
+      "published_at_hint": "2022-03-14",
+      "row_text": "804 [교수학습개발센터] 학생 대상 프로그램 안내 관리자교수학습개발센터 2022-03-14 8599"
+    },
+    {
+      "article_no": "52493",
+      "title_hint": "[학생상담센터] \"공강시간에 뭐하니?\" 집단심리검사 해석 프로그램 실시",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52493&article.offset=400&articleLimit=10",
+      "published_at_hint": "2022-03-14",
+      "row_text": "803 [학생상담센터] \"공강시간에 뭐하니?\" 집단심리검사 해석 프로그램 실시 학생상담센터 2022-03-14 8683"
+    }
+  ]
+}

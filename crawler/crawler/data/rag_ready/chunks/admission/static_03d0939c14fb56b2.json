@@ -1,0 +1,18 @@
+[
+  {
+    "chunk_id": "static_03d0939c14fb56b2_chunk_001",
+    "doc_id": "static_03d0939c14fb56b2",
+    "chunk_index": 1,
+    "source_type": "admission",
+    "title": "동의대학교",
+    "source_url": "https://ipsi.deu.ac.kr/",
+    "published_at": null,
+    "department": null,
+    "category_lv1": "입학",
+    "category_lv2": "동의대학교",
+    "content": "[TITLE]\n동의대학교\n\n[BODY]\n동의대학교",
+    "content_length": 27,
+    "content_hash": "380ef4732f0dc1b4acbb60adcfd467a549b2af75",
+    "version": 1
+  }
+]

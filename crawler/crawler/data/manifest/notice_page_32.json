@@ -1,0 +1,77 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=list",
+  "page_no": 32,
+  "count": 10,
+  "items": [
+    {
+      "article_no": "52035",
+      "title_hint": "2023학년도 신입생을 위한 비대면 프로그램 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52035&article.offset=310&articleLimit=10",
+      "published_at_hint": "2023-02-24",
+      "row_text": "902 2023학년도 신입생을 위한 비대면 프로그램 안내 학생지원팀 2023-02-24 41483"
+    },
+    {
+      "article_no": "52041",
+      "title_hint": "2023학년도 신입생 수강신청 관련 안내(신입생 필독)",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52041&article.offset=310&articleLimit=10",
+      "published_at_hint": "2023-02-22",
+      "row_text": "901 2023학년도 신입생 수강신청 관련 안내(신입생 필독) 학사지원팀 2023-02-22 55825"
+    },
+    {
+      "article_no": "51982",
+      "title_hint": "[대학혁신사업] 대학혁신지원사업단 2022년 2학기 웹진 발간",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=51982&article.offset=310&articleLimit=10",
+      "published_at_hint": "2023-02-15",
+      "row_text": "900 [대학혁신사업] 대학혁신지원사업단 2022년 2학기 웹진 발간 대학혁신지원사업단 2023-02-15 8020"
+    },
+    {
+      "article_no": "52508",
+      "title_hint": "[중앙도서관] 2023년 원북원부산 도서 선정 온라인 시민 투표",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52508&article.offset=310&articleLimit=10",
+      "published_at_hint": "2023-02-14",
+      "row_text": "899 [중앙도서관] 2023년 원북원부산 도서 선정 온라인 시민 투표 중앙도서관 2023-02-14 8079"
+    },
+    {
+      "article_no": "51513",
+      "title_hint": "2023-1학기 등록금 납부 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=51513&article.offset=310&articleLimit=10",
+      "published_at_hint": "2023-02-10",
+      "row_text": "898 2023-1학기 등록금 납부 안내 경리팀 2023-02-10 25507"
+    },
+    {
+      "article_no": "51512",
+      "title_hint": "2023학년도 1학기 시외통학버스 신청 안내문",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=51512&article.offset=310&articleLimit=10",
+      "published_at_hint": "2023-02-09",
+      "row_text": "897 2023학년도 1학기 시외통학버스 신청 안내문 학생지원팀 2023-02-09 15822"
+    },
+    {
+      "article_no": "51511",
+      "title_hint": "2023학년도 1학기 차량등록신청 안내(재학생 및 외부인)",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=51511&article.offset=310&articleLimit=10",
+      "published_at_hint": "2023-02-08",
+      "row_text": "896 2023학년도 1학기 차량등록신청 안내(재학생 및 외부인) 안전관리팀 2023-02-08 12374"
+    },
+    {
+      "article_no": "51510",
+      "title_hint": "2023학년도 1학기 시간제 모집 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=51510&article.offset=310&articleLimit=10",
+      "published_at_hint": "2023-02-07",
+      "row_text": "895 2023학년도 1학기 시간제 모집 안내 학사지원팀 2023-02-07 10559"
+    },
+    {
+      "article_no": "52038",
+      "title_hint": "[디그니타스교양교육연구소] 2023년도 제1회 DILE Colloquium",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52038&article.offset=310&articleLimit=10",
+      "published_at_hint": "2023-02-07",
+      "row_text": "894 [디그니타스교양교육연구소] 2023년도 제1회 DILE Colloquium 디그니타스교양교육연구소 2023-02-07 9223"
+    },
+    {
+      "article_no": "52001",
+      "title_hint": "중앙도서관 대출, 반납 및 홈페이지, 도서자동반납시스템 사용불가 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52001&article.offset=310&articleLimit=10",
+      "published_at_hint": "2023-02-07",
+      "row_text": "893 중앙도서관 대출, 반납 및 홈페이지, 도서자동반납시스템 사용불가 안내 중앙도서관 2023-02-07 8341"
+    }
+  ]
+}

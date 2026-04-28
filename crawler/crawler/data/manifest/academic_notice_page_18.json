@@ -1,0 +1,98 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=list",
+  "page_no": 18,
+  "count": 13,
+  "items": [
+    {
+      "article_no": "82127",
+      "title_hint": "2026학년도 1학기 출석인정 신청 및 처리안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=82127&article.offset=170&articleLimit=10",
+      "published_at_hint": "2026-03-03",
+      "row_text": "공지 2026학년도 1학기 출석인정 신청 및 처리안내 학사지원팀 2026-03-03 300"
+    },
+    {
+      "article_no": "80310",
+      "title_hint": "다전공 안내 가이드(2026)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80310&article.offset=170&articleLimit=10",
+      "published_at_hint": "2026-01-21",
+      "row_text": "공지 다전공 안내 가이드(2026) 학사지원팀 2026-01-21 538"
+    },
+    {
+      "article_no": "80309",
+      "title_hint": "학사정보 종합안내 가이드(2026)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80309&article.offset=170&articleLimit=10",
+      "published_at_hint": "2026-01-21",
+      "row_text": "공지 학사정보 종합안내 가이드(2026) 학사지원팀 2026-01-21 1507"
+    },
+    {
+      "article_no": "65445",
+      "title_hint": "2024학년도 교육과정 경과조치 안내문(학점적용 관련 사항)_전학년 필독!!!",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65445&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-02-14",
+      "row_text": "794 2024학년도 교육과정 경과조치 안내문(학점적용 관련 사항)_전학년 필독!!! 학사지원팀 2024-02-14 9865"
+    },
+    {
+      "article_no": "64730",
+      "title_hint": "2024학년도 교육과정 개편에 따른  2023학년도 교육과정 대상자 전공필수 전용 분반 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=64730&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-02-14",
+      "row_text": "793 2024학년도 교육과정 개편에 따른  2023학년도 교육과정 대상자 전공필수 전용 분반 안내 학사지원팀 2024-02-14 2885"
+    },
+    {
+      "article_no": "64729",
+      "title_hint": "2024학년도 1학기 수강신청 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=64729&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-02-08",
+      "row_text": "792 2024학년도 1학기 수강신청 안내 학사지원팀 2024-02-08 28238"
+    },
+    {
+      "article_no": "64702",
+      "title_hint": "2024학년도 1학기 1학년 신입생 수강신청 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=64702&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-02-08",
+      "row_text": "791 2024학년도 1학기 1학년 신입생 수강신청 안내 학사지원팀 2024-02-08 34114"
+    },
+    {
+      "article_no": "65442",
+      "title_hint": "2024학년도 1학기 수강신청 장바구니 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65442&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-02-08",
+      "row_text": "790 2024학년도 1학기 수강신청 장바구니 안내 학사지원팀 2024-02-08 14945"
+    },
+    {
+      "article_no": "65441",
+      "title_hint": "2024학년도 1학기 비교과 마일리지 특별학점 신청 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65441&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-02-07",
+      "row_text": "789 2024학년도 1학기 비교과 마일리지 특별학점 신청 안내 학사지원팀 2024-02-07 4774"
+    },
+    {
+      "article_no": "65444",
+      "title_hint": "계열교양(계열기초,학문기초 대체) 이수학점(2024학년도 이후)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65444&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-02-07",
+      "row_text": "788 계열교양(계열기초,학문기초 대체) 이수학점(2024학년도 이후) 학사지원팀 2024-02-07 5932"
+    },
+    {
+      "article_no": "65443",
+      "title_hint": "지도교수멘토링(지도교수세미나) 관련 유의사항(인턴십 및 교환학생 학기 이수한 4학년 필독)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65443&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-02-07",
+      "row_text": "787 지도교수멘토링(지도교수세미나) 관련 유의사항(인턴십 및 교환학생 학기 이수한 4학년 필독) 학사지원팀 2024-02-07 3649"
+    },
+    {
+      "article_no": "65440",
+      "title_hint": "1학년 균형교양 학점 이수 관련 안내(2020학번 이후)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65440&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-02-07",
+      "row_text": "786 1학년 균형교양 학점 이수 관련 안내(2020학번 이후) 학사지원팀 2024-02-07 6123"
+    },
+    {
+      "article_no": "64659",
+      "title_hint": "공통교양(기본교양) 재이수 안내(미이수자 필독)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=64659&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-02-07",
+      "row_text": "785 공통교양(기본교양) 재이수 안내(미이수자 필독) 학사지원팀 2024-02-07 3811"
+    }
+  ]
+}

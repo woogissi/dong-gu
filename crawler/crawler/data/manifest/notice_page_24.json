@@ -1,0 +1,77 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=list",
+  "page_no": 24,
+  "count": 10,
+  "items": [
+    {
+      "article_no": "52407",
+      "title_hint": "개인정보 침해사고 대응 가이드",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52407&article.offset=230&articleLimit=10",
+      "published_at_hint": "2023-12-28",
+      "row_text": "982 개인정보 침해사고 대응 가이드 관리자 2023-12-28 9572"
+    },
+    {
+      "article_no": "52406",
+      "title_hint": "2023 학생부종합전형 합격수기 공모전 수상자 발표",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52406&article.offset=230&articleLimit=10",
+      "published_at_hint": "2023-12-18",
+      "row_text": "981 2023 학생부종합전형 합격수기 공모전 수상자 발표 입학관리팀 2023-12-18 9920"
+    },
+    {
+      "article_no": "52372",
+      "title_hint": "[대학혁신지원사업단] 뮤지컬 갈라 콘서트 'THE GREATEST SHOWMAN' 개최",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52372&article.offset=230&articleLimit=10",
+      "published_at_hint": "2023-12-07",
+      "row_text": "980 [대학혁신지원사업단] 뮤지컬 갈라 콘서트 'THE GREATEST SHOWMAN' 개최 대학혁신지원사업단 2023-12-07 9934"
+    },
+    {
+      "article_no": "52405",
+      "title_hint": "제7기 입학홍보대사 WE DEU 모집공고",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52405&article.offset=230&articleLimit=10",
+      "published_at_hint": "2023-12-05",
+      "row_text": "979 제7기 입학홍보대사 WE DEU 모집공고 입학관리팀 2023-12-05 10381"
+    },
+    {
+      "article_no": "52370",
+      "title_hint": "2023학년도 2학기 다전공 설명회(4차) 개최 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52370&article.offset=230&articleLimit=10",
+      "published_at_hint": "2023-12-01",
+      "row_text": "978 2023학년도 2학기 다전공 설명회(4차) 개최 안내 학사지원팀 2023-12-01 9589"
+    },
+    {
+      "article_no": "52369",
+      "title_hint": "2024학년도 1학기 재입학 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52369&article.offset=230&articleLimit=10",
+      "published_at_hint": "2023-11-29",
+      "row_text": "977 2024학년도 1학기 재입학 안내 학사지원팀 2023-11-29 11108"
+    },
+    {
+      "article_no": "52371",
+      "title_hint": "[필독] 저작물(오라클 VirtualBox Extension Pack) 불법 사용 주의 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52371&article.offset=230&articleLimit=10",
+      "published_at_hint": "2023-11-23",
+      "row_text": "976 [필독] 저작물(오라클 VirtualBox Extension Pack) 불법 사용 주의 안내 관리자 2023-11-23 10622"
+    },
+    {
+      "article_no": "52368",
+      "title_hint": "[입학처] 2023 학생부종합전형 합격수기 공모전 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52368&article.offset=230&articleLimit=10",
+      "published_at_hint": "2023-11-22",
+      "row_text": "975 [입학처] 2023 학생부종합전형 합격수기 공모전 안내 입학관리팀 2023-11-22 10686"
+    },
+    {
+      "article_no": "52367",
+      "title_hint": "2023학년도 2학기 등록금 분할4차 납부 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52367&article.offset=230&articleLimit=10",
+      "published_at_hint": "2023-11-16",
+      "row_text": "974 2023학년도 2학기 등록금 분할4차 납부 안내 경리팀 2023-11-16 9561"
+    },
+    {
+      "article_no": "52316",
+      "title_hint": "[후원의 집] 밝은세상안과 11~12월 우대 혜택 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52316&article.offset=230&articleLimit=10",
+      "published_at_hint": "2023-11-02",
+      "row_text": "973 [후원의 집] 밝은세상안과 11~12월 우대 혜택 안내 대외협력팀 2023-11-02 9420"
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=list",
+  "page_no": 7,
+  "count": 10,
+  "items": [
+    {
+      "article_no": "75167",
+      "title_hint": "[안전관리팀] 캠퍼스 내 전동킥보드 이용 주의사항 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=75167&article.offset=60&articleLimit=10",
+      "published_at_hint": "2025-09-12",
+      "row_text": "1152 [안전관리팀] 캠퍼스 내 전동킥보드 이용 주의사항 안내 안전관리팀 2025-09-12 8683"
+    },
+    {
+      "article_no": "75086",
+      "title_hint": "[전공설계지원센터] 상담 신청 안내 (전공 탐색 및 설계, 다전공, 진로 및 취업 등)",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=75086&article.offset=60&articleLimit=10",
+      "published_at_hint": "2025-09-12",
+      "row_text": "1151 [전공설계지원센터] 상담 신청 안내 (전공 탐색 및 설계, 다전공, 진로 및 취업 등) 전공설계지원센터 2025-09-12 8673"
+    },
+    {
+      "article_no": "74799",
+      "title_hint": "하나 트래블로그 ISIC 국제학생증 체크카드 국제학생증 인증비 32,000원 지원 행사(9월 22일~10월 5일까지)",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=74799&article.offset=60&articleLimit=10",
+      "published_at_hint": "2025-09-09",
+      "row_text": "1150 하나 트래블로그 ISIC 국제학생증 체크카드 국제학생증 인증비 32,000원 지원 행사(9월 22일~10월 5일까지) 학사지원팀 2025-09-09 7915"
+    },
+    {
+      "article_no": "74606",
+      "title_hint": "[보건진료소] 한방진료 일정 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=74606&article.offset=60&articleLimit=10",
+      "published_at_hint": "2025-09-04",
+      "row_text": "1149 [보건진료소] 한방진료 일정 안내 보건진료소 2025-09-04 8433"
+    },
+    {
+      "article_no": "74428",
+      "title_hint": "[후원의 집] 밝은세상안과 9~10월 우대 혜택 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=74428&article.offset=60&articleLimit=10",
+      "published_at_hint": "2025-09-02",
+      "row_text": "1148 [후원의 집] 밝은세상안과 9~10월 우대 혜택 안내 대외협력팀 2025-09-02 7772"
+    },
+    {
+      "article_no": "73744",
+      "title_hint": "[안전관리팀]교내 주차위반 단속 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=73744&article.offset=60&articleLimit=10",
+      "published_at_hint": "2025-08-25",
+      "row_text": "1147 [안전관리팀]교내 주차위반 단속 안내 안전관리팀 2025-08-25 9514"
+    },
+    {
+      "article_no": "73606",
+      "title_hint": "[후원의 집] 아이시티안과_동의대학교 이벤트 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=73606&article.offset=60&articleLimit=10",
+      "published_at_hint": "2025-08-22",
+      "row_text": "1146 [후원의 집] 아이시티안과_동의대학교 이벤트 안내 대외협력팀 2025-08-22 8505"
+    },
+    {
+      "article_no": "73342",
+      "title_hint": "법정관, 제1효민생활관 진입로 및 산학협력관 주변 도로 아스콘 포장공사에 따른 차량통행 및 주차통제 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=73342&article.offset=60&articleLimit=10",
+      "published_at_hint": "2025-08-18",
+      "row_text": "1145 법정관, 제1효민생활관 진입로 및 산학협력관 주변 도로 아스콘 포장공사에 따른 차량통행 및 주차통제 안내 안전관리팀 2025-08-18 8576"
+    },
+    {
+      "article_no": "73149",
+      "title_hint": "8월 13일(수) 홈페이지 서버 이관 작업 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=73149&article.offset=60&articleLimit=10",
+      "published_at_hint": "2025-08-13",
+      "row_text": "1144 8월 13일(수) 홈페이지 서버 이관 작업 안내 관리자 2025-08-13 8827"
+    },
+    {
+      "article_no": "73148",
+      "title_hint": "8월 13일(수) ~ 14(목) 네트워크 장비 점검 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=73148&article.offset=60&articleLimit=10",
+      "published_at_hint": "2025-08-13",
+      "row_text": "1143 8월 13일(수) ~ 14(목) 네트워크 장비 점검 안내 관리자 2025-08-13 9071"
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=list",
+  "page_no": 12,
+  "count": 10,
+  "items": [
+    {
+      "article_no": "67477",
+      "title_hint": "[2025 문화행사] 봄 바람이 부는 길 혜안지",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=67477&article.offset=110&articleLimit=10",
+      "published_at_hint": "2025-03-27",
+      "row_text": "1102 [2025 문화행사] 봄 바람이 부는 길 혜안지 박물관 2025-03-27 13494"
+    },
+    {
+      "article_no": "67425",
+      "title_hint": "[안전관리팀] 교내 장기간 방치된 이륜차(오토바이) 정리 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=67425&article.offset=110&articleLimit=10",
+      "published_at_hint": "2025-03-26",
+      "row_text": "1101 [안전관리팀] 교내 장기간 방치된 이륜차(오토바이) 정리 안내 안전관리팀 2025-03-26 13076"
+    },
+    {
+      "article_no": "67418",
+      "title_hint": "[예비군연대] 2025년 학생 예비군 훈련 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=67418&article.offset=110&articleLimit=10",
+      "published_at_hint": "2025-03-26",
+      "row_text": "1100 [예비군연대] 2025년 학생 예비군 훈련 안내 예비군연대 2025-03-26 28659"
+    },
+    {
+      "article_no": "67409",
+      "title_hint": "[대외협력팀] 2025학년도 제18기 홍보대사 최종합격자 발표",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=67409&article.offset=110&articleLimit=10",
+      "published_at_hint": "2025-03-26",
+      "row_text": "1099 [대외협력팀] 2025학년도 제18기 홍보대사 최종합격자 발표 대외협력팀 2025-03-26 12826"
+    },
+    {
+      "article_no": "67335",
+      "title_hint": "[중앙도서관] 2025년 원북원부산 선정도서 및 독서릴레이 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=67335&article.offset=110&articleLimit=10",
+      "published_at_hint": "2025-03-24",
+      "row_text": "1098 [중앙도서관] 2025년 원북원부산 선정도서 및 독서릴레이 안내 중앙도서관 2025-03-24 12698"
+    },
+    {
+      "article_no": "67252",
+      "title_hint": "2025학년도 대학안전관리계획 게시",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=67252&article.offset=110&articleLimit=10",
+      "published_at_hint": "2025-03-20",
+      "row_text": "1097 2025학년도 대학안전관리계획 게시 안전관리팀 2025-03-20 12877"
+    },
+    {
+      "article_no": "67206",
+      "title_hint": "[필독] 3월 20일(목) 네트워크 사용 중지 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=67206&article.offset=110&articleLimit=10",
+      "published_at_hint": "2025-03-19",
+      "row_text": "1096 [필독] 3월 20일(목) 네트워크 사용 중지 안내 전산정보원 2025-03-19 12654"
+    },
+    {
+      "article_no": "67182",
+      "title_hint": "2025학년도 1학기 등록금 분할2차 납부 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=67182&article.offset=110&articleLimit=10",
+      "published_at_hint": "2025-03-18",
+      "row_text": "1095 2025학년도 1학기 등록금 분할2차 납부 안내 경리팀 2025-03-18 14827"
+    },
+    {
+      "article_no": "67123",
+      "title_hint": "[대외협력팀]동의대학교 제18기 홍보대사 서류 합격자 및 면접 공지",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=67123&article.offset=110&articleLimit=10",
+      "published_at_hint": "2025-03-17",
+      "row_text": "1094 [대외협력팀]동의대학교 제18기 홍보대사 서류 합격자 및 면접 공지 대외협력팀 2025-03-17 13266"
+    },
+    {
+      "article_no": "67008",
+      "title_hint": "[예비군연대] 예비군훈련에 참가하는 학생(예비군)의 학업 보장 관련 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=67008&article.offset=110&articleLimit=10",
+      "published_at_hint": "2025-03-14",
+      "row_text": "1093 [예비군연대] 예비군훈련에 참가하는 학생(예비군)의 학업 보장 관련 안내 예비군연대 2025-03-14 15307"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "doc_id": "deu_notice_84258",
+  "parent_doc_id": null,
+  "university": "동의대학교",
+  "campus": null,
+  "source_type": "notice",
+  "page_kind": "board_detail",
+  "category_lv1": null,
+  "category_lv2": null,
+  "department": null,
+  "title": "동의대학교 DONG-EUI UNIVERSITY",
+  "summary": null,
+  "source_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=84258&article.offset=0&articleLimit=10",
+  "published_at": "2026-04-14",
+  "updated_at": null,
+  "valid_from": null,
+  "valid_to": null,
+  "target_audience": [],
+  "keywords": [],
+  "raw_text": "국제학생증 지원행사(2026년 4월29일~2026년 5월12일)\n작성일:\n2026-04-14\n작성자:\n학사지원팀\n조회수:\n66\n첨부파일\n동의대 국제학생증 안내장 (1).jpeg\n목록\n이전글\n2026학년도 1학기 등록금 분할 3차 납부 안내\n다음글\n다음글이 없습니다.",
+  "normalize": null,
+  "table_text": "",
+  "attachment_text": null,
+  "language": "ko",
+  "status": "active",
+  "version": 1,
+  "collected_at": "2026-04-14T17:38:31+09:00",
+  "content_hash": "ce584f69375ea79a6072044dcc9384478d99256e",
+  "views": null,
+  "image_urls": [
+    "https://www.deu.ac.kr/_attach/deu/editor-image/2026/04/pUeNNzpTejsoDfcqTWlfqrqqVH.jpeg"
+  ],
+  "attachments": [
+    {
+      "attachment_index": 1,
+      "file_name": "동의대 국제학생증 안내장 (1).jpeg",
+      "file_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=download&articleNo=84258&attachNo=130963"
+    }
+  ],
+  "html_path": "crawler/data/raw/html/notice/deu_notice_84258.html",
+  "downloaded_attachments": [
+    {
+      "attachment_index": 1,
+      "file_name": "동의대 국제학생증 안내장 (1).jpeg",
+      "file_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=download&articleNo=84258&attachNo=130963",
+      "file_ext": ".jpeg",
+      "saved_path": "crawler/data/raw/files/notice/deu_notice_84258/동의대_국제학생증_안내장_(1).jpeg",
+      "file_size": 2141050,
+      "parser_type": "unsupported",
+      "attachment_text": null,
+      "page_count": null,
+      "pages": [],
+      "note": null,
+      "raw_xml_files": []
+    }
+  ]
+}
