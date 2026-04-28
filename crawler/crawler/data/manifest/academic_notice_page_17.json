@@ -1,0 +1,98 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=list",
+  "page_no": 17,
+  "count": 13,
+  "items": [
+    {
+      "article_no": "82127",
+      "title_hint": "2026학년도 1학기 출석인정 신청 및 처리안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=82127&article.offset=160&articleLimit=10",
+      "published_at_hint": "2026-03-03",
+      "row_text": "공지 2026학년도 1학기 출석인정 신청 및 처리안내 학사지원팀 2026-03-03 299"
+    },
+    {
+      "article_no": "80310",
+      "title_hint": "다전공 안내 가이드(2026)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80310&article.offset=160&articleLimit=10",
+      "published_at_hint": "2026-01-21",
+      "row_text": "공지 다전공 안내 가이드(2026) 학사지원팀 2026-01-21 537"
+    },
+    {
+      "article_no": "80309",
+      "title_hint": "학사정보 종합안내 가이드(2026)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80309&article.offset=160&articleLimit=10",
+      "published_at_hint": "2026-01-21",
+      "row_text": "공지 학사정보 종합안내 가이드(2026) 학사지원팀 2026-01-21 1506"
+    },
+    {
+      "article_no": "65366",
+      "title_hint": "2024학년도 1학기 2차 폐강 및 수강정정 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65366&article.offset=160&articleLimit=10",
+      "published_at_hint": "2024-03-12",
+      "row_text": "804 2024학년도 1학기 2차 폐강 및 수강정정 안내 학사지원팀 2024-03-12 890"
+    },
+    {
+      "article_no": "65256",
+      "title_hint": "2024학년도 1학기 수강신청 취소 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65256&article.offset=160&articleLimit=10",
+      "published_at_hint": "2024-03-12",
+      "row_text": "803 2024학년도 1학기 수강신청 취소 안내 학사지원팀 2024-03-12 819"
+    },
+    {
+      "article_no": "65452",
+      "title_hint": "군입대 휴학중 취득학점 인정절차 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65452&article.offset=160&articleLimit=10",
+      "published_at_hint": "2024-03-05",
+      "row_text": "802 군입대 휴학중 취득학점 인정절차 안내 학사지원팀 2024-03-05 1181"
+    },
+    {
+      "article_no": "64789",
+      "title_hint": "2024학년도 편입생 오리엔테이션 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=64789&article.offset=160&articleLimit=10",
+      "published_at_hint": "2024-03-04",
+      "row_text": "801 2024학년도 편입생 오리엔테이션 안내 학사지원팀 2024-03-04 857"
+    },
+    {
+      "article_no": "65451",
+      "title_hint": "2024학년도 1학기 출석인정 및 공결 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65451&article.offset=160&articleLimit=10",
+      "published_at_hint": "2024-03-02",
+      "row_text": "800 2024학년도 1학기 출석인정 및 공결 안내 학사지원팀 2024-03-02 2894"
+    },
+    {
+      "article_no": "65450",
+      "title_hint": "2024학년도 1학기 조기취업자 출석인정에 따른 1차 신청 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65450&article.offset=160&articleLimit=10",
+      "published_at_hint": "2024-03-02",
+      "row_text": "799 2024학년도 1학기 조기취업자 출석인정에 따른 1차 신청 안내 학사지원팀 2024-03-02 2526"
+    },
+    {
+      "article_no": "65449",
+      "title_hint": "2024학년도 1학기 1차 폐강 및 수강정정 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65449&article.offset=160&articleLimit=10",
+      "published_at_hint": "2024-02-26",
+      "row_text": "798 2024학년도 1학기 1차 폐강 및 수강정정 안내 학사지원팀 2024-02-26 3080"
+    },
+    {
+      "article_no": "65448",
+      "title_hint": "2024학년도 1학기 편입생 전적대학 성적인정에 따른 업무진행 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65448&article.offset=160&articleLimit=10",
+      "published_at_hint": "2024-02-22",
+      "row_text": "797 2024학년도 1학기 편입생 전적대학 성적인정에 따른 업무진행 안내 학사지원팀 2024-02-22 2121"
+    },
+    {
+      "article_no": "65447",
+      "title_hint": "2024학년도 1학기 신·편입생 모바일 학생증 사용에 따른 증명사진 등록 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65447&article.offset=160&articleLimit=10",
+      "published_at_hint": "2024-02-21",
+      "row_text": "796 2024학년도 1학기 신·편입생 모바일 학생증 사용에 따른 증명사진 등록 안내 학사지원팀 2024-02-21 11436"
+    },
+    {
+      "article_no": "65446",
+      "title_hint": "2024-1학기 취업과창업 교과목 수강 안내(로그인, 비누사이트 이용법 포함)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65446&article.offset=160&articleLimit=10",
+      "published_at_hint": "2024-02-19",
+      "row_text": "795 2024-1학기 취업과창업 교과목 수강 안내(로그인, 비누사이트 이용법 포함) 학사지원팀 2024-02-19 1066"
+    }
+  ]
+}

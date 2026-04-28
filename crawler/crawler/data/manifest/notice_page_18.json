@@ -1,0 +1,77 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=list",
+  "page_no": 18,
+  "count": 10,
+  "items": [
+    {
+      "article_no": "52203",
+      "title_hint": "저작권법 위반행위금지 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52203&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-08-27",
+      "row_text": "1042 저작권법 위반행위금지 안내 학사지원팀 2024-08-27 10522"
+    },
+    {
+      "article_no": "52202",
+      "title_hint": "2024학년도 2학기 차량등록신청 안내(재학생 및 외부인)",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52202&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-08-14",
+      "row_text": "1041 2024학년도 2학기 차량등록신청 안내(재학생 및 외부인) 안전관리팀 2024-08-14 14321"
+    },
+    {
+      "article_no": "52201",
+      "title_hint": "2024-2학기 등록금 납부 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52201&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-08-14",
+      "row_text": "1040 2024-2학기 등록금 납부 안내 경리팀 2024-08-14 30213"
+    },
+    {
+      "article_no": "52441",
+      "title_hint": "2023학년도 후기 학위수여식 일정 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52441&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-08-09",
+      "row_text": "1039 2023학년도 후기 학위수여식 일정 안내 학사지원팀 2024-08-09 11169"
+    },
+    {
+      "article_no": "51938",
+      "title_hint": "2024학년도 2학기 시간제등록생 모집 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=51938&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-08-06",
+      "row_text": "1038 2024학년도 2학기 시간제등록생 모집 안내 학사지원팀 2024-08-06 11798"
+    },
+    {
+      "article_no": "51904",
+      "title_hint": "[필독] 8월 3일(토) 가상화 시스템 패치 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=51904&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-07-26",
+      "row_text": "1037 [필독] 8월 3일(토) 가상화 시스템 패치 안내 관리자 2024-07-26 10274"
+    },
+    {
+      "article_no": "52179",
+      "title_hint": "2024학년도 2학기 시외통학버스 신청 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52179&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-07-26",
+      "row_text": "1036 2024학년도 2학기 시외통학버스 신청 안내 학생지원팀 2024-07-26 11718"
+    },
+    {
+      "article_no": "52178",
+      "title_hint": "[필독] 7월 24일(수) 전산정보원 시스템 보안패치 및 서버 시스템 점검 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52178&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-07-22",
+      "row_text": "1035 [필독] 7월 24일(수) 전산정보원 시스템 보안패치 및 서버 시스템 점검 안내 관리자 2024-07-22 10327"
+    },
+    {
+      "article_no": "52008",
+      "title_hint": "동의대학교 주차장 이용 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52008&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-07-04",
+      "row_text": "1034 동의대학교 주차장 이용 안내 안전관리팀 2024-07-04 12974"
+    },
+    {
+      "article_no": "51833",
+      "title_hint": "[후원의 집] 밝은세상안과 7~8월 우대 혜택 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=51833&article.offset=170&articleLimit=10",
+      "published_at_hint": "2024-07-02",
+      "row_text": "1033 [후원의 집] 밝은세상안과 7~8월 우대 혜택 안내 대외협력팀 2024-07-02 10441"
+    }
+  ]
+}

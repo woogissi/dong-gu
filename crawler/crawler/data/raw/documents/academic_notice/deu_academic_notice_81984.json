@@ -1,0 +1,76 @@
+{
+  "doc_id": "deu_academic_notice_81984",
+  "parent_doc_id": null,
+  "university": "동의대학교",
+  "campus": null,
+  "source_type": "academic_notice",
+  "page_kind": "board_detail",
+  "category_lv1": null,
+  "category_lv2": null,
+  "department": null,
+  "title": "동의대학교 DONG-EUI UNIVERSITY",
+  "summary": null,
+  "source_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=81984&article.offset=0&articleLimit=10",
+  "published_at": "2026-02-27",
+  "updated_at": null,
+  "valid_from": null,
+  "valid_to": null,
+  "target_audience": [],
+  "keywords": [],
+  "raw_text": "2026학년도 1학기 1차 폐강 및 수강정정 안내\n작성일:\n2026-02-27\n작성자:\n학사지원팀\n조회수:\n438\n첨부파일\n2. 2026학년도 1학기 1차 폐강강좌현황(교양).xlsx\n1. 2026학년도 1학기 1차 폐강강좌현황(전공).xlsx\n목록\n이전글\n2026학년도 1학기 학습경험인정제 관련내용 및 신청, 관련서류 제출방법 안내\n다음글\n2026학년도 1학기 조기취업 출석인정(1차) 서류 접수 안내",
+  "normalize": null,
+  "table_text": "",
+  "attachment_text": null,
+  "language": "ko",
+  "status": "active",
+  "version": 2,
+  "collected_at": "2026-04-14T17:40:37+09:00",
+  "content_hash": "bd4275e364b9380507fa1ed120c1d48b4cb4c358",
+  "views": null,
+  "image_urls": [
+    "https://www.deu.ac.kr/_attach/deu/editor-image/2026/02/zeEsNibWuCyQdtFxymunYJvPNP.jpeg"
+  ],
+  "attachments": [
+    {
+      "attachment_index": 1,
+      "file_name": "2. 2026학년도 1학기 1차 폐강강좌현황(교양).xlsx",
+      "file_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=download&articleNo=81984&attachNo=126434"
+    },
+    {
+      "attachment_index": 2,
+      "file_name": "1. 2026학년도 1학기 1차 폐강강좌현황(전공).xlsx",
+      "file_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=download&articleNo=81984&attachNo=126536"
+    }
+  ],
+  "html_path": "crawler/data/raw/html/academic_notice/deu_academic_notice_81984.html",
+  "downloaded_attachments": [
+    {
+      "attachment_index": 1,
+      "file_name": "2. 2026학년도 1학기 1차 폐강강좌현황(교양).xlsx",
+      "file_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=download&articleNo=81984&attachNo=126434",
+      "file_ext": ".xlsx",
+      "saved_path": "crawler/data/raw/files/academic_notice/deu_academic_notice_81984/2._2026학년도_1학기_1차_폐강강좌현황(교양).xlsx",
+      "file_size": 14057,
+      "parser_type": "unsupported",
+      "attachment_text": null,
+      "page_count": null,
+      "pages": [],
+      "note": null,
+      "raw_xml_files": []
+    },
+    {
+      "attachment_index": 2,
+      "file_name": "1. 2026학년도 1학기 1차 폐강강좌현황(전공).xlsx",
+      "file_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=download&articleNo=81984&attachNo=126536",
+      "file_ext": ".xlsx",
+      "saved_path": "crawler/data/raw/files/academic_notice/deu_academic_notice_81984/1._2026학년도_1학기_1차_폐강강좌현황(전공).xlsx",
+      "file_size": 16823,
+      "parser_type": "unsupported",
+      "attachment_text": null,
+      "page_count": null,
+      "pages": [],
+      "note": null,
+      "raw_xml_files": []
+    }
+  ]
+}

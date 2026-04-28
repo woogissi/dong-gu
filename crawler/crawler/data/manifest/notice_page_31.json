@@ -1,0 +1,77 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=list",
+  "page_no": 31,
+  "count": 10,
+  "items": [
+    {
+      "article_no": "52096",
+      "title_hint": "제16기 동의대학교 일반홍보대사 1차 서류 합격자 및 면접일정 공지",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52096&article.offset=300&articleLimit=10",
+      "published_at_hint": "2023-03-21",
+      "row_text": "912 제16기 동의대학교 일반홍보대사 1차 서류 합격자 및 면접일정 공지 홍보팀 2023-03-21 8731"
+    },
+    {
+      "article_no": "52101",
+      "title_hint": "2023학년도 1학기 등록금 분할2차 납부 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52101&article.offset=300&articleLimit=10",
+      "published_at_hint": "2023-03-20",
+      "row_text": "911 2023학년도 1학기 등록금 분할2차 납부 안내 경리팀 2023-03-20 9109"
+    },
+    {
+      "article_no": "52095",
+      "title_hint": "[중앙도서관] 도서관 스탬프 이벤트 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52095&article.offset=300&articleLimit=10",
+      "published_at_hint": "2023-03-17",
+      "row_text": "910 [중앙도서관] 도서관 스탬프 이벤트 안내 중앙도서관 2023-03-17 8099"
+    },
+    {
+      "article_no": "52098",
+      "title_hint": "[디그니타스교양교육연구소] 2023년 동의대학교 DILE 강연시리즈 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52098&article.offset=300&articleLimit=10",
+      "published_at_hint": "2023-03-16",
+      "row_text": "909 [디그니타스교양교육연구소] 2023년 동의대학교 DILE 강연시리즈 안내 디그니타스교양교육연구소 2023-03-16 8080"
+    },
+    {
+      "article_no": "52093",
+      "title_hint": "예비군훈련에 참가하는 학생(예비군)의 학업 보장 관련 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52093&article.offset=300&articleLimit=10",
+      "published_at_hint": "2023-03-09",
+      "row_text": "908 예비군훈련에 참가하는 학생(예비군)의 학업 보장 관련 안내 예비군연대 2023-03-09 9623"
+    },
+    {
+      "article_no": "52094",
+      "title_hint": "2023년 64기 65기 학군사관 모집 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52094&article.offset=300&articleLimit=10",
+      "published_at_hint": "2023-03-07",
+      "row_text": "907 2023년 64기 65기 학군사관 모집 안내 학생군사교육단 2023-03-07 8794"
+    },
+    {
+      "article_no": "52091",
+      "title_hint": "[대학혁신사업] 대학혁신지원사업단 뉴스레터 2022년 제4호",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52091&article.offset=300&articleLimit=10",
+      "published_at_hint": "2023-03-03",
+      "row_text": "906 [대학혁신사업] 대학혁신지원사업단 뉴스레터 2022년 제4호 대학혁신지원사업단 2023-03-03 7929"
+    },
+    {
+      "article_no": "52092",
+      "title_hint": "제2회 박물관 사진 공모전 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52092&article.offset=300&articleLimit=10",
+      "published_at_hint": "2023-03-02",
+      "row_text": "905 제2회 박물관 사진 공모전 안내 박물관 2023-03-02 8856"
+    },
+    {
+      "article_no": "52090",
+      "title_hint": "2023학년도 통합사무실 위치 및 전화번호 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52090&article.offset=300&articleLimit=10",
+      "published_at_hint": "2023-02-28",
+      "row_text": "904 2023학년도 통합사무실 위치 및 전화번호 안내 학사지원팀 2023-02-28 10638"
+    },
+    {
+      "article_no": "52042",
+      "title_hint": "2023학년도 1학기 코로나19 출석인정 방법 안내",
+      "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=52042&article.offset=300&articleLimit=10",
+      "published_at_hint": "2023-02-28",
+      "row_text": "903 2023학년도 1학기 코로나19 출석인정 방법 안내 학사지원팀 2023-02-28 11070"
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=list",
+  "page_no": 34,
+  "count": 13,
+  "items": [
+    {
+      "article_no": "82127",
+      "title_hint": "2026학년도 1학기 출석인정 신청 및 처리안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=82127&article.offset=330&articleLimit=10",
+      "published_at_hint": "2026-03-03",
+      "row_text": "공지 2026학년도 1학기 출석인정 신청 및 처리안내 학사지원팀 2026-03-03 316"
+    },
+    {
+      "article_no": "80310",
+      "title_hint": "다전공 안내 가이드(2026)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80310&article.offset=330&articleLimit=10",
+      "published_at_hint": "2026-01-21",
+      "row_text": "공지 다전공 안내 가이드(2026) 학사지원팀 2026-01-21 554"
+    },
+    {
+      "article_no": "80309",
+      "title_hint": "학사정보 종합안내 가이드(2026)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80309&article.offset=330&articleLimit=10",
+      "published_at_hint": "2026-01-21",
+      "row_text": "공지 학사정보 종합안내 가이드(2026) 학사지원팀 2026-01-21 1523"
+    },
+    {
+      "article_no": "65335",
+      "title_hint": "2022학년도 1학기 학사일정 변경",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65335&article.offset=330&articleLimit=10",
+      "published_at_hint": "2022-04-28",
+      "row_text": "634 2022학년도 1학기 학사일정 변경 학사지원팀 2022-04-28 3498"
+    },
+    {
+      "article_no": "65334",
+      "title_hint": "2022학년도 하계계절수업 전자출결시스템 사용 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65334&article.offset=330&articleLimit=10",
+      "published_at_hint": "2022-04-26",
+      "row_text": "633 2022학년도 하계계절수업 전자출결시스템 사용 안내 학사지원팀 2022-04-26 929"
+    },
+    {
+      "article_no": "65333",
+      "title_hint": "2022학년도 하계계절수업 등록금 납부 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65333&article.offset=330&articleLimit=10",
+      "published_at_hint": "2022-04-26",
+      "row_text": "632 2022학년도 하계계절수업 등록금 납부 안내 학사지원팀 2022-04-26 2535"
+    },
+    {
+      "article_no": "65332",
+      "title_hint": "2022학년도 하계계절수업 수강신청 시 유의사항 안내(타대학 소속 학생용)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65332&article.offset=330&articleLimit=10",
+      "published_at_hint": "2022-04-26",
+      "row_text": "631 2022학년도 하계계절수업 수강신청 시 유의사항 안내(타대학 소속 학생용) 학사지원팀 2022-04-26 1667"
+    },
+    {
+      "article_no": "65322",
+      "title_hint": "2022학년도 하계계절수업 수강신청 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65322&article.offset=330&articleLimit=10",
+      "published_at_hint": "2022-04-26",
+      "row_text": "630 2022학년도 하계계절수업 수강신청 안내 학사지원팀 2022-04-26 9438"
+    },
+    {
+      "article_no": "65321",
+      "title_hint": "2022학년도 하계계절수업(우리대학->타대학) 수강안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65321&article.offset=330&articleLimit=10",
+      "published_at_hint": "2022-04-21",
+      "row_text": "629 2022학년도 하계계절수업(우리대학->타대학) 수강안내 학사지원팀 2022-04-21 2453"
+    },
+    {
+      "article_no": "65320",
+      "title_hint": "[학사조치6차] 2022-1학기 6주차이후 수업운영 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65320&article.offset=330&articleLimit=10",
+      "published_at_hint": "2022-04-01",
+      "row_text": "628 [학사조치6차] 2022-1학기 6주차이후 수업운영 안내 학사지원팀 2022-04-01 8286"
+    },
+    {
+      "article_no": "65319",
+      "title_hint": "2022학년도 1학기 수업진단평가 실시 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65319&article.offset=330&articleLimit=10",
+      "published_at_hint": "2022-03-28",
+      "row_text": "627 2022학년도 1학기 수업진단평가 실시 안내 학사지원팀 2022-03-28 1279"
+    },
+    {
+      "article_no": "65331",
+      "title_hint": "[학사조치5차] 2022-1학기 5주차 수업운영 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65331&article.offset=330&articleLimit=10",
+      "published_at_hint": "2022-03-24",
+      "row_text": "626 [학사조치5차] 2022-1학기 5주차 수업운영 안내 학사지원팀 2022-03-24 7042"
+    },
+    {
+      "article_no": "65330",
+      "title_hint": "오미크론 관련 대면 수업 출석 기준 안내(수업 3주차 - 03월 16일부터)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65330&article.offset=330&articleLimit=10",
+      "published_at_hint": "2022-03-15",
+      "row_text": "625 오미크론 관련 대면 수업 출석 기준 안내(수업 3주차 - 03월 16일부터) 학사지원팀 2022-03-15 10949"
+    }
+  ]
+}

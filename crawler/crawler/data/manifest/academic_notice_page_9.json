@@ -1,0 +1,98 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=list",
+  "page_no": 9,
+  "count": 13,
+  "items": [
+    {
+      "article_no": "82127",
+      "title_hint": "2026학년도 1학기 출석인정 신청 및 처리안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=82127&article.offset=80&articleLimit=10",
+      "published_at_hint": "2026-03-03",
+      "row_text": "공지 2026학년도 1학기 출석인정 신청 및 처리안내 학사지원팀 2026-03-03 291"
+    },
+    {
+      "article_no": "80310",
+      "title_hint": "다전공 안내 가이드(2026)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80310&article.offset=80&articleLimit=10",
+      "published_at_hint": "2026-01-21",
+      "row_text": "공지 다전공 안내 가이드(2026) 학사지원팀 2026-01-21 529"
+    },
+    {
+      "article_no": "80309",
+      "title_hint": "학사정보 종합안내 가이드(2026)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80309&article.offset=80&articleLimit=10",
+      "published_at_hint": "2026-01-21",
+      "row_text": "공지 학사정보 종합안내 가이드(2026) 학사지원팀 2026-01-21 1498"
+    },
+    {
+      "article_no": "65681",
+      "title_hint": "[필독] 동의대학교 헤이영캠퍼스 앱 도입 및 설치 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65681&article.offset=80&articleLimit=10",
+      "published_at_hint": "2025-02-27",
+      "row_text": "884 [필독] 동의대학교 헤이영캠퍼스 앱 도입 및 설치 안내 관리자 2025-02-27 536"
+    },
+    {
+      "article_no": "65683",
+      "title_hint": "2025학년도 1학기 학습경험인정제 관련내용 및 신청방법 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65683&article.offset=80&articleLimit=10",
+      "published_at_hint": "2025-02-25",
+      "row_text": "883 2025학년도 1학기 학습경험인정제 관련내용 및 신청방법 안내 학사지원팀 2025-02-25 277"
+    },
+    {
+      "article_no": "65682",
+      "title_hint": "2025학년도 1학기 1차 폐강 및 수강정정 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65682&article.offset=80&articleLimit=10",
+      "published_at_hint": "2025-02-24",
+      "row_text": "882 2025학년도 1학기 1차 폐강 및 수강정정 안내 학사지원팀 2025-02-24 790"
+    },
+    {
+      "article_no": "65679",
+      "title_hint": "미졸업자(초과학기) 수강신청 후 현금등록 방법 및 기간 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65679&article.offset=80&articleLimit=10",
+      "published_at_hint": "2025-02-20",
+      "row_text": "881 미졸업자(초과학기) 수강신청 후 현금등록 방법 및 기간 안내 학사지원팀 2025-02-20 1108"
+    },
+    {
+      "article_no": "65680",
+      "title_hint": "BITS공유대학 운영 교과목 수업계획서 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65680&article.offset=80&articleLimit=10",
+      "published_at_hint": "2025-02-20",
+      "row_text": "880 BITS공유대학 운영 교과목 수업계획서 안내 학사지원팀 2025-02-20 321"
+    },
+    {
+      "article_no": "64643",
+      "title_hint": "2025학년도 1학기 재수강 이수 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=64643&article.offset=80&articleLimit=10",
+      "published_at_hint": "2025-02-12",
+      "row_text": "879 2025학년도 1학기 재수강 이수 안내 학사지원팀 2025-02-12 1156"
+    },
+    {
+      "article_no": "64642",
+      "title_hint": "전자출결 시스템 사용 안내(2025-1학기부터 시스템 변경 됩니다.)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=64642&article.offset=80&articleLimit=10",
+      "published_at_hint": "2025-02-12",
+      "row_text": "878 전자출결 시스템 사용 안내(2025-1학기부터 시스템 변경 됩니다.) 학사지원팀 2025-02-12 1092"
+    },
+    {
+      "article_no": "65474",
+      "title_hint": "2025-1학기 제2전공(부·복수·융합·연계) 추천과목 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65474&article.offset=80&articleLimit=10",
+      "published_at_hint": "2025-02-10",
+      "row_text": "877 2025-1학기 제2전공(부·복수·융합·연계) 추천과목 안내 학사지원팀 2025-02-10 657"
+    },
+    {
+      "article_no": "65487",
+      "title_hint": "2025학년도 1학기 1학년 신입생 및 복학생 수강신청 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65487&article.offset=80&articleLimit=10",
+      "published_at_hint": "2025-02-10",
+      "row_text": "876 2025학년도 1학기 1학년 신입생 및 복학생 수강신청 안내 학사지원팀 2025-02-10 6401"
+    },
+    {
+      "article_no": "65486",
+      "title_hint": "2025학년도 1학기 수강신청 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65486&article.offset=80&articleLimit=10",
+      "published_at_hint": "2025-02-10",
+      "row_text": "875 2025학년도 1학기 수강신청 안내 학사지원팀 2025-02-10 6126"
+    }
+  ]
+}

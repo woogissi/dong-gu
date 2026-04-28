@@ -1,0 +1,98 @@
+{
+  "list_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=list",
+  "page_no": 38,
+  "count": 13,
+  "items": [
+    {
+      "article_no": "82127",
+      "title_hint": "2026학년도 1학기 출석인정 신청 및 처리안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=82127&article.offset=370&articleLimit=10",
+      "published_at_hint": "2026-03-03",
+      "row_text": "공지 2026학년도 1학기 출석인정 신청 및 처리안내 학사지원팀 2026-03-03 320"
+    },
+    {
+      "article_no": "80310",
+      "title_hint": "다전공 안내 가이드(2026)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80310&article.offset=370&articleLimit=10",
+      "published_at_hint": "2026-01-21",
+      "row_text": "공지 다전공 안내 가이드(2026) 학사지원팀 2026-01-21 558"
+    },
+    {
+      "article_no": "80309",
+      "title_hint": "학사정보 종합안내 가이드(2026)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=80309&article.offset=370&articleLimit=10",
+      "published_at_hint": "2026-01-21",
+      "row_text": "공지 학사정보 종합안내 가이드(2026) 학사지원팀 2026-01-21 1527"
+    },
+    {
+      "article_no": "65302",
+      "title_hint": "2021학년도 학부제 전공배정 공고(결과 공고 일정 수정)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65302&article.offset=370&articleLimit=10",
+      "published_at_hint": "2021-11-16",
+      "row_text": "594 2021학년도 학부제 전공배정 공고(결과 공고 일정 수정) 학사지원팀 2021-11-16 1636"
+    },
+    {
+      "article_no": "65300",
+      "title_hint": "2021학년도 동계계절수업 수강신청 안내(바이오헬스혁신공유대학)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65300&article.offset=370&articleLimit=10",
+      "published_at_hint": "2021-11-12",
+      "row_text": "593 2021학년도 동계계절수업 수강신청 안내(바이오헬스혁신공유대학) 학사지원팀 2021-11-12 3290"
+    },
+    {
+      "article_no": "65292",
+      "title_hint": "2021학년도 2학기 조기취업자 출석인정 최종 접수(2차)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65292&article.offset=370&articleLimit=10",
+      "published_at_hint": "2021-11-05",
+      "row_text": "592 2021학년도 2학기 조기취업자 출석인정 최종 접수(2차) 학사지원팀 2021-11-05 2659"
+    },
+    {
+      "article_no": "65296",
+      "title_hint": "2021학년도 동계계절수업 조기취업자 출석인정 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65296&article.offset=370&articleLimit=10",
+      "published_at_hint": "2021-11-03",
+      "row_text": "591 2021학년도 동계계절수업 조기취업자 출석인정 안내 학사지원팀 2021-11-03 846"
+    },
+    {
+      "article_no": "65295",
+      "title_hint": "모집 중지학과 소속학생(복수전공 포함)의 졸업논문 제출 관련사항 안내(불문, 독문, 사학, 철학상담심리, 수학, 물리, 화학, 분자생물, 생명응용)(~2021.12.17까지 제출)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65295&article.offset=370&articleLimit=10",
+      "published_at_hint": "2021-11-03",
+      "row_text": "590 모집 중지학과 소속학생(복수전공 포함)의 졸업논문 제출 관련사항 안내(불문, 독문, 사학, 철학상담심리, 수학, 물리, 화학, 분자생물, 생명응용)(~2021.12.17까지 제출) 학사지원팀 2021-11-03 1383"
+    },
+    {
+      "article_no": "65291",
+      "title_hint": "2021학년도 동계계절수업 전자출결시스템 사용 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65291&article.offset=370&articleLimit=10",
+      "published_at_hint": "2021-10-29",
+      "row_text": "589 2021학년도 동계계절수업 전자출결시스템 사용 안내 학사지원팀 2021-10-29 851"
+    },
+    {
+      "article_no": "65290",
+      "title_hint": "2021학년도 동계계절수업 등록금 납부 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65290&article.offset=370&articleLimit=10",
+      "published_at_hint": "2021-10-29",
+      "row_text": "588 2021학년도 동계계절수업 등록금 납부 안내 학사지원팀 2021-10-29 2177"
+    },
+    {
+      "article_no": "65289",
+      "title_hint": "2021학년도 동계계절수업 수강신청 시 유의사항 안내(타대학 학생용)",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65289&article.offset=370&articleLimit=10",
+      "published_at_hint": "2021-10-29",
+      "row_text": "587 2021학년도 동계계절수업 수강신청 시 유의사항 안내(타대학 학생용) 학사지원팀 2021-10-29 1159"
+    },
+    {
+      "article_no": "65279",
+      "title_hint": "2021학년도 동계계절수업 수강신청 안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65279&article.offset=370&articleLimit=10",
+      "published_at_hint": "2021-10-29",
+      "row_text": "586 2021학년도 동계계절수업 수강신청 안내 학사지원팀 2021-10-29 7131"
+    },
+    {
+      "article_no": "65278",
+      "title_hint": "2021학년도 동계계절수업(우리대학->타대학) 수강안내",
+      "detail_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=65278&article.offset=370&articleLimit=10",
+      "published_at_hint": "2021-10-25",
+      "row_text": "585 2021학년도 동계계절수업(우리대학->타대학) 수강안내 학사지원팀 2021-10-25 2186"
+    }
+  ]
+}
