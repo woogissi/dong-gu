@@ -7,8 +7,6 @@ from rag.pipeline.chat_pipeline import ChatPipeline
 from rag.schemas.query import Query
 
 
-
-
 router = APIRouter(tags=["kakao"])
 
 primary_intent_classifier = PrimaryIntentClassifier()
@@ -40,8 +38,6 @@ async def kakao_webhook(request: Request):
     if not utterance:
         return kakao_simple_text("질문 내용을 입력해주세요.")
 
-    # 같은 사용자의 이전 요청이 아직 처리 중이면,
-    # 질문 내용과 상관없이 바로 차단
     if not acquire_user_lock(user_id):
         return kakao_simple_text(
             "이전 질문을 처리 중입니다.\n잠시 후 다시 질문해주세요."
@@ -60,11 +56,19 @@ async def kakao_webhook(request: Request):
             )
             return kakao_simple_text(answer_text)
 
-        import asyncio
-        await asyncio.sleep(5)
-
         result = chat_pipeline.run(Query(text=utterance))
-        return kakao_simple_text(result.answer)
+        
+        if isinstance(result, dict):
+            
+            answer_text = result.get("answer_text") or result.get("answer")
+            
+        else:
+            answer_text = getattr(result, "answer_text", None) or getattr(result, "answer", None)
+
+        if not answer_text:
+            answer_text = "답변을 생성하지 못했습니다."
+
+        return kakao_simple_text(answer_text)
 
     except Exception as e:
         print(f"[ERROR] kakao_webhook: {e}")
@@ -73,4 +77,4 @@ async def kakao_webhook(request: Request):
         )
 
     finally:
-        release_user_lock(user_id)
+        release_user_lock(user_id)  

@@ -1,7 +1,6 @@
 import re
 from typing import Literal
-from backend.app.utils.profanity_filter import contains_profanity #profanity_filter랑 연결해줌
-
+from backend.app.utils.profanity_filter import contains_profanity
 
 # 1차 분류 결과 타입 정의
 PrimaryIntent = Literal["GENERAL", "INFO", "PROFANITY"] #욕설 필터 추가
