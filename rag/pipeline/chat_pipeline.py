@@ -5,7 +5,7 @@ from rag.pipeline.preprocessor import QueryPreprocessor
 from rag.schemas.query import Query
 from rag.schemas.answer import Answer
 
-from rag.retrieval.retrievel import retrieve_documents
+from rag.retrieval.retriever import retrieve_documents
 from rag.retrieval.search_strategy import build_retrieval_request
 from rag.selection.topk_selector import select_topk
 from rag.selection.context_builder import build_context
