@@ -4,3 +4,4 @@ __pycache__/
 .venv/
 crawler/data/
 docs/*.md
+AGENTS.md

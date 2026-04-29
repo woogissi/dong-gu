@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import numpy as np
+from numpy.typing import NDArray
 from sentence_transformers import SentenceTransformer
+
+EmbeddingVector = NDArray[np.float32] | NDArray[np.float64] | list[float]
+EmbeddingMatrix = NDArray[np.float32] | NDArray[np.float64] | list[list[float]]
 
 
 class KoE5Embedder:
@@ -9,9 +14,9 @@ class KoE5Embedder:
 
     - 단일 문서 임베딩
     - 여러 문서(batch) 임베딩
-    - 검색 query 임베딩
+    - 검색용 query 임베딩
     - 벡터 차원 확인
-    - 기본 예외 처리
+    - 선택형 입력 검증
     """
 
     def __init__(
@@ -19,9 +24,11 @@ class KoE5Embedder:
         model_name: str = "nlpai-lab/KoE5",
         device: str | None = None,
         normalize_embeddings: bool = True,
+        validate_input: bool = True,
     ) -> None:
         self.model_name = model_name
         self.normalize_embeddings = normalize_embeddings
+        self.validate_input = validate_input
         self.model = SentenceTransformer(model_name, device=device)
 
         dimension = self.model.get_sentence_embedding_dimension()
@@ -31,7 +38,6 @@ class KoE5Embedder:
         test_vector = self.model.encode(
             "passage: test",
             normalize_embeddings=self.normalize_embeddings,
-            convert_to_numpy=True,
         )
         return int(test_vector.shape[0])
 
@@ -53,31 +59,58 @@ class KoE5Embedder:
             if not text.strip():
                 raise ValueError(f"text_list[{i}] must not be empty.")
 
+    def _resolve_validate(self, validate: bool | None) -> bool:
+        return self.validate_input if validate is None else validate
+
     def _add_passage_prefix(self, text: str) -> str:
         return f"passage: {text.strip()}"
 
     def _add_query_prefix(self, text: str) -> str:
         return f"query: {text.strip()}"
 
-    def embed_text(self, text: str) -> list[float]:
+    def _format_embedding(
+        self,
+        embedding: NDArray[np.float32] | NDArray[np.float64],
+        *,
+        return_numpy: bool,
+    ) -> EmbeddingVector | EmbeddingMatrix:
+        if return_numpy:
+            return embedding
+        return embedding.tolist()
+
+    def embed_text(
+        self,
+        text: str,
+        *,
+        return_numpy: bool = False,
+        validate: bool | None = None,
+    ) -> EmbeddingVector:
         """
         단일 문서 텍스트를 임베딩한다.
         """
-        self._validate_text(text)
+        if self._resolve_validate(validate):
+            self._validate_text(text)
 
         embedding = self.model.encode(
             self._add_passage_prefix(text),
             normalize_embeddings=self.normalize_embeddings,
-            convert_to_numpy=True,
         )
 
-        return embedding.tolist()
+        return self._format_embedding(embedding, return_numpy=return_numpy)
 
-    def embed_documents(self, text_list: list[str], batch_size: int = 32) -> list[list[float]]:
+    def embed_documents(
+        self,
+        text_list: list[str],
+        batch_size: int = 32,
+        *,
+        return_numpy: bool = False,
+        validate: bool | None = None,
+    ) -> EmbeddingMatrix:
         """
         여러 문서 텍스트를 batch 단위로 임베딩한다.
         """
-        self._validate_text_list(text_list)
+        if self._resolve_validate(validate):
+            self._validate_text_list(text_list)
 
         if batch_size <= 0:
             raise ValueError("batch_size must be greater than 0.")
@@ -88,29 +121,34 @@ class KoE5Embedder:
             prefixed_texts,
             batch_size=batch_size,
             normalize_embeddings=self.normalize_embeddings,
-            convert_to_numpy=True,
             show_progress_bar=False,
         )
 
-        return embeddings.tolist()
+        return self._format_embedding(embeddings, return_numpy=return_numpy)
 
-    def embed_query(self, text: str) -> list[float]:
+    def embed_query(
+        self,
+        text: str,
+        *,
+        return_numpy: bool = False,
+        validate: bool | None = None,
+    ) -> EmbeddingVector:
         """
         검색용 query 임베딩.
         retrieval 단계에서 사용.
         """
-        self._validate_text(text)
+        if self._resolve_validate(validate):
+            self._validate_text(text)
 
         embedding = self.model.encode(
             self._add_query_prefix(text),
             normalize_embeddings=self.normalize_embeddings,
-            convert_to_numpy=True,
         )
 
-        return embedding.tolist()
+        return self._format_embedding(embedding, return_numpy=return_numpy)
 
     def get_dimension(self) -> int:
         """
-        임베딩 벡터 차원 수를 반환한다.
+        임베딩 벡터 차원을 반환한다.
         """
         return self.dimension
