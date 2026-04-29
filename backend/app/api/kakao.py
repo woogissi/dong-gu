@@ -10,14 +10,24 @@ from backend.app.utils.kakao_ui import (
     get_link_url_by_category,
     get_title_by_category,
 )
-from rag.pipeline.chat_pipeline import ChatPipeline
 from rag.schemas.query import Query
 
 
 router = APIRouter(tags=["kakao"])
 
 primary_intent_classifier = PrimaryIntentClassifier()
-chat_pipeline = ChatPipeline()
+chat_pipeline = None
+
+
+def get_chat_pipeline():
+    global chat_pipeline
+
+    if chat_pipeline is None:
+        from rag.pipeline.chat_pipeline import ChatPipeline
+
+        chat_pipeline = ChatPipeline()
+
+    return chat_pipeline
 
 
 @router.post("/webhook")
@@ -48,7 +58,7 @@ async def kakao_webhook(request: Request):
             )
             return kakao_response(answer_text)
 
-        result = chat_pipeline.run(Query(text=utterance))
+        result = get_chat_pipeline().run(Query(text=utterance))
 
         if isinstance(result, dict):
             result_dict = result
