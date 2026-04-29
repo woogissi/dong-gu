@@ -1,9 +1,9 @@
 import re
 from typing import Literal
-
+from backend.app.utils.profanity_filter import contains_profanity
 
 # 1차 분류 결과 타입 정의
-PrimaryIntent = Literal["GENERAL", "INFO"]
+PrimaryIntent = Literal["GENERAL", "INFO", "PROFANITY"] #욕설 필터 추가
 
 
 class PrimaryIntentClassifier:
@@ -101,6 +101,10 @@ class PrimaryIntentClassifier:
         """
 
         text = self.normalize_text(utterance)
+
+        #욕설을 먼저 검사해야 욕설+정보성 질문 들어와도 걸러내기 가능
+        if contains_profanity(text):
+            return "PROFANITY"
 
         # 입력이 비어있으면 정보성으로 처리 (fallback을 RAG로 보내기 위함)
         if not text:
