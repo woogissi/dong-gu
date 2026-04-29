@@ -1,9 +1,6 @@
+-r ../rag/requirements.txt
+
 fastapi
 uvicorn[standard]
-pydantic
-pydantic-settings
-sqlalchemy
-psycopg[binary]
-python-dotenv
 rapidfuzz
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.10
