@@ -5,3 +5,5 @@ pydantic-settings
 sqlalchemy
 psycopg[binary]
 python-dotenv
+rapidfuzz
+psycopg2-binary==2.9.9

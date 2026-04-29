@@ -1,0 +1,18 @@
+[
+  {
+    "chunk_id": "deu_academic_notice_82127_chunk_001",
+    "doc_id": "deu_academic_notice_82127",
+    "chunk_index": 1,
+    "source_type": "academic_notice",
+    "title": "동의대학교 DONG-EUI UNIVERSITY",
+    "source_url": "https://www.deu.ac.kr/www/gra-notice.do?mode=view&articleNo=82127&article.offset=20&articleLimit=10",
+    "published_at": "2026-03-03",
+    "department": null,
+    "category_lv1": null,
+    "category_lv2": null,
+    "content": "[TITLE]\n동의대학교 DONG-EUI UNIVERSITY\n\n[BODY]\n[공지]\n2026학년도 1학기 출석인정 신청 및 처리안내\n작성일:\n2026-03-03\n작성자:\n학사지원팀\n조회수:\n280\n목록\n이전글\n다전공 안내 가이드(2026)\n다음글\n다음글이 없습니다.",
+    "content_length": 148,
+    "content_hash": "666e83b7fe861825cb11dbf06b0ea6778e6d7542",
+    "version": 1
+  }
+]

@@ -47,29 +47,17 @@ def log_error(message: str) -> None:
         f.write(message + "\n")
 
 
-def merge_image_texts(image_texts: list[dict]) -> str | None:
-    texts = []
-
-    for item in image_texts or []:
-        image_text = item.get("image_text")
-        image_url = item.get("image_url")
-        if image_text:
-            texts.append(f"[IMAGE: {image_url}]\n{image_text}")
-
-    merged = "\n\n".join(texts).strip()
-    return merged if merged else None
-
-
 def build_curated_document(raw_doc: dict, version: int) -> dict:      # raw 정적 문서를 curated 문서로 바꾸는 함수
     normalize = text_cleaner.build_clean_text(         # full_pipeline 보다 더 정제 열심히
         raw_text=raw_doc["raw_text"],
         table_text=raw_doc["table_text"],
     )
-    image_text = merge_image_texts(raw_doc.get("image_texts", []))
 
     curated_doc = CuratedDocument(
         doc_id=raw_doc["doc_id"],
         parent_doc_id=raw_doc["parent_doc_id"],
+        university=raw_doc["university"],
+        campus=raw_doc["campus"],
         source_type=raw_doc["source_type"],
         page_kind=raw_doc["page_kind"],
         category_lv1=raw_doc["category_lv1"],
@@ -88,7 +76,6 @@ def build_curated_document(raw_doc: dict, version: int) -> dict:      # raw 정�
         normalize=normalize,
         table_text=raw_doc["table_text"],
         attachment_text=raw_doc["attachment_text"],
-        image_text=image_text,
         language=raw_doc["language"],
         status=raw_doc["status"],
         version=version,

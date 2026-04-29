@@ -12,6 +12,8 @@ class RawDocumentBase(BaseModel):
 
     doc_id: str                             # 문서 고유 ID
     parent_doc_id: str | None = None        # 부모 문서 ID
+    university: str = "동의대학교"           # 기본 동의대 (없어도 됨)
+    campus: str | None = None               # 얜 없어도 됨
     source_type: str                        # notice / academic_notice / library 등
     page_kind: str                          # 게시판/정적 페이지
 
@@ -50,7 +52,6 @@ class BoardDetailRawDocument(RawDocumentBase):
 
     views: int | None = None                                # 조회수
     image_urls: list[str] = Field(default_factory=list)     # 이미지 url
-    image_texts: list[dict] = Field(default_factory=list)
     attachments: list[dict] = Field(default_factory=list)   # 첨부파일
 
 
@@ -59,7 +60,6 @@ class StaticPageRawDocument(RawDocumentBase):
 
     views: int | None = None
     image_urls: list[str] = Field(default_factory=list)
-    image_texts: list[dict] = Field(default_factory=list)
     attachments: list[dict] = Field(default_factory=list)
     outgoing_links: list[str] = Field(default_factory=list)     # 내부링크
 
@@ -94,7 +94,6 @@ class CuratedDocument(BaseModel):
     normalize: str = ""
     table_text: str = ""
     attachment_text: str | None = None
-    image_text: str | None = None
 
     language: str = "ko"
     status: str = "active"

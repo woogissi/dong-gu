@@ -1,20 +1,18 @@
 # crawler/run/run_vector_ingestion.py
 
 import os
-from pathlib import Path
 
 os.environ.setdefault("HF_HOME", str(Path("crawler/.hf_cache").resolve()))
 os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(Path("crawler/.hf_cache/hub").resolve()))
 
 import json
-
+from pathlib import Path
 
 from crawler.ingestion.embed_worker import EmbeddingWorker
 from crawler.ingestion.pgvector_loader import PGVectorLoader
 from crawler.storage.manifest_writer import ManifestWriter
 
-RAW_DIR = Path("crawler/data/raw/documents")
-CURATED_DIR = Path("crawler/data/curated/documents")
+
 CHUNK_DIR = Path("crawler/data/rag_ready/chunks")
 LOG_DIR = Path("crawler/data/logs")
 
@@ -63,50 +61,17 @@ def main():     # 메인 함수
                 chunks = load_json(chunk_file)      # chunk 파일을 리스트로 들고옴
                 if not chunks:
                     continue
-                
-                source_type = chunks[0]["source_type"]
-                doc_id = chunks[0]["doc_id"]
 
-                curated_path = CURATED_DIR / source_type / f"{doc_id}.json"
-                raw_path = RAW_DIR / source_type / f"{doc_id}.json"
-
-                if not curated_path.exists():
-                    raise FileNotFoundError(f"curated document not found: {curated_path}")
-
-                curated_doc = load_json(curated_path)
-
-                raw_doc = {}
-                if raw_path.exists():
-                    raw_doc = load_json(raw_path)
-
-                version = curated_doc.get("version", 1)
-
-                loader.upsert_document(curated_doc)
-
-                change_type = curated_doc.get("decision", "unknown")
-                if change_type in ("new", "updated"):
-                    loader.insert_document_version(curated_doc, change_type)
-
-                # raw_doc에만 downloaded_attachments, image_texts가 있으므로 합쳐서 assets 저장
-                asset_source_doc = {
-                    **curated_doc,
-                    "downloaded_attachments": raw_doc.get("downloaded_attachments", []),
-                    "image_texts": raw_doc.get("image_texts", []),
-                }
-
-                loader.upsert_assets(asset_source_doc)      # 첨부 assets DB 저장
-
-                loader.upsert_chunks(chunks, version)   # chunk 메타를 DB 저장
-
-                embedded_chunks = embed_worker.embed_chunks(chunks) # 임베딩 생성
-                loader.upsert_embeddings(embedded_chunks)           # 임베딩 벡터를 DB에 저장    
+                loader.upsert_chunks(chunks)        # chunk 메타를 DB에 저장
+                embedded_chunks = embed_worker.embed_chunks(chunks)     # 임베딩 생성
+                loader.upsert_embeddings(embedded_chunks)       # 임베딩 벡터를 DB에 저장
 
                 manifest_writer.append_jsonl("vector_ingestion.jsonl", {
                     "chunk_file": chunk_file.as_posix(),
-                    "source_type": source_type,
-                    "doc_id": doc_id,
+                    "source_type": chunks[0].get("source_type"),
+                    "doc_id": chunks[0].get("doc_id"),
                     "chunk_count": len(chunks),
-                    "embedding_model": embedded_chunks[0].get("embedding_model") if embedded_chunks else None,
+                    "embedding_model": embedded_chunks[0].get("embedding_model"),
                 })
 
                 print(
@@ -114,9 +79,7 @@ def main():     # 메인 함수
                     f"chunks={len(chunks)}"
                 )
 
-            except Exception as e:      # 실패 시 다음 파일로 
-                loader.conn.rollback()
-
+            except Exception as e:      # 실패 시 다음 파일로
                 message = f"[VECTOR ERROR] file={chunk_file.as_posix()} error={e}"
                 log_error(message)
                 manifest_writer.write_error_record(
