@@ -18,5 +18,5 @@ torch
 pydantic>=2.0
 
 pytesseract
-Pillow
 
+Pillow
