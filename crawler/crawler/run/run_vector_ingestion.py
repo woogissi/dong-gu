@@ -96,7 +96,7 @@ def main():     # 메인 함수
 
                 loader.upsert_assets(asset_source_doc)      # 첨부 assets DB 저장
 
-                loader.upsert_chunks(chunks, version=version)   # chunk 메타를 DB 저장
+                loader.upsert_chunks(chunks, version)   # chunk 메타를 DB 저장
 
                 embedded_chunks = embed_worker.embed_chunks(chunks) # 임베딩 생성
                 loader.upsert_embeddings(embedded_chunks)           # 임베딩 벡터를 DB에 저장    

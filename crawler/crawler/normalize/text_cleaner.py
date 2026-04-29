@@ -9,7 +9,7 @@ class TextCleaner:                                          # raw데이터 -> cl
             return ""
         text = text.replace("\xa0", " ")                    # non-breaking space을 공백으로
         text = re.sub(r"[ \t]+", " ", text)                 # 연속된 공백이나 탭을 한 칸 공백으로
-        text = re.sub(r"\n{3,}", "\n\n", text)              # 연속된 공백이나 탭을 한 칸 공백으로 줄인다.
+        text = re.sub(r"\n{3,}", "\n\n", text)              # \n은 최대 두개
         return text.strip()                                 # 앞뒤 공백/줄바꿈 제거
 
     def remove_common_noise(self, text: str) -> str:        # 웹페이지 공통 노이즈 제거
