@@ -8,6 +8,7 @@
   """
 
 import unittest
+from pprint import pprint
 
 from rag.pipeline.state import PipelineState
 from rag.retrieval.search_strategy import build_retrieval_request
@@ -23,7 +24,20 @@ class SearchStrategyTest(unittest.TestCase):
         state.filters = {"category": ["수강"], "time": ["기간"]}
         state.category = "수강"
 
+        self._debug_print(
+            "lexical_request input_state",
+            {
+                "original_query": state.original_query,
+                "normalized_query": state.normalized_query,
+                "rewritten_query": state.rewritten_query,
+                "rewritten_queries": state.rewritten_queries,
+                "keywords": state.keywords,
+                "filters": state.filters,
+                "category": state.category,
+            },
+        )
         request = build_retrieval_request(state)
+        self._debug_print("lexical_request output", request.model_dump())
 
         self.assertEqual(request.strategy, "lexical")
         self.assertEqual(request.category, "수강")
@@ -34,10 +48,28 @@ class SearchStrategyTest(unittest.TestCase):
     def test_adds_fallback_trigger_for_empty_search_terms(self) -> None:
         state = PipelineState.from_query("")
 
+        self._debug_print(
+            "fallback_request input_state",
+            {
+                "original_query": state.original_query,
+                "normalized_query": state.normalized_query,
+                "rewritten_query": state.rewritten_query,
+                "rewritten_queries": state.rewritten_queries,
+                "keywords": state.keywords,
+                "filters": state.filters,
+                "category": state.category,
+            },
+        )
         request = build_retrieval_request(state)
+        self._debug_print("fallback_request output", request.model_dump())
 
         self.assertIn("empty_query", request.fallback_triggers)
         self.assertIn("insufficient_search_terms", request.fallback_triggers)
+
+
+    def _debug_print(self, label: str, payload: object) -> None:
+        print(f"\n[{self.__class__.__name__}] {label}")
+        pprint(payload, sort_dicts=False)
 
 
 if __name__ == "__main__":

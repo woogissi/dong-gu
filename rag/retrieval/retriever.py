@@ -76,6 +76,11 @@ class KoreanBM25Tokenizer:
     # Kiwi 형태소 분석기를 사용하여 텍스트를 토큰화하는 메서드
     def _tokenize_with_kiwi(self, text: str) -> list[str]:
         tokens: list[str] = []
+        for token in _TOKEN_PATTERN.findall(text.lower()):
+            if len(token) == 1 and not token.isdigit():
+                continue
+            if token not in tokens:
+                tokens.append(token)
         for token in self._kiwi.tokenize(text):
             normalized = token.form.strip().lower()
             if not normalized:
@@ -84,7 +89,8 @@ class KoreanBM25Tokenizer:
                 continue
             if len(normalized) == 1 and not normalized.isdigit():
                 continue
-            tokens.append(normalized)
+            if normalized not in tokens:
+                tokens.append(normalized)
         return tokens
 
     # 정규 표현식을 사용하여 텍스트를 토큰화하는 메서드 (Kiwi가 없는 경우)

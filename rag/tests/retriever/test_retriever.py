@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 import unittest
+from pprint import pprint
 from pathlib import Path
 
 from rag.retrieval import retriever
@@ -60,7 +61,22 @@ class RetrieverBM25Test(unittest.TestCase):
             top_k=5,
         )
 
+        self._debug_print("retrieve_documents request", request.model_dump())
         documents = retriever.retrieve_documents(request=request)
+        self._debug_print(
+            "retrieve_documents result",
+            [
+                {
+                    "doc_id": document.doc_id,
+                    "chunk_id": document.chunk_id,
+                    "score": document.score,
+                    "title": document.title,
+                    "matched_tokens": document.metadata.get("matched_tokens"),
+                    "source_type": document.metadata.get("source_type"),
+                }
+                for document in documents
+            ],
+        )
 
         self.assertEqual(len(documents), 1)
         self.assertEqual(documents[0].doc_id, "notice_1")
@@ -75,7 +91,21 @@ class RetrieverBM25Test(unittest.TestCase):
             top_k=5,
         )
 
+        self._debug_print("category_filter request", request.model_dump())
         documents = retriever.retrieve_documents(request=request)
+        self._debug_print(
+            "category_filter result",
+            [
+                {
+                    "doc_id": document.doc_id,
+                    "chunk_id": document.chunk_id,
+                    "score": document.score,
+                    "title": document.title,
+                    "source_type": document.metadata.get("source_type"),
+                }
+                for document in documents
+            ],
+        )
 
         self.assertEqual(len(documents), 1)
         self.assertEqual(documents[0].metadata["source_type"], "academic_notice")
@@ -84,6 +114,10 @@ class RetrieverBM25Test(unittest.TestCase):
         file_path = self.chunk_dir / relative_path
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _debug_print(self, label: str, payload: object) -> None:
+        print(f"\n[{self.__class__.__name__}] {label}")
+        pprint(payload, sort_dicts=False)
 
 
 if __name__ == "__main__":
