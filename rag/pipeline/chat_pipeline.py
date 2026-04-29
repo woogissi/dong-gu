@@ -13,7 +13,7 @@ from rag.selection.context_builder import build_context
 from rag.prompt.prompt_builder import build_prompt
 from rag.llm.answer_generator import generate_answer
 
-from rag.fallback.fallback.fallback_handler import handle_fallback
+from rag.fallback.fallback_handler import handle_fallback
 
 from rag.embedding.koe5_embedder import KoE5Embedder
 
