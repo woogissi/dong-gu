@@ -3,7 +3,13 @@ from fastapi import APIRouter, Request
 from backend.app.api.chat import general_chat_service
 from backend.app.utils.intent_classifier import PrimaryIntentClassifier
 from backend.app.utils.user_lock import acquire_user_lock, release_user_lock
-from backend.app.utils.kakao_template import kakao_response
+from backend.app.utils.kakao_template import kakao_response, kakao_text_card
+from backend.app.utils.kakao_ui import (
+    get_category_from_utterance,
+    get_quick_replies_by_category,
+    get_link_url_by_category,
+    get_title_by_category,
+)
 from rag.pipeline.chat_pipeline import ChatPipeline
 from rag.schemas.query import Query
 
@@ -42,17 +48,61 @@ async def kakao_webhook(request: Request):
             )
             return kakao_response(answer_text)
 
+        # 🔥 RAG 실행
         result = chat_pipeline.run(Query(text=utterance))
 
+        # 🔥 dict 변환
         if isinstance(result, dict):
-            answer_text = result.get("answer_text") or result.get("answer")
+            result_dict = result
+        elif hasattr(result, "model_dump"):
+            result_dict = result.model_dump()
+        elif hasattr(result, "to_dict"):
+            result_dict = result.to_dict()
         else:
-            answer_text = getattr(result, "answer_text", None) or getattr(result, "answer", None)
+            result_dict = {}
 
-        if not answer_text:
-            answer_text = "답변을 생성하지 못했습니다."
+        # 🔥 answer 추출
+        answer_text = (
+            result_dict.get("answer_text")
+            or result_dict.get("answer")
+            or getattr(result, "answer_text", None)
+            or getattr(result, "answer", None)
+        )
 
-        return kakao_response(answer_text)
+        # 🔥 category 추출
+        category = (
+            result_dict.get("category")
+            or getattr(result, "category", None)
+        )
+
+        # 🔥 fallback (핵심)
+        if not category:
+            category = get_category_from_utterance(utterance)
+
+        # 🔥 답변 정리
+        answer_text = (answer_text or "답변을 생성하지 못했습니다.").strip()
+        answer_text = answer_text.replace("[DUMMY ANSWER]", "").strip()
+
+        if "문맥:" in answer_text:
+            answer_text = answer_text.split("문맥:")[0].strip()
+
+        # 🔥 UI 생성
+        quick_replies = get_quick_replies_by_category(category)
+        link_url = get_link_url_by_category(category)
+
+        print("DEBUG category:", category)
+        print("DEBUG quick_replies:", quick_replies)
+
+        answer_text = f"{answer_text}\n\n사이트 바로가기: {link_url}"
+
+        title = get_title_by_category(category)
+
+        return kakao_text_card(
+            title=title,
+            description=answer_text,
+            link_url=link_url,
+            quick_replies=quick_replies
+        )
 
     except Exception as e:
         print(f"[ERROR] kakao_webhook: {e}")

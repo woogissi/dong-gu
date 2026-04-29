@@ -1,5 +1,3 @@
-print("🔥 실제 routers/chat.py 로드됨")
-
 from fastapi import APIRouter
 from backend.app.utils.kakao_template import kakao_response
 from backend.app.utils.intent_classifier import PrimaryIntentClassifier
