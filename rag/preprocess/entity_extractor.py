@@ -1,4 +1,9 @@
-﻿"""Rule-based entity extraction for university FAQ queries."""
+﻿"""엔티티 추출 모듈
+- 사용자 질문에서 핵심 엔티티 추출
+- 엔티티 그룹별 대표 키워드 선정
+- 시간 관련 표현 패턴 인식
+- 필터링 가능한 엔티티 구성
+"""
 
 from __future__ import annotations
 
@@ -27,38 +32,45 @@ def _contains_any(text: str, words: list[str]) -> bool:
 
 
 def _pick_matches(text: str, candidates: list[str]) -> list[str]:
-    matched = [candidate for candidate in candidates if candidate in text]
-    return sorted(set(matched))
+    # 순서를 보장하면서 매칭되는 값만 추출
+    return [candidate for candidate in candidates if candidate in text]
 
 
 def _extract_group_entities(text: str, keywords: set[str], entity_names: list[str]) -> list[str]:
-    return [
-        name
-        for name in entity_names
-        if name in keywords or _contains_any(text, ENTITY_LEXICON.get(name, []))
-    ]
+    # entity_names(규칙)에 정의된 순서대로 검사하므로, 우선순위가 자연스럽게 보장됨
+    matched = []
+    for name in entity_names:
+        if name in keywords or _contains_any(text, ENTITY_LEXICON.get(name, [])):
+            matched.append(name)
+    return matched
 
 
 def _extract_time_entities(text: str) -> list[str]:
-    time = _pick_matches(text, _TIME_EXACT_MATCHES)
+    time_entities = _pick_matches(text, _TIME_EXACT_MATCHES)
 
     for pattern, label in _TIME_PATTERN_RULES:
         if re.search(pattern, text):
-            time.append(label)
+            time_entities.append(label)
 
-    return sorted(set(time))
+    # 중복을 제거하되, 삽입된 순서(Exact Match -> Pattern 순)를 보장
+    return list(dict.fromkeys(time_entities))
 
 
 def extract_entities(query: str, keywords: list[str] | None = None) -> dict[str, list[str]]:
+    # 모든 기본 스키마 필드를 빈 리스트로 안전하게 초기화
+    entities = {field: [] for field in ENTITY_SCHEMA}
+    
     if not query:
-        return {field: [] for field in ENTITY_SCHEMA}
+        return entities
 
     text = query
     kw = set(keywords or [])
-    entities = {
-        field: sorted(set(_extract_group_entities(text, kw, names)))
-        for field, names in _ENTITY_GROUP_RULES.items()
-    }
+    
+    for field, names in _ENTITY_GROUP_RULES.items():
+        # 추출 후 중복 제거 (순서 보장)
+        extracted = _extract_group_entities(text, kw, names)
+        entities[field] = list(dict.fromkeys(extracted))
+        
     entities["time"] = _extract_time_entities(text)
     return entities
 
@@ -71,8 +83,11 @@ def build_filters(entities: dict[str, list[str]]) -> dict[str, list[str]]:
         if values:
             filters[field] = values
 
-    if any(value in _TIME_SCOPE_VALUES for value in filters.get("time", [])):
-        filters["time_scope"] = filters["time"]
+    time_values = filters.get("time", [])
+    scope_matches = [val for val in time_values if val in _TIME_SCOPE_VALUES]
+    
+    if scope_matches:
+        filters["time_scope"] = scope_matches
 
     return filters
 

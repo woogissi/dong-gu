@@ -24,8 +24,9 @@ class PipelineState:
     entities: dict[str, Any] = field(default_factory=dict)
     filters: dict[str, list[str]] = field(default_factory=dict)
     category: str | None = None
+    query_vector: list[float] = field(default_factory=list)
 
-    retrieval_strategy: str = "hybrid"
+    retrieval_strategy: str = "lexical"
     retrieval_top_k: int = 10
     fallback_used: bool = False
 
@@ -58,6 +59,7 @@ class PipelineState:
             "category": self.category,
             "retrieval_strategy": self.retrieval_strategy,
             "retrieval_top_k": self.retrieval_top_k,
+            "retrieval_strategy_log": self.metadata.get("retrieval_strategy_log", {}),
             "fallback_used": self.fallback_used,
             "retrieved_doc_count": len(self.retrieved_docs),
             "reranked_doc_count": len(self.reranked_docs),

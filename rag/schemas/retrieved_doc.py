@@ -1,6 +1,5 @@
-"""
-rag 검색 문서 metadata 클래스
-구조 수정시 retrieval/retriever.py 수정
+"""검색된 문서 스키마
+- 검색 시스템에서 반환된 문서의 구조 정의
 """
 
 from pydantic import BaseModel, Field

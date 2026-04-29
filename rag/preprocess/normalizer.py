@@ -1,14 +1,14 @@
-﻿"""Normalize user query for robust retrieval."""
+﻿"""규칙 기반 정규화
+- 불필요한 공백 제거
+- 특수문자 제거
+- 자주 쓰이는 구어체 표현 교정"""
+
 
 from __future__ import annotations
 
 import re
 import unicodedata
 
-# 규칙 기반 정규화
-# - 불필요한 공백 제거
-# - 특수문자 제거
-# - 자주 쓰이는 구어체 표현 교정
 _COLLOQUIAL_MAP: dict[str, str] = {
     "어케": "어떻게",
     "어떡해": "어떻게",
@@ -33,8 +33,6 @@ def normalize_query(query: str) -> str:
         text = text.replace(src, dst)
 
 # 중복된 특수문자 제거 및 공백 정리
-    text = re.sub(r"[?]{2,}", "?", text)
-    text = re.sub(r"[.]{2,}", ".", text)
-    text = re.sub(r"[:]{2,}", ":", text)
+    text = re.sub(r"([?.:])\1+", r"\1", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text

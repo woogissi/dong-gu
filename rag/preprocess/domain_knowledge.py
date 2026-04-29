@@ -1,4 +1,8 @@
-﻿"""Domain schema, lexicon, and frequent question patterns for entity extraction."""
+﻿"""도메인 지식 정의
+- 엔티티 스키마: 주요 엔티티 그룹과 대표 키워드 정의
+- 엔티티 사전: 각 엔티티 그룹별 키워드 목록
+- 자주 묻는 질문 패턴: FAQ 유형별 의도, 엔티티 조합, 예시 질문 정의
+"""
 
 from __future__ import annotations
 

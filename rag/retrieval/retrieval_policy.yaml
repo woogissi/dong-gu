@@ -1,0 +1,64 @@
+version: 1
+week: 3
+default_strategy: lexical
+top_k: 10
+
+filter_fields:
+  category:
+    source: entities.category
+    behavior: category-first search hint
+  target:
+    source: entities.target
+    behavior: metadata filter candidate
+  department:
+    source: entities.department
+    behavior: metadata filter candidate
+  time:
+    source: entities.time
+    behavior: date/time scope hint
+  time_scope:
+    source: filters.time_scope
+    behavior: date/time scope hint copied from exact time entities
+  document_category:
+    source: category_document_hints
+    behavior: derived retrieval filter mapped from category after supported input filter normalization
+
+category_document_hints:
+  학사:
+    - academic_notice
+  수강:
+    - academic_notice
+  장학:
+    - notice
+  등록:
+    - notice
+    - academic_notice
+  졸업:
+    - academic_notice
+  휴학:
+    - academic_notice
+  복학:
+    - academic_notice
+  기숙사:
+    - dormitory
+  비교과:
+    - notice
+  국제:
+    - notice
+
+fallback_triggers:
+  empty_query: normalized and rewritten query are empty
+  insufficient_search_terms: no keyword and no usable filter
+  filter_only_query: filter exists but lexical keyword is empty
+
+logging_fields:
+  - strategy
+  - query
+  - query_variant_count
+  - keywords
+  - filters
+  - category
+  - document_category_hints
+  - top_k
+  - fallback_triggers
+  - filter_rules_applied
