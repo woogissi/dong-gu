@@ -5,7 +5,7 @@ from rag.pipeline.preprocessor import QueryPreprocessor
 from rag.schemas.query import Query
 from rag.schemas.answer import Answer
 
-from rag.retrieval.retriever import retrieve_documents
+from rag.retrieval.retrievel import retrieve_documents
 from rag.retrieval.search_strategy import build_retrieval_request
 from rag.selection.topk_selector import select_topk
 from rag.selection.context_builder import build_context
@@ -13,7 +13,7 @@ from rag.selection.context_builder import build_context
 from rag.prompt.prompt_builder import build_prompt
 from rag.llm.answer_generator import generate_answer
 
-from rag.fallback.fallback.fallback_handler import handle_fallback
+from rag.fallback.fallback_handler import handle_fallback
 
 from rag.embedding.koe5_embedder import KoE5Embedder
 
