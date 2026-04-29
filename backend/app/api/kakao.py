@@ -48,10 +48,8 @@ async def kakao_webhook(request: Request):
             )
             return kakao_response(answer_text)
 
-        # 🔥 RAG 실행
         result = chat_pipeline.run(Query(text=utterance))
 
-        # 🔥 dict 변환
         if isinstance(result, dict):
             result_dict = result
         elif hasattr(result, "model_dump"):
@@ -60,8 +58,6 @@ async def kakao_webhook(request: Request):
             result_dict = result.to_dict()
         else:
             result_dict = {}
-<<<<<<< Updated upstream
-=======
 
         answer_text = (
             result_dict.get("answer_text")
@@ -77,53 +73,19 @@ async def kakao_webhook(request: Request):
 
         if not category:
             category = get_category_from_utterance(utterance)
->>>>>>> Stashed changes
 
-        # 🔥 answer 추출
-        answer_text = (
-            result_dict.get("answer_text")
-            or result_dict.get("answer")
-            or getattr(result, "answer_text", None)
-            or getattr(result, "answer", None)
-        )
-
-        # 🔥 category 추출
-        category = (
-            result_dict.get("category")
-            or getattr(result, "category", None)
-        )
-
-        # 🔥 fallback (핵심)
-        if not category:
-            category = get_category_from_utterance(utterance)
-
-        # 🔥 답변 정리
         answer_text = (answer_text or "답변을 생성하지 못했습니다.").strip()
         answer_text = answer_text.replace("[DUMMY ANSWER]", "").strip()
 
         if "문맥:" in answer_text:
             answer_text = answer_text.split("문맥:")[0].strip()
 
-<<<<<<< Updated upstream
-        # 🔥 UI 생성
-        quick_replies = get_quick_replies_by_category(category)
-        link_url = get_link_url_by_category(category)
-
-        print("DEBUG category:", category)
-        print("DEBUG quick_replies:", quick_replies)
-
-        answer_text = f"{answer_text}\n\n사이트 바로가기: {link_url}"
-
-        title = get_title_by_category(category)
-
-=======
         title = get_title_by_category(category)
         link_url = get_link_url_by_category(category)
         quick_replies = get_quick_replies_by_category(category)
 
         answer_text = f"{answer_text}\n\n사이트 바로가기: {link_url}"
 
->>>>>>> Stashed changes
         return kakao_text_card(
             title=title,
             description=answer_text,

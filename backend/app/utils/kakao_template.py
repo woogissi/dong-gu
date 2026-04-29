@@ -36,13 +36,9 @@ def kakao_text_card(title: str, description: str, link_url: str, quick_replies=N
                 {
                     "textCard": {
                         "title": (title or "동의대학교 안내")[:50],
-<<<<<<< Updated upstream
-                        "description": (description or "자세한 내용은 아래 버튼을 통해 확인해주세요.")[:300],
-=======
                         "description": (
                             description or "자세한 내용은 아래 버튼을 통해 확인해주세요."
                         )[:300],
->>>>>>> Stashed changes
                         "buttons": [
                             {
                                 "action": "webLink",
