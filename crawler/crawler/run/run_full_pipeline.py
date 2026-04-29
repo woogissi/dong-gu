@@ -16,6 +16,7 @@ from crawler.parsers.file_text_router import FileTextRouter
 from crawler.storage.manifest_writer import ManifestWriter
 from crawler.schemas.document_models import CuratedDocument
 from crawler.ingestion.document_version_manager import DocumentVersionManager
+from crawler.normalize.text_cleaner import TextCleaner
 
 BASE_DIR = Path("crawler/data")
 RAW_HTML_DIR = BASE_DIR / "raw" / "html"
@@ -27,6 +28,7 @@ LOG_DIR = BASE_DIR / "logs"
 for d in [RAW_HTML_DIR, RAW_DOC_DIR, RAW_ATTACH_DIR, CURATED_DOC_DIR, LOG_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
+text_cleaner = TextCleaner()
 manifest_writer = ManifestWriter()
 version_manager = DocumentVersionManager(curated_base_dir=str(CURATED_DOC_DIR))
 
@@ -47,12 +49,6 @@ def log_error(message: str) -> None:                    # 에러 로그를 콘�
         f.write(message + "\n")
 
 
-def simple_clean_text(raw_text: str) -> str:            # 단순 본문 정리 함수
-    if not raw_text:
-        return ""
-    return raw_text.strip()
-
-
 def merge_attachment_texts(downloaded_attachments: list[dict]) -> str | None:       # 첨부파일들에서 뽑은 텍스트를 문서 본문에 합칠 수 있는 하나의 문자열로 만드는 함수
     texts = []
 
@@ -66,14 +62,26 @@ def merge_attachment_texts(downloaded_attachments: list[dict]) -> str | None:   
     return merged if merged else None
 
 
+def merge_image_texts(image_texts: list[dict]) -> str | None:
+    texts = []
+
+    for item in image_texts or []:
+        image_text = item.get("image_text")
+        image_url = item.get("image_url")
+        if image_text:
+            texts.append(f"[IMAGE: {image_url}]\n{image_text}")
+
+    merged = "\n\n".join(texts).strip()
+    return merged if merged else None
+
+
 def build_curated_document(raw_doc: dict, version: int) -> dict:                                  # raw 문서를 curated 문서로 바꾸는 함수
     attachment_text = merge_attachment_texts(raw_doc.get("downloaded_attachments", []))
+    image_text = merge_image_texts(raw_doc.get("image_texts", []))
 
     curated_doc = CuratedDocument(
         doc_id=raw_doc["doc_id"],
         parent_doc_id=raw_doc["parent_doc_id"],
-        university=raw_doc["university"],
-        campus=raw_doc["campus"],
         source_type=raw_doc["source_type"],
         page_kind=raw_doc["page_kind"],
         category_lv1=raw_doc["category_lv1"],
@@ -89,9 +97,13 @@ def build_curated_document(raw_doc: dict, version: int) -> dict:                
         target_audience=raw_doc["target_audience"],
         keywords=raw_doc["keywords"],
         raw_text=raw_doc["raw_text"],
-        clean_text=simple_clean_text(raw_doc["raw_text"]),
+        normalize=text_cleaner.build_clean_text(
+            raw_text=raw_doc.get("raw_text", ""),
+            table_text=raw_doc.get("table_text"),
+        ),
         table_text=raw_doc["table_text"],
         attachment_text=attachment_text,
+        image_text=image_text,
         language=raw_doc["language"],
         status=raw_doc["status"],
         version=version,
@@ -148,11 +160,13 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
     raw_to_save["downloaded_attachments"] = downloaded_attachments
 
     attachment_text = merge_attachment_texts(downloaded_attachments)
+    image_text = merge_image_texts(raw_to_save.get("image_texts", []))
     raw_to_save["attachment_text"] = attachment_text
     raw_to_save["content_hash"] = build_content_hash(
         raw_text=raw_to_save.get("raw_text"),
         table_text=raw_to_save.get("table_text"),
         attachment_text=attachment_text,
+        image_text=image_text,
     )
 
     # 먼저 "새 curated 후보"를 메모리에서 만든다
@@ -225,24 +239,25 @@ def run_board_pipeline(source_type: str, list_url: str, pages: int = 50, parser_
             })
 
             for item in list_result["items"]:           # 목록에서 나온 각 상세 URL을 하나씩 처리
-                raw_doc = detail_extractor.extract_detail(source_type, item["detail_url"])
-                if raw_doc["doc_id"] in seen_doc_ids:
-                    continue
-                seen_doc_ids.add(raw_doc["doc_id"])
-                save_document_bundle(raw_doc, download_attachments=True)
-                
-                published_at = item.get("published_at_hint")
-                
-                # 날짜가 있고, 올해 1월 1일보다 이전이면 중단
-                if published_at and published_at < current_year_start:
-                    print(f"[STOP] {source_type} reached older post: {published_at} < {current_year_start}")
-                    stop_crawling = True
-                    break
                 try:
                     raw_doc = detail_extractor.extract_detail(source_type, item["detail_url"])
+
+                    if raw_doc["doc_id"] in seen_doc_ids:
+                        continue
+
+                    seen_doc_ids.add(raw_doc["doc_id"])
                     save_document_bundle(raw_doc, download_attachments=True)
+
                     print(f"[OK] saved {raw_doc['doc_id']}")
-                except Exception as e:                  # 상세 문서 하나 실패 시 다음 문서 계속 처리
+
+                    published_at = item.get("published_at_hint")
+                    #날짜 올해 1월 1일 전이면 중지
+                    if published_at and published_at < current_year_start:
+                        print(f"[STOP] {source_type} reached older post: {published_at} < {current_year_start}")
+                        stop_crawling = True
+                        break
+
+                except Exception as e:
                     message = f"[DETAIL ERROR] source={source_type} url={item['detail_url']} error={e}"
                     log_error(message)
                     manifest_writer.write_error_record(

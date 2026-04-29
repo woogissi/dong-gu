@@ -202,7 +202,7 @@ WITH (lists = 100);
 
 CREATE INDEX idx_chunks_fts
 ON chunks
-USING GIN (to_tsvector('simple' content));
+USING GIN (to_tsvector('simple', content));
 
 CREATE INDEX idx_assets_doc_id
 ON document_assets(doc_id);

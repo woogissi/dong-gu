@@ -15,6 +15,7 @@ def build_content_fingerprint_text(
     raw_text: str | None = None,
     table_text: str | None = None,
     attachment_text: str | None = None,
+    image_text: str | None = None,
 ) -> str:
     """
     문서 변경 비교용 fingerprint 문자열 생성
@@ -32,6 +33,7 @@ def build_content_fingerprint_text(
     body = normalize_text(raw_text)
     table = normalize_text(table_text)
     attachment = normalize_text(attachment_text)
+    image = normalize_text(image_text)
 
     if body:
         parts.append("[BODY]\n" + body)
@@ -41,6 +43,9 @@ def build_content_fingerprint_text(
 
     if attachment:
         parts.append("[ATTACHMENT]\n" + attachment)
+
+    if image:
+        parts.append("[IMAGE]\n" + image)
 
     return "\n\n".join(parts).strip()
 
@@ -53,10 +58,12 @@ def build_content_hash(
     raw_text: str | None = None,
     table_text: str | None = None,
     attachment_text: str | None = None,
+    image_text: str | None = None,
 ) -> str:
     fingerprint = build_content_fingerprint_text(
         raw_text=raw_text,
         table_text=table_text,
         attachment_text=attachment_text,
+        image_text=image_text,
     )
     return sha1_text(fingerprint)

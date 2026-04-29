@@ -7,6 +7,7 @@ from datetime import datetime, timezone, timedelta
 from urllib.parse import urljoin, urlparse, urldefrag
 
 from crawler.schemas.document_models import StaticPageRawDocument
+from crawler.extractors.image_text_extractor import ImageTextExtractor
 
 import requests
 from bs4 import BeautifulSoup
@@ -28,6 +29,7 @@ class StaticPageExtractor:
         self.session = requests.Session()
         self.session.headers.update(HEADERS)
         self.allowed_hosts = allowed_hosts or set()     #허용도메인
+        self.image_text_extractor = ImageTextExtractor()
 
     def now_kst_iso(self) -> str:                       #현재 시각을 한국 시간 ISO 문자열로 반환
         return datetime.now(KST).isoformat(timespec="seconds")
@@ -59,10 +61,12 @@ class StaticPageExtractor:
         try:
             res = self.session.get(url, timeout=20)
             res.raise_for_status()
+            return res.text
         except requests.exceptions.SSLError:
             if "lib.deu.ac.kr" in url:
                 res = self.session.get(url, timeout=20, verify=False)       # 도서관 사이트 SSLhandshake failure 해결
                 res.raise_for_status()
+                return res.text
             else:
                 raise
 
@@ -218,19 +222,22 @@ class StaticPageExtractor:
         raw_text = self.normalize_multiline_text(content_node.get_text("\n", strip=True)) if content_node else ""
         table_text = self.extract_table_text(content_node)
         image_urls = self.extract_image_urls(content_node, page_url)
+        image_texts = self.image_text_extractor.extract_many(image_urls)
         outgoing_links = self.extract_internal_links(content_node, page_url)
         category_lv1, category_lv2 = self.infer_category(page_url, title)
+        merged_image_text = "\n\n".join(
+            item["image_text"] for item in image_texts if item.get("image_text")
+        ).strip()
         hash = build_content_hash(
                     raw_text=raw_text,
                     table_text=table_text,
                     attachment_text=None,
+                    image_text=merged_image_text,
                 )
 
         raw_doc = StaticPageRawDocument(
         doc_id=self.make_doc_id(page_url),      # 해시기반 id
         parent_doc_id=None,
-        university="동의대학교",
-        campus=None,
         source_type=source_type,                # homepage, library, dormitory 등
         page_kind="static_page",
         category_lv1=category_lv1,              #infer_category()
@@ -255,6 +262,7 @@ class StaticPageExtractor:
         collected_at=self.now_kst_iso(),
         views=None,
         image_urls=image_urls,
+        image_texts=image_texts,
         attachments=[],
         outgoing_links=outgoing_links,
         content_hash=hash,

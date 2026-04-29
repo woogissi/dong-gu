@@ -36,6 +36,9 @@ class DocumentChunker:
         if attachment_text:
             parts.append(f"[ATTACHMENT]\n{attachment_text}")                # 첨부파일 있으면 [ATTACHMENT] 태그와 함께 추가
 
+        if doc.get("image_text"):
+            parts.append("[IMAGE]\n" + doc["image_text"])
+
         return "\n\n".join(parts).strip()
 
     def split_paragraphs(self, text: str) -> list[str]:                     # 텍스트를 문단 단위로 분리하는 함수
@@ -82,6 +85,14 @@ class DocumentChunker:
         buffer = ""
 
         for para in paragraphs:
+            if len(para) > self.max_chars:                              # para가 너무 길면 force_split_long_text()로 나누기
+                if buffer:
+                    merged_chunks.append(buffer)
+                    buffer = ""
+
+                merged_chunks.extend(self.force_split_long_text(para))
+                continue
+
             candidate = f"{buffer}\n\n{para}".strip() if buffer else para       # buffer가 있으면 buffer + 빈줄 + para, 없으면 para 만 넣어서 후보 텍스트
 
             if len(candidate) <= self.max_chars:
@@ -90,12 +101,8 @@ class DocumentChunker:
 
             if buffer:                                                          # buffer가 있으면 지금까지의 buffer를 하나의 청크로 확정
                 merged_chunks.append(buffer)
+            buffer = para
 
-            if len(para) > self.max_chars:                                      # para가 너무 길면 force_split_long_text()로 나누기
-                merged_chunks.extend(self.force_split_long_text(para))
-                buffer = ""
-            else:
-                buffer = para
 
         if buffer:
             merged_chunks.append(buffer)                    #반복 종료 후에 버퍼에 남아있으면 추가

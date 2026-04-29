@@ -34,5 +34,4 @@ class EmbeddingWorker:
                 "embedding": vector.tolist(),                           # 실제 벡터값
                 "embedding_model": self.model_name,                     # 어떤 모델인지 기입
             })
-
         return embedded_chunks

@@ -10,6 +10,7 @@ import requests
 from bs4 import BeautifulSoup                                   # html 파싱용
 
 from crawler.schemas.document_models import BoardDetailRawDocument      # JSON 구조
+from crawler.extractors.image_text_extractor import ImageTextExtractor  # 이미지 추출
 
 HEADERS = {
     "User-Agent": (
@@ -26,6 +27,7 @@ class BoardDetailExtractor:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update(HEADERS)
+        self.image_text_extractor = ImageTextExtractor()
 
     def now_kst_iso(self) -> str:
         return datetime.now(KST).isoformat(timespec="seconds")  # 현재 시각을 한국 시간 기준 ISO 문자열로 반환한다.
@@ -231,21 +233,26 @@ class BoardDetailExtractor:
 
         table_text = self.extract_table_text(content_node)                  # 표텍스트
         image_urls = self.extract_image_urls(content_node, detail_url)      # 이미지 url
+        image_texts = self.image_text_extractor.extract_many(image_urls)
         attachments = self.extract_attachments(soup, detail_url)            # 첨부파일
+
+        merged_image_text = "\n\n".join(
+            item["image_text"] for item in image_texts if item.get("image_text")
+        ).strip()
 
         doc_id = self.make_doc_id(source_type, article_no)
         hash = build_content_hash(
                     raw_text=raw_text,
                     table_text=table_text,
                     attachment_text=None,
+                    image_text=merged_image_text,
+
                 )
 
 
         raw_doc = BoardDetailRawDocument(
             doc_id=doc_id,
             parent_doc_id=None,
-            university="동의대학교",                 # 기본값 동의대
-            campus=None,
             source_type=source_type,                # notice, academic_notice 등
             page_kind="board_detail",
             category_lv1=None,
@@ -270,6 +277,7 @@ class BoardDetailExtractor:
             collected_at=self.now_kst_iso(),
             views=meta["views"],
             image_urls=image_urls,
+            image_texts=image_texts,
             attachments=attachments,
             content_hash=hash,        # 본문 해시
             html=html,
