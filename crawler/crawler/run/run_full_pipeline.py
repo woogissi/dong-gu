@@ -82,8 +82,6 @@ def build_curated_document(raw_doc: dict, version: int) -> dict:                
     curated_doc = CuratedDocument(
         doc_id=raw_doc["doc_id"],
         parent_doc_id=raw_doc["parent_doc_id"],
-        university=raw_doc["university"],
-        campus=raw_doc["campus"],
         source_type=raw_doc["source_type"],
         page_kind=raw_doc["page_kind"],
         category_lv1=raw_doc["category_lv1"],

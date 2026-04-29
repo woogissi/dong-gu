@@ -238,8 +238,6 @@ class StaticPageExtractor:
         raw_doc = StaticPageRawDocument(
         doc_id=self.make_doc_id(page_url),      # 해시기반 id
         parent_doc_id=None,
-        university="동의대학교",
-        campus=None,
         source_type=source_type,                # homepage, library, dormitory 등
         page_kind="static_page",
         category_lv1=category_lv1,              #infer_category()

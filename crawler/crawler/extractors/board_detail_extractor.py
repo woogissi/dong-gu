@@ -253,8 +253,6 @@ class BoardDetailExtractor:
         raw_doc = BoardDetailRawDocument(
             doc_id=doc_id,
             parent_doc_id=None,
-            university="동의대학교",                 # 기본값 동의대
-            campus=None,
             source_type=source_type,                # notice, academic_notice 등
             page_kind="board_detail",
             category_lv1=None,

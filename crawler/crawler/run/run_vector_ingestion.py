@@ -115,6 +115,8 @@ def main():     # 메인 함수
                 )
 
             except Exception as e:      # 실패 시 다음 파일로 
+                loader.conn.rollback()
+
                 message = f"[VECTOR ERROR] file={chunk_file.as_posix()} error={e}"
                 log_error(message)
                 manifest_writer.write_error_record(

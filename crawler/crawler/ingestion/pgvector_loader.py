@@ -13,7 +13,7 @@ from psycopg2.extras import Json
 class PGVectorLoader:
     def __init__(self):
         self.conn = psycopg2.connect(                               # DB 연결 초기화
-            host=os.getenv("POSTGRES_HOST", "localhost"),           # DB 호스트
+            host=os.getenv("POSTGRES_HOST", "postgres"),           # DB 호스트
             port=os.getenv("POSTGRES_PORT", "5432"),                # 포트 번호
             dbname=os.getenv("POSTGRES_DB", "chatbot"),             # DB 이름
             user=os.getenv("POSTGRES_USER", "chatbot"),             # DB 사용자명

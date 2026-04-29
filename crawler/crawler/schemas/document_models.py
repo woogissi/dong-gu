@@ -12,8 +12,6 @@ class RawDocumentBase(BaseModel):
 
     doc_id: str                             # 문서 고유 ID
     parent_doc_id: str | None = None        # 부모 문서 ID
-    university: str = "동의대학교"           # 기본 동의대 (없어도 됨)
-    campus: str | None = None               # 얜 없어도 됨
     source_type: str                        # notice / academic_notice / library 등
     page_kind: str                          # 게시판/정적 페이지
 
