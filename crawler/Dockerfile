@@ -12,6 +12,10 @@ RUN apt-get update && apt-get install -y \
     libreoffice \
     libreoffice-writer \
     fonts-noto-cjk \
+    tesseract-ocr \
+    tesseract-ocr-kor \
+    tesseract-ocr-eng \
+    libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/requirements.txt

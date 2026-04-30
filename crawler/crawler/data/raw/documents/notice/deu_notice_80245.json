@@ -1,8 +1,6 @@
 {
   "doc_id": "deu_notice_80245",
   "parent_doc_id": null,
-  "university": "동의대학교",
-  "campus": null,
   "source_type": "notice",
   "page_kind": "board_detail",
   "category_lv1": null,
@@ -10,25 +8,32 @@
   "department": null,
   "title": "동의대학교 DONG-EUI UNIVERSITY",
   "summary": null,
-  "source_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=80245&article.offset=20&articleLimit=10",
+  "source_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=80245&article.offset=30&articleLimit=10",
   "published_at": "2026-01-16",
   "updated_at": null,
   "valid_from": null,
   "valid_to": null,
   "target_audience": [],
   "keywords": [],
-  "raw_text": "2025학년도 전기 학위수여식 일정 안내\n작성일:\n2026-01-16\n작성자:\n학사지원팀\n조회수:\n5571\n목록\n이전글\n[필독] 1월 20일(화) 전산정보원 시스템 보안패치 안내\n다음글\n2026학년도 1학기 시간제등록생 모집 안내",
+  "raw_text": "2025학년도 전기 학위수여식 일정 안내\n작성일:\n2026-01-16\n작성자:\n학사지원팀\n조회수:\n5757\n목록\n이전글\n[필독] 1월 20일(화) 전산정보원 시스템 보안패치 안내\n다음글\n2026학년도 1학기 시간제등록생 모집 안내",
   "normalize": null,
   "table_text": "",
   "attachment_text": null,
   "language": "ko",
   "status": "active",
-  "version": 1,
-  "collected_at": "2026-04-10T21:29:46+09:00",
-  "content_hash": "200390cba71ba8104fad439796a194d0eb8fe0a7",
+  "version": 2,
+  "collected_at": "2026-04-30T00:19:55+09:00",
+  "content_hash": "c65ce9163c4c3dbe452a5d05fa172248dec14a43",
   "views": null,
   "image_urls": [
     "https://www.deu.ac.kr/_attach/deu/editor-image/2026/01/kITmWPkwcixwdxZtnMNlnggvHq.jpeg"
+  ],
+  "image_texts": [
+    {
+      "image_index": 1,
+      "image_url": "https://www.deu.ac.kr/_attach/deu/editor-image/2026/01/kITmWPkwcixwdxZtnMNlnggvHq.jpeg",
+      "image_text": "2025학년도 전기\n\n학위수여식 일정표\n\n일자\n\n시간\n\n국제관\n\n11:00~13:00\n\n상경대학\n\n14:00~16:00\n\n인문사회과학대학\n\n11:00™13:00\n\n조기취업형계약학과\n\n12:00™14:00\n\n한의과대학\n\n14:00™16:00\n\n11:00~13:00\n\n14:00~16:00\n\n11:00~13:00\n\n14:00~16:00\n\n11:00~13:00\n\n11:00~13:00\n\n예술디자인체육대학"
+    }
   ],
   "attachments": [],
   "html_path": "crawler/data/raw/html/notice/deu_notice_80245.html",

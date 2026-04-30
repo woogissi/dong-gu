@@ -1,8 +1,6 @@
 {
   "doc_id": "static_4db005883c815fdf",
   "parent_doc_id": null,
-  "university": "동의대학교",
-  "campus": null,
   "source_type": "library",
   "page_kind": "static_page",
   "category_lv1": null,
@@ -23,13 +21,25 @@
   "attachment_text": null,
   "language": "ko",
   "status": "active",
-  "version": 1,
-  "collected_at": "2026-04-10T21:32:17+09:00",
-  "content_hash": "0581c664dc7057aa14d9f694ae5dce8b39cee2fc",
+  "version": 2,
+  "collected_at": "2026-04-30T00:26:08+09:00",
+  "content_hash": "97f6e6f7bbb550a58f9fb7ba0306fdd211ff07fb",
   "views": null,
   "image_urls": [
     "https://www.deu.ac.kr/_res/deu/www/img/sub/ico-sample.png",
     "https://www.deu.ac.kr/_res/deu/www/img/sub/simg06.png"
+  ],
+  "image_texts": [
+    {
+      "image_index": 1,
+      "image_url": "https://www.deu.ac.kr/_res/deu/www/img/sub/ico-sample.png",
+      "image_text": ""
+    },
+    {
+      "image_index": 2,
+      "image_url": "https://www.deu.ac.kr/_res/deu/www/img/sub/simg06.png",
+      "image_text": ""
+    }
   ],
   "attachments": [],
   "outgoing_links": [],

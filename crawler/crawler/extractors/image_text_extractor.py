@@ -9,7 +9,7 @@ import requests
 from PIL import Image, ImageOps
 import pytesseract
 
-pytesseract.pytesseract.tesseract_cmd = r"E:\Tesseract-OCR\tesseract.exe"     #Tesseract OCR 프로그램 경로
+pytesseract.pytesseract.tesseract_cmd = r"/usr/bin/tesseract"     #Tesseract OCR 프로그램 경로
 
 HEADERS = {
     "User-Agent": (
@@ -27,7 +27,7 @@ class ImageTextExtractor:
 
     def fetch_image_bytes(self, image_url: str) -> bytes | None:
         try:
-            res = self.session.get(image_url, timeout=20)
+            res = self.session.get(image_url, timeout=60)
             res.raise_for_status()
             return res.content
         except Exception:

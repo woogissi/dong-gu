@@ -1,8 +1,6 @@
 {
   "doc_id": "deu_academic_notice_81199",
   "parent_doc_id": null,
-  "university": "동의대학교",
-  "campus": null,
   "source_type": "academic_notice",
   "page_kind": "board_detail",
   "category_lv1": null,
@@ -17,18 +15,25 @@
   "valid_to": null,
   "target_audience": [],
   "keywords": [],
-  "raw_text": "2026학년도 1학기 편입생 업무진행 안내\n작성일:\n2026-02-20\n작성자:\n학사지원팀\n조회수:\n160\n목록\n이전글\n군입대 휴학중 취득학점 인정절차 안내\n다음글\n2026학년도 편입생 대상 수강신청 및 학점관련 안내",
+  "raw_text": "2026학년도 1학기 편입생 업무진행 안내\n작성일:\n2026-02-20\n작성자:\n학사지원팀\n조회수:\n178\n목록\n이전글\n군입대 휴학중 취득학점 인정절차 안내\n다음글\n2026학년도 편입생 대상 수강신청 및 학점관련 안내",
   "normalize": null,
   "table_text": "",
   "attachment_text": null,
   "language": "ko",
   "status": "active",
-  "version": 1,
-  "collected_at": "2026-04-10T21:30:16+09:00",
-  "content_hash": "99f1c6a6f52d4f0c34877e7534a3ef1936ce8e5d",
+  "version": 2,
+  "collected_at": "2026-04-30T00:21:41+09:00",
+  "content_hash": "04b5a7545ea988f2bdf5c435cdecf795c0a162b5",
   "views": null,
   "image_urls": [
     "https://www.deu.ac.kr/_attach/deu/editor-image/2026/02/qPBLSWDuBZsdMEcRXmWOEGlGjI.jpeg"
+  ],
+  "image_texts": [
+    {
+      "image_index": 1,
+      "image_url": "https://www.deu.ac.kr/_attach/deu/editor-image/2026/02/qPBLSWDuBZsdMEcRXmWOEGlGjI.jpeg",
+      "image_text": "2026학년도 1학기 편입생 업무진행 안4\n\n또\n\nAy\n\n진행일자\n\n비고\n\n02월 23일\n\n02월 23일\n\n02월 26일 15시\n\n- SAP ene fo ah\n- 편입생: 작성 및 제줄사항 없음\n\n※ 전적대학 성적확인 방법\n(SIG 메인 홈페이지- 동의인 - 학생경력관리포털 -\n10(학번)/『5-학생정보시스템-성적정보-전체성적조회)\n\n02월 26일\n\n편입생; 수강신청에 따른 수강과목 학과 사\n( 포럴싸이트에서 '동의대학교 검색 — ㅁ64-대학기관/규정-조직도\n\nBA ㅡ 대학에서 해당 단과대학 선택 )\n\n※ 수강신청방법\n(동의대 메인 흠페이지-하단 동의인\n-10(학번)/『9\n\n- 수강신청시스템\n\n02월 27일(10시~17시)\n\n입생: 수강신청\n\n입생: 수강\n\n03월 04일 17시 30분\n\n편입생 전체 oT: 산학협력관\n히 참석 요망 - 기타 자세한 내용은\n\n학교생활에 전반적인 안내 및\n성적인정 관련 민원 접수\n\n03월 05일 ~ 6일, 09일\n\nri\n2\n\nro ro rl +> 때\n\nOY 또\n\n정정\n입생 인정학점 및 개인\n\n[점 '이의관련 없\n\n에 에\niat\n\n와 4\n\n별 필수과목표 서명 제출\n점         음' 확인서 제출\n점 관련 이의제기 대상자 의견 제출\n\n생서명은 필히 해딩학생 자필로 직성하여야\n}며, 학생 개인사정으로 작성이 불가능할 경우\n조교가 유선으로 통화 후 통화시간을 학생서명\n에 작성 제출\n\n완 Joh"
+    }
   ],
   "attachments": [],
   "html_path": "crawler/data/raw/html/academic_notice/deu_academic_notice_81199.html",

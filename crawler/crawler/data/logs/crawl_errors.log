@@ -18,3 +18,58 @@
 [ATTACH DOWNLOAD/PARSE ERROR] doc_id=deu_academic_notice_79965 file_url=https://www.deu.ac.kr/www/gra-notice.do?mode=download&articleNo=79965&attachNo=123703 error=[WinError 2] 지정된 파일을 찾을 수 없습니다
 [STATIC ERROR] source=library url=https://lib.deu.ac.kr/ error=HTTPSConnectionPool(host='lib.deu.ac.kr', port=443): Max retries exceeded with url: / (Caused by SSLError(SSLError(1, '[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failure (_ssl.c:1032)')))
 [DISCOVERY ERROR] url=https://lib.deu.ac.kr/ depth=0 error=HTTPSConnectionPool(host='lib.deu.ac.kr', port=443): Max retries exceeded with url: / (Caused by SSLError(SSLError(1, '[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failure (_ssl.c:1032)')))
+[LIST ERROR] source=notice page=1 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=2 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=3 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=4 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=5 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=6 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=7 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=8 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=9 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=80&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=10 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=90&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=11 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=12 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=13 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=120&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=14 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=130&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=15 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=140&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=16 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=150&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=17 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=160&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=18 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=170&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=19 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=180&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=20 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=190&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=21 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=200&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=22 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=210&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=23 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=24 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=230&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=25 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=240&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=26 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=27 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=28 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=270&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=29 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=280&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=30 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=31 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=300&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=32 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=33 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=34 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=330&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=35 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=340&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=36 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=37 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=360&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=38 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=370&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=39 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=380&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=40 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=390&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=41 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=400&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=42 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=410&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=43 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=420&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=44 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=430&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=45 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=440&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=46 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=notice page=47 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=460&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=48 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=470&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=49 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=480&articleLimit=10&mode=list
+[LIST ERROR] source=notice page=50 error=HTTPSConnectionPool(host='www.deu.ac.kr', port=443): Read timed out. (read timeout=20)
+[LIST ERROR] source=academic_notice page=1 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/gra-notice.do?mode=list&article.offset=0&articleLimit=10&mode=list
+[LIST ERROR] source=academic_notice page=2 error=504 Server Error: Gateway Time-out for url: https://www.deu.ac.kr/www/gra-notice.do?mode=list&article.offset=10&articleLimit=10&mode=list
+[STATIC ERROR] source=library url=https://lib.deu.ac.kr/ error=HTTPSConnectionPool(host='lib.deu.ac.kr', port=443): Max retries exceeded with url: / (Caused by SSLError(SSLError(1, '[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] ssl/tls alert handshake failure (_ssl.c:1016)')))
+[STATIC ERROR] source=library url=https://lib.deu.ac.kr/ error=HTTPSConnectionPool(host='lib.deu.ac.kr', port=443): Max retries exceeded with url: / (Caused by SSLError(SSLError(1, '[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] ssl/tls alert handshake failure (_ssl.c:1016)')))
+[DISCOVERY ERROR] url=https://lib.deu.ac.kr/ depth=0 error=HTTPSConnectionPool(host='lib.deu.ac.kr', port=443): Max retries exceeded with url: / (Caused by SSLError(SSLError(1, '[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] ssl/tls alert handshake failure (_ssl.c:1016)')))

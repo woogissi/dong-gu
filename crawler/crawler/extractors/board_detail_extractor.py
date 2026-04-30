@@ -63,7 +63,7 @@ class BoardDetailExtractor:
         return f"deu_{source_type}_{article_no}"
 
     def fetch(self, url: str) -> str:                           # 상세 페이지 html을 그대로 가져옴
-        res = self.session.get(url, timeout=20)
+        res = self.session.get(url, timeout=60)
         res.raise_for_status()
         return res.text
 

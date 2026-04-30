@@ -59,12 +59,12 @@ class StaticPageExtractor:
 
     def fetch(self, url: str) -> str:                       #정적 페이지 HTML을 실제로 가져오는 함수
         try:
-            res = self.session.get(url, timeout=20)
+            res = self.session.get(url, timeout=60)
             res.raise_for_status()
             return res.text
         except requests.exceptions.SSLError:
             if "lib.deu.ac.kr" in url:
-                res = self.session.get(url, timeout=20, verify=False)       # 도서관 사이트 SSLhandshake failure 해결
+                res = self.session.get(url, timeout=60, verify=False)       # 도서관 사이트 SSLhandshake failure 해결
                 res.raise_for_status()
                 return res.text
             else:

@@ -21,9 +21,10 @@
   "normalize": "동의대학교",
   "table_text": "",
   "attachment_text": null,
+  "image_text": null,
   "language": "ko",
   "status": "active",
-  "version": 1,
-  "collected_at": "2026-04-10T21:32:00+09:00",
-  "content_hash": "9c9aa553b38750b704d449eb186a9888c925ffcd"
+  "version": 2,
+  "collected_at": "2026-04-30T00:25:31+09:00",
+  "content_hash": "ffde7212f8c01a814afe16a8af095fe038e8a920"
 }
