@@ -18,12 +18,14 @@ from rag.fallback.fallback_handler import handle_fallback
 from rag.embedding.koe5_embedder import KoE5Embedder
 
 from pprint import pprint
+from threading import Lock, Thread
 
 
 class ChatPipeline:
     def __init__(self) -> None:
         self.preprocessor = QueryPreprocessor()
-        self.embedder = KoE5Embedder()
+        self.embedder: KoE5Embedder | None = None
+        self.embedder_lock = Lock()
         self.last_state: PipelineState | None = None
         # retriever: Retriever = None,
         # generator: AnswerGenerator = None 확장
@@ -47,14 +49,29 @@ class ChatPipeline:
             state.error = str(e)
             state.fallback_used = True
             return self._build_fallback_answer(state)
-        # finally:
-        #     pprint(state.to_log_dict())
+
+
+    def _get_embedder(self) -> KoE5Embedder:
+        with self.embedder_lock:
+            if self.embedder is None:
+                print("[ChatPipeline] Loading embedder...")
+                self.embedder = KoE5Embedder()
+                print("[ChatPipeline] Embedder loaded successfully.")
+            else:
+                print("[ChatPipeline] Embedder already initialized.")
+        return self.embedder
+
+    def initialize(self) -> None:
+        """서버 시작 시 임베딩 모델 로드를 백그라운드로 시작합니다."""
+        print("[ChatPipeline] Starting embedder initialization in background...")
+        Thread(target=self._get_embedder, daemon=True).start()
 
 
     def _embed_query(self, state: PipelineState) -> None:
         # 쿼리 텍스트를 임베딩하여 벡터 생성
         query_text = state.rewritten_query or state.normalized_query or state.original_query
-        state.query_vector = self.embedder.embed_query(query_text)
+        embedder = self._get_embedder()
+        state.query_vector = embedder.embed_query(query_text)
 
     def _retrieve(self, state: PipelineState) -> None:
         request = build_retrieval_request(state)
