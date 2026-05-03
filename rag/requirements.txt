@@ -4,3 +4,4 @@ sentence-transformers==5.1.0
 transformers==4.55.4
 accelerate==1.10.0
 kiwipiepy==0.20.4
+psycopg2-binary==2.9.10
