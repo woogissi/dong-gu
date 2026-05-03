@@ -1,9 +1,7 @@
 import os
 import psycopg2
 import uuid
-from dotenv import load_dotenv
 
-load_dotenv()
 
 def save_qa_log(user_id, question, intent_type):
     database_url = os.getenv("DATABASE_URL")
