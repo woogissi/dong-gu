@@ -2,8 +2,9 @@
 __pycache__/
 *.pyc
 .venv/
-crawler/crawler/data/
-crawler/crawler/.hf_cache/
-crawler/data/
 docs/*.md
 AGENTS.md
+crawler/data/
+crawler/.hf_cache/
+**/.hf_cache/
+crawler/crawler/data/

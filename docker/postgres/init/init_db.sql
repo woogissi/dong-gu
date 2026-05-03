@@ -1,7 +1,8 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
+DROP TABLE IF EXISTS response_logs CASCADE;
 DROP TABLE IF EXISTS retrieval_logs CASCADE;
-DROP TABLE IF EXISTS qa_logs CASCADE;
+DROP TABLE IF EXISTS query_logs CASCADE;
 DROP TABLE IF EXISTS source_sync_history CASCADE;
 DROP TABLE IF EXISTS crawl_jobs CASCADE;
 DROP TABLE IF EXISTS chunk_embeddings CASCADE;
@@ -9,6 +10,8 @@ DROP TABLE IF EXISTS chunks CASCADE;
 DROP TABLE IF EXISTS document_assets CASCADE;
 DROP TABLE IF EXISTS document_versions CASCADE;
 DROP TABLE IF EXISTS documents CASCADE;
+
+
 
 CREATE TABLE documents (
     id BIGSERIAL PRIMARY KEY,
@@ -38,6 +41,7 @@ CREATE TABLE documents (
     version INT DEFAULT 1,
     content_hash TEXT,
     collected_at TIMESTAMP NOT NULL,
+    metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMP DEFAULT NOW(),
     db_updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -85,10 +89,14 @@ CREATE TABLE chunks (
     chunk_id TEXT NOT NULL UNIQUE,
     doc_id TEXT NOT NULL,
     chunk_index INT NOT NULL,
+    section_index INT,
+    section_type TEXT,
+    section_title TEXT,
     content TEXT NOT NULL,
     content_length INT,
     content_hash TEXT,
     version INT DEFAULT 1,
+    metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     CONSTRAINT fk_chunks_doc
@@ -140,38 +148,54 @@ CREATE TABLE source_sync_history (
         ON DELETE SET NULL
 );
 
-CREATE TABLE qa_logs (
+CREATE TABLE query_logs (
     id BIGSERIAL PRIMARY KEY,
+    request_id UUID NOT NULL UNIQUE,
     user_id TEXT,
     question TEXT NOT NULL,
-    normalized_question TEXT,
-    rewritten_question TEXT,
-    answer TEXT,
-    retrieved_chunks TEXT[] DEFAULT '{}',
-    source_doc_ids TEXT[] DEFAULT '{}',
-    response_time FLOAT,
     intent_type TEXT,
-    fallback_used BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at_kst TIMESTAMP
+    GENERATED ALWAYS AS (created_at + INTERVAL '9 hours') STORED
 );
 
 CREATE TABLE retrieval_logs (
     id BIGSERIAL PRIMARY KEY,
-    qa_log_id BIGINT,
-    query TEXT,
-    retrieval_strategy TEXT,
-    chunk_id TEXT,
-    doc_id TEXT,
-    vector_score FLOAT,
-    keyword_score FLOAT,
-    final_score FLOAT,
-    rank INT,
-    metadata JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMP DEFAULT NOW(),
-    CONSTRAINT fk_retrieval_qa
-        FOREIGN KEY (qa_log_id)
-        REFERENCES qa_logs(id)
-        ON DELETE CASCADE
+    request_id UUID NOT NULL REFERENCES query_logs(request_id),
+
+    original_query TEXT NOT NULL,
+    normalized_query TEXT,
+    rewritten_query TEXT,
+
+    keywords TEXT[],
+    entities JSONB,
+    category TEXT,
+
+    fallback_used BOOLEAN NOT NULL DEFAULT FALSE,
+    selected_chunk_ids TEXT[],
+    context TEXT,
+
+    success BOOLEAN,
+
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    created_at_kst TIMESTAMP
+    GENERATED ALWAYS AS (created_at + INTERVAL '9 hours') STORED
+);
+
+CREATE TABLE response_logs (
+    id BIGSERIAL PRIMARY KEY,
+    request_id UUID NOT NULL UNIQUE REFERENCES query_logs(request_id),
+
+    answer_text TEXT NOT NULL,
+    success BOOLEAN NOT NULL DEFAULT FALSE,
+    error_message TEXT,
+    response_time_ms INT,
+
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    created_at_kst TIMESTAMP
+    GENERATED ALWAYS AS (created_at + INTERVAL '9 hours') STORED
 );
 
 CREATE INDEX idx_documents_doc_id
@@ -194,6 +218,9 @@ ON chunks(doc_id);
 
 CREATE INDEX idx_chunks_chunk_id
 ON chunks(chunk_id);
+
+CREATE INDEX idx_chunks_section_type
+ON chunks(section_type);
 
 CREATE INDEX idx_chunk_embeddings_vector
 ON chunk_embeddings

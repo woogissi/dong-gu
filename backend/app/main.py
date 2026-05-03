@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from backend.app.api.router import api_router
-from backend.app.routers import chat
 
 app = FastAPI(
     title="DEU Chatbot API",
@@ -9,7 +8,15 @@ app = FastAPI(
 )
 
 app.include_router(api_router)
-app.include_router(chat.router)
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    from backend.app.api.kakao import get_chat_pipeline
+
+    try:
+        get_chat_pipeline().initialize()
+    except Exception as exc:
+        print(f"[startup] failed to initialize chat pipeline: {exc}")
 
 @app.get("/")
 def root():

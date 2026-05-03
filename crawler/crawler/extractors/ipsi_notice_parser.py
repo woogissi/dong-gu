@@ -52,8 +52,14 @@ class IpsiNoticeParser(BoardDetailExtractor):
 
         return super().find_content_node(soup)          #입학처 전용 탐색 실패 시 부모의 find_content_node로 탐색
 
-    def build_raw_document(self, source_type: str, detail_url: str, html: str) -> dict:     # 부모의 build_raw_document를 그대로 쓰는데 category12, target_audience만 추가하여 오버라이딩
-        raw_doc = super().build_raw_document(source_type, detail_url, html)
+    def build_raw_document(
+        self,
+        source_type: str,
+        detail_url: str,
+        html: str,
+        title_hint: str | None = None,
+    ) -> dict:     # 부모의 build_raw_document를 그대로 쓰는데 category12, target_audience만 추가하여 오버라이딩
+        raw_doc = super().build_raw_document(source_type, detail_url, html, title_hint=title_hint)
 
         # 입학처 전용 카테고리 기본값
         raw_doc["category_lv1"] = "입학"

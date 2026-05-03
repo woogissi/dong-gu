@@ -24,6 +24,16 @@ try:
 except ImportError:  # pragma: no cover - 테스트 환경에서 선택적 의존성으로 허용
     Kiwi = None
 
+try:
+    import psycopg2
+    from psycopg2.extras import DictCursor
+except ImportError:  # pragma: no cover - psycopg2가 없는 환경에서는 파일 기반 검색을 유지
+    psycopg2 = None
+    DictCursor = None
+
+_DB_USE_ENV_VAR = "RAG_USE_DB"
+_DB_URL_ENV_VAR = "DATABASE_URL"
+
 _DEFAULT_TOP_K = 10
 _BM25_K1 = 1.5
 _BM25_B = 0.75
@@ -123,6 +133,16 @@ def retrieve_documents(
     if "empty_query" in request.fallback_triggers:
         return []
 
+    if _use_database_retriever():
+        try:
+            documents = _retrieve_documents_from_database(request)
+            if documents:  # DB에서 검색 결과가 있으면 반환
+                return documents
+        except Exception:
+            # DB 연결 실패 시 파일 기반 검색으로 fallback
+            pass
+
+    # 파일 기반 BM25 검색 수행
     index = _load_bm25_index()
     if not index.chunks:
         return []
@@ -148,6 +168,151 @@ def _build_query_tokens(request: RetrievalRequest) -> list[str]:
             if token not in tokens:
                 tokens.append(token)
     return tokens
+
+
+def _use_database_retriever() -> bool:
+    # RAG_USE_DB가 명시적으로 false로 설정된 경우만 DB 검색 비활성화
+    if os.getenv(_DB_USE_ENV_VAR, "").strip().lower() in ("0", "false", "no"):
+        return False
+    # psycopg2가 없으면 DB 검색 불가
+    if psycopg2 is None or DictCursor is None:
+        return False
+    # DATABASE_URL이 있거나 POSTGRES_* 환경 변수가 있으면 DB 검색 활성화
+    if os.getenv(_DB_URL_ENV_VAR):
+        return True
+    if os.getenv("POSTGRES_HOST") or os.getenv("POSTGRES_DB") or os.getenv("POSTGRES_USER") or os.getenv("POSTGRES_PASSWORD"):
+        return True
+    # 환경 변수가 없어도 supabase 연결을 시도하도록 기본적으로 True 반환
+    # (실제 연결 실패 시 파일 기반 검색으로 fallback)
+    return True
+
+
+def _normalize_database_url(database_url: str) -> str:
+    normalized = database_url.strip()
+    if normalized.startswith("postgresql+psycopg2://"):
+        return normalized.replace("postgresql+psycopg2://", "postgresql://", 1)
+    return normalized
+
+
+def _open_db_connection():
+    database_url = os.getenv(_DB_URL_ENV_VAR, "").strip()
+    if database_url:
+        database_url = _normalize_database_url(database_url)
+        return psycopg2.connect(database_url)
+
+    return psycopg2.connect(
+        host=os.getenv("POSTGRES_HOST", "postgres"),
+        port=os.getenv("POSTGRES_PORT", "5432"),
+        dbname=os.getenv("POSTGRES_DB", "chatbot"),
+        user=os.getenv("POSTGRES_USER", "chatbot"),
+        password=os.getenv("POSTGRES_PASSWORD", "chatbot"),
+    )
+
+
+def _build_db_search_term(request: RetrievalRequest) -> str:
+    candidate_texts = [
+        request.query,
+        *request.query_variants,
+        *(request.keywords or []),
+    ]
+    terms = [text.strip() for text in candidate_texts if text and text.strip()]
+    return " ".join(dict.fromkeys(terms))
+
+
+def _build_db_filter_conditions(request: RetrievalRequest) -> tuple[str, list[Any]]:
+    conditions: list[str] = []
+    parameters: list[Any] = []
+
+    document_categories = request.filters.get("document_category", [])
+    if document_categories:
+        conditions.append("documents.source_type = ANY(%s)")
+        parameters.append(document_categories)
+
+    departments = request.filters.get("department", [])
+    if departments:
+        conditions.append("documents.department = ANY(%s)")
+        parameters.append(departments)
+
+    categories = request.filters.get("category", [])
+    if categories:
+        conditions.append(
+            "(documents.category_lv1 = ANY(%s) OR documents.category_lv2 = ANY(%s) OR documents.source_type = ANY(%s))"
+        )
+        parameters.extend([categories, categories, categories])
+
+    return " AND ".join(conditions), parameters
+
+
+def _retrieve_documents_from_database(request: RetrievalRequest) -> list[RetrievedDoc]:
+    search_term = _build_db_search_term(request)
+    if not search_term:
+        return []
+
+    sql = """
+    SELECT
+        chunks.chunk_id,
+        chunks.doc_id,
+        chunks.content,
+        documents.title,
+        documents.source_url,
+        documents.source_type,
+        documents.category_lv1,
+        documents.category_lv2,
+        documents.department,
+        documents.published_at,
+        ts_rank_cd(
+            to_tsvector('simple', coalesce(documents.title, '') || ' ' || chunks.content),
+            plainto_tsquery('simple', %s)
+        ) AS score
+    FROM chunks
+    JOIN documents ON documents.doc_id = chunks.doc_id
+    WHERE to_tsvector('simple', coalesce(documents.title, '') || ' ' || chunks.content)
+        @@ plainto_tsquery('simple', %s)
+    """
+
+    filter_clause, filter_params = _build_db_filter_conditions(request)
+    if filter_clause:
+        sql += "\n    AND " + filter_clause
+
+    sql += (
+        "\n    ORDER BY score DESC, documents.published_at DESC NULLS LAST, chunks.chunk_id ASC"
+        "\n    LIMIT %s"
+    )
+
+    parameters = [search_term, search_term, *filter_params, request.top_k or _DEFAULT_TOP_K]
+
+    try:
+        with _open_db_connection() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute(sql, tuple(parameters))
+                rows = cur.fetchall()
+    except psycopg2.Error:
+        return []
+
+    retrieved_docs: list[RetrievedDoc] = []
+    for row in rows:
+        retrieved_docs.append(
+            RetrievedDoc(
+                doc_id=row["doc_id"],
+                chunk_id=row["chunk_id"],
+                content=row["content"],
+                score=float(row["score"] or 0.0),
+                title=row["title"] or "",
+                source=row["source_url"] or row["source_type"] or "",
+                category=request.category or row["source_type"],
+                metadata={
+                    **request.log_fields,
+                    "strategy": request.strategy,
+                    "query": request.query,
+                    "keywords": request.keywords,
+                    "filters": request.filters,
+                    "matched_terms": search_term,
+                    "source_type": row["source_type"],
+                    "published_at": row["published_at"],
+                },
+            )
+        )
+    return retrieved_docs
 
 # BM25 알고리즘을 사용하여 문서 청크에 점수를 매기는 함수
 def _score_documents(

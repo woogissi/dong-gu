@@ -126,6 +126,7 @@ def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type�
     version_result = version_manager.apply_version(source_type, dict(candidate_curated))
     final_curated = version_result["document"]
     decision = version_result["decision"]
+    final_curated["change_type"] = decision
 
     raw_to_save["version"] = final_curated["version"]
 

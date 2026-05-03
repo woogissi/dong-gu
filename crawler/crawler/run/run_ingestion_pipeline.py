@@ -15,7 +15,7 @@ for d in [CHUNK_DIR, LOG_DIR]:          # chunk 저장 폴더와 로그 폴더�
     d.mkdir(parents=True, exist_ok=True)
 
 manifest_writer = ManifestWriter()
-chunker = DocumentChunker(max_chars=500, overlap_chars=50)
+chunker = DocumentChunker(max_chars=900, overlap_chars=100)
 
 
 def load_json(path: Path) -> dict:          # curated 문서 파일 하나를 dict로 읽어온다
@@ -63,6 +63,28 @@ def run_ingestion():                # 전체 ingestion 파이프라인 함수
             doc = load_json(path)
             source_type = doc.get("source_type", "unknown")
             doc_id = doc["doc_id"]
+
+            body = doc.get("normalize", "")
+            attachment = doc.get("attachment_text", "")
+            image = doc.get("image_text", "")
+
+            has_body = body and body.strip()
+            has_attachment = attachment and attachment.strip()
+            has_image = image and image.strip()
+
+            if not (has_body or has_attachment or has_image):
+                manifest_writer.append_jsonl("chunking.jsonl", {
+                    "doc_id": doc_id,
+                    "source_type": source_type,
+                    "version": doc.get("version"),
+                    "chunk_count": 0,
+                    "source_url": doc.get("source_url"),
+                    "status": "skipped",
+                    "reason": "본문/첨부/이미지 텍스트 없음",
+                })
+
+                print(f"[INGEST SKIP] {doc_id} → 본문/첨부/이미지 없음")
+                continue
 
             chunks = chunker.chunk_document(doc)  # list로 청크 결과 받기
             save_chunks(source_type, doc_id, chunks)        # 결과 저장

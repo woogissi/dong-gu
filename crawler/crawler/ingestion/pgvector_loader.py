@@ -12,14 +12,21 @@ from psycopg2.extras import Json
 
 class PGVectorLoader:
     def __init__(self):
-        self.conn = psycopg2.connect(                               # DB 연결 초기화
-            host=os.getenv("POSTGRES_HOST", "postgres"),           # DB 호스트
-            port=os.getenv("POSTGRES_PORT", "5432"),                # 포트 번호
-            dbname=os.getenv("POSTGRES_DB", "chatbot"),             # DB 이름
-            user=os.getenv("POSTGRES_USER", "chatbot"),             # DB 사용자명
-            password=os.getenv("POSTGRES_PASSWORD", "chatbot"),     # DB 비밀번호
-        )
+        database_url = os.getenv("DATABASE_URL")
+        
+        if database_url:
+            self.conn = psycopg2.connect(database_url)
+        else:
+            self.conn = psycopg2.connect(
+                host=os.getenv("POSTGRES_HOST", "postgres"),
+                port=os.getenv("POSTGRES_PORT", "5432"),
+                dbname=os.getenv("POSTGRES_DB", "chatbot"),
+                user=os.getenv("POSTGRES_USER", "chatbot"),
+                password=os.getenv("POSTGRES_PASSWORD", "chatbot"),
+            )
+        
         self.conn.autocommit = False                                # 자동 커밋 해제
+        self._column_cache: dict[tuple[str, str], bool] = {}
 
     def close(self) ->  None:                                                # DB 연결 종료
         self.conn.close()
@@ -31,13 +38,47 @@ class PGVectorLoader:
         """
         with self.conn.cursor() as cur:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+            cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;")
+            cur.execute("ALTER TABLE chunks ADD COLUMN IF NOT EXISTS section_index INT;")
+            cur.execute("ALTER TABLE chunks ADD COLUMN IF NOT EXISTS section_type TEXT;")
+            cur.execute("ALTER TABLE chunks ADD COLUMN IF NOT EXISTS section_title TEXT;")
+            cur.execute("ALTER TABLE chunks ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_chunks_section_type ON chunks(section_type);")
         self.conn.commit()
+        self._column_cache.clear()
 
     def _to_pg_vector(self, embedding: list[float]) -> str:
         return "[" + ",".join(str(x) for x in embedding) + "]"
 
+    def has_column(self, table_name: str, column_name: str) -> bool:
+        key = (table_name, column_name)
+        if key in self._column_cache:
+            return self._column_cache[key]
+
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_name = %s
+                      AND column_name = %s
+                );
+                """,
+                (table_name, column_name),
+            )
+            exists = bool(cur.fetchone()[0])
+
+        self._column_cache[key] = exists
+        return exists
+
     def upsert_document(self, doc: dict) -> None:
-        sql = """
+        has_metadata = self.has_column("documents", "metadata")
+        metadata_insert_column = "metadata," if has_metadata else ""
+        metadata_insert_value = "%(metadata)s," if has_metadata else ""
+        metadata_update = "metadata = EXCLUDED.metadata," if has_metadata else ""
+
+        sql = f"""
         INSERT INTO documents (
             doc_id,
             parent_doc_id,
@@ -65,6 +106,7 @@ class PGVectorLoader:
             version,
             content_hash,
             collected_at,
+            {metadata_insert_column}
             db_updated_at
         )
         VALUES (
@@ -94,6 +136,7 @@ class PGVectorLoader:
             %(version)s,
             %(content_hash)s,
             NULLIF(%(collected_at)s, '')::timestamp,
+            {metadata_insert_value}
             NOW()
         )
         ON CONFLICT (doc_id) DO UPDATE SET
@@ -122,6 +165,7 @@ class PGVectorLoader:
             version = EXCLUDED.version,
             content_hash = EXCLUDED.content_hash,
             collected_at = EXCLUDED.collected_at,
+            {metadata_update}
             db_updated_at = NOW();
         """
 
@@ -153,6 +197,8 @@ class PGVectorLoader:
             "content_hash": doc.get("content_hash"),
             "collected_at": doc.get("collected_at"),
         }
+        if has_metadata:
+            params["metadata"] = Json(doc.get("metadata", {}))
 
         with self.conn.cursor() as cur:
             cur.execute(sql, params)
@@ -280,21 +326,54 @@ class PGVectorLoader:
         self.conn.commit()
 
     def upsert_chunks(self, chunks: list[dict], version: int) -> None:
-        sql = """
+        if not chunks:
+            return
+
+        optional_columns = [
+            ("section_index", "section_index"),
+            ("section_type", "section_type"),
+            ("section_title", "section_title"),
+            ("metadata", "metadata"),
+        ]
+        available_columns = [
+            (param_name, column_name)
+            for param_name, column_name in optional_columns
+            if self.has_column("chunks", column_name)
+        ]
+        insert_columns = "".join(f"            {column_name},\n" for _, column_name in available_columns)
+        insert_values = "".join(f"            %({param_name})s,\n" for param_name, _ in available_columns)
+        update_values = "".join(
+            f"            {column_name} = EXCLUDED.{column_name},\n"
+            for _, column_name in available_columns
+        )
+
+        sql = f"""
         INSERT INTO chunks (
             chunk_id,
             doc_id,
             chunk_index,
+{insert_columns}\
             content,
             content_length,
             content_hash,
             version,
             updated_at
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+        VALUES (
+            %(chunk_id)s,
+            %(doc_id)s,
+            %(chunk_index)s,
+{insert_values}\
+            %(content)s,
+            %(content_length)s,
+            %(content_hash)s,
+            %(version)s,
+            NOW()
+        )
         ON CONFLICT (chunk_id) DO UPDATE SET
             doc_id = EXCLUDED.doc_id,
             chunk_index = EXCLUDED.chunk_index,
+{update_values}\
             content = EXCLUDED.content,
             content_length = EXCLUDED.content_length,
             content_hash = EXCLUDED.content_hash,
@@ -302,21 +381,33 @@ class PGVectorLoader:
             updated_at = NOW();
         """
 
-        rows = [
-            (
-                chunk["chunk_id"],
-                chunk["doc_id"],
-                chunk["chunk_index"],
-                chunk["content"],
-                chunk.get("content_length"),
-                chunk.get("content_hash"),
-                version,
-            )
-            for chunk in chunks
-        ]
+        rows = []
+        for chunk in chunks:
+            row = {
+                "chunk_id": chunk["chunk_id"],
+                "doc_id": chunk["doc_id"],
+                "chunk_index": chunk["chunk_index"],
+                "content": chunk["content"],
+                "content_length": chunk.get("content_length"),
+                "content_hash": chunk.get("content_hash"),
+                "version": version,
+            }
+            for param_name, _ in available_columns:
+                if param_name == "metadata":
+                    row[param_name] = Json(chunk.get("metadata", {}))
+                else:
+                    row[param_name] = chunk.get(param_name)
+            rows.append(row)
 
         with self.conn.cursor() as cur:
-            cur.executemany(sql, rows)
+            doc_id = chunks[0]["doc_id"]
+            chunk_ids = [chunk["chunk_id"] for chunk in chunks]
+            cur.execute(
+                "DELETE FROM chunks WHERE doc_id = %s AND NOT (chunk_id = ANY(%s));",
+                (doc_id, chunk_ids),
+            )
+            for row in rows:
+                cur.execute(sql, row)
 
         self.conn.commit()
 
