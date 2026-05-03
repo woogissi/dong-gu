@@ -134,10 +134,15 @@ def retrieve_documents(
         return []
 
     if _use_database_retriever():
-        documents = _retrieve_documents_from_database(request)
-        if documents:
-            return documents
+        try:
+            documents = _retrieve_documents_from_database(request)
+            if documents:  # DB에서 검색 결과가 있으면 반환
+                return documents
+        except Exception:
+            # DB 연결 실패 시 파일 기반 검색으로 fallback
+            pass
 
+    # 파일 기반 BM25 검색 수행
     index = _load_bm25_index()
     if not index.chunks:
         return []
@@ -166,13 +171,20 @@ def _build_query_tokens(request: RetrievalRequest) -> list[str]:
 
 
 def _use_database_retriever() -> bool:
+    # RAG_USE_DB가 명시적으로 false로 설정된 경우만 DB 검색 비활성화
     if os.getenv(_DB_USE_ENV_VAR, "").strip().lower() in ("0", "false", "no"):
         return False
+    # psycopg2가 없으면 DB 검색 불가
     if psycopg2 is None or DictCursor is None:
         return False
+    # DATABASE_URL이 있거나 POSTGRES_* 환경 변수가 있으면 DB 검색 활성화
     if os.getenv(_DB_URL_ENV_VAR):
         return True
-    return bool(os.getenv("POSTGRES_HOST") or os.getenv("POSTGRES_DB") or os.getenv("POSTGRES_USER") or os.getenv("POSTGRES_PASSWORD"))
+    if os.getenv("POSTGRES_HOST") or os.getenv("POSTGRES_DB") or os.getenv("POSTGRES_USER") or os.getenv("POSTGRES_PASSWORD"):
+        return True
+    # 환경 변수가 없어도 supabase 연결을 시도하도록 기본적으로 True 반환
+    # (실제 연결 실패 시 파일 기반 검색으로 fallback)
+    return True
 
 
 def _normalize_database_url(database_url: str) -> str:

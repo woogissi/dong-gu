@@ -43,6 +43,7 @@ class RawDocumentBase(BaseModel):
 
     content_hash: str
     html: str
+    metadata: dict = Field(default_factory=dict)
 
 
 class BoardDetailRawDocument(RawDocumentBase):

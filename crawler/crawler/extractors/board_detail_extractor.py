@@ -89,27 +89,38 @@ class BoardDetailExtractor:
     def find_meta(self, html: str) -> dict:                              # 게시글 메타데이터 추출       
         full_text = self.normalize_text(BeautifulSoup(html, "html.parser").get_text(" ", strip=True))   # 전체 html을 한줄로
 
-        date_match = re.search(r"\d{4}-\d{2}-\d{2}", full_text)         # 처음나온 0000-00-00 형식의 날짜를 잡음
-        published_at = date_match.group(0) if date_match else None
+        date_match = re.search(r"(\d{4}-\d{2}-\d{2})", full_text)         # 처음나온 0000-00-00 형식의 날짜를 잡음
+        published_at = date_match.group(1) if date_match else None
 
-        views_match = re.search(r"조회수\s*([0-9,]+)", full_text)       # 처음나온 조회수 + 숫자 형식을 잡음
+        views_match = re.search(r"조회수\s*:?\s*([0-9,]+)", full_text)       # 처음나온 조회수 + 숫자 형식을 잡음
         views = int(views_match.group(1).replace(",", "")) if views_match else None
 
         author = None
         for pattern in [                                                # 작성자 or 부서를 발견하면 그 뒤를 author로 넣음
-            r"작성자\s*([가-힣A-Za-z0-9·\-\(\)\s]+)",
-            r"부서\s*([가-힣A-Za-z0-9·\-\(\)\s]+)",
+            r"작성자\s*:?\s*([가-힣A-Za-z0-9·\-\(\)\s]+)",
+            r"부서\s*:?\s*([가-힣A-Za-z0-9·\-\(\)\s]+)",
         ]:
             m = re.search(pattern, full_text)
             if m:
                 author = self.normalize_text(m.group(1))
                 break
 
+        # 추가 메타데이터 추출
+        metadata = {}
+        if published_at:
+            metadata["published_at"] = published_at
+        if views is not None:
+            metadata["views"] = views
+        if author:
+            metadata["author"] = author
+            metadata["department"] = author  # department로도 저장
+
         return {            # 본문데이터 구성
             "published_at": published_at,
             "updated_at": None,
             "views": views,
             "author": author,
+            "metadata": metadata,
         }
 
     def find_content_node(self, soup: BeautifulSoup):                   # 본문 DOM 노드 찾기
@@ -220,6 +231,38 @@ class BoardDetailExtractor:
 
         return unique
 
+    def remove_meta_from_content(self, text: str, meta: dict) -> str:
+        """본문 텍스트에서 메타데이터 관련 텍스트를 제거"""
+        if not text:
+            return text
+        
+        # 메타데이터 값들을 텍스트에서 제거
+        patterns = []
+        if meta.get("published_at"):
+            patterns.append(re.escape(f"작성일: {meta['published_at']}"))
+            patterns.append(re.escape(f"작성일 {meta['published_at']}"))
+        if meta.get("author"):
+            patterns.append(re.escape(f"작성자: {meta['author']}"))
+            patterns.append(re.escape(f"부서: {meta['author']}"))
+        if meta.get("views") is not None:
+            patterns.append(re.escape(f"조회수: {meta['views']}"))
+        
+        # 이전글/다음글 패턴
+        patterns.extend([
+            r"이전글\s*[^\n]*다음글",
+            r"이전글",
+            r"다음글",
+        ])
+        
+        cleaned = text
+        for pattern in patterns:
+            cleaned = re.sub(pattern, "", cleaned, flags=re.MULTILINE | re.IGNORECASE)
+        
+        # 연속된 공백/줄바꿈 정리
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+        cleaned = re.sub(r"[ \t]+", " ", cleaned)
+        return cleaned.strip()
+
     def build_raw_document(self, source_type: str, detail_url: str, html: str) -> dict:     # 최종 조립 함수
         soup = BeautifulSoup(html, "html.parser")                                           # html 파싱
         article_no = self.extract_article_no(detail_url) or "unknown"                       # article_no
@@ -230,6 +273,7 @@ class BoardDetailExtractor:
         raw_text = ""
         if content_node:
             raw_text = self.normalize_multiline_text(content_node.get_text("\n", strip=True))   # 본문 텍스트
+            raw_text = self.remove_meta_from_content(raw_text, meta)  # 메타데이터 제거
 
         table_text = self.extract_table_text(content_node)                  # 표텍스트
         image_urls = self.extract_image_urls(content_node, detail_url)      # 이미지 url
@@ -281,6 +325,7 @@ class BoardDetailExtractor:
             attachments=attachments,
             content_hash=hash,        # 본문 해시
             html=html,
+            metadata=meta["metadata"],
         )
 
         return raw_doc.model_dump()

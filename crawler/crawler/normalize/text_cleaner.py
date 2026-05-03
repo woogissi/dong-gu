@@ -23,6 +23,10 @@ class TextCleaner:                                          # raw데이터 -> cl
             r"인쇄\s*$",
             r"공유\s*$",
             r"저작권자.*",
+            r"작성일\s*:\s*\d{4}-\d{2}-\d{2}",
+            r"작성자\s*:\s*[^\n]*",
+            r"조회수\s*:\s*\d+",
+            r"이전글\s*[^\n]*다음글",
         ]
 
         cleaned = text
