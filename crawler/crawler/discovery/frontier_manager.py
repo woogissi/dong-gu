@@ -10,6 +10,7 @@ class FrontierManager:
         self.max_depth = max_depth
         self.queue = deque()        # 큐 구성 (url, 현재 깊이, url출처)
         self.visited = set()        # 방문 url 저장 집합(중복검사 용이)
+        self.queued = set()
 
     def canonicalize_url(self, url: str) -> str:
         url, _ = urldefrag(url)     # 예를들어 url이 ("https://abc.com/page", "section1") 일 경우 뒤의 fragment는 지우고 앞의 url만 저장
@@ -31,12 +32,11 @@ class FrontierManager:
         if url in self.visited:     # 방문한 url인지 확인
             return False
 
-        # 큐 중복 방지
-        for queued_url, _, _ in self.queue:
-            if queued_url == url:
-                return False
+        if url in self.queued:
+            return False
 
         self.queue.append((url, depth, discovered_from))
+        self.queued.add(url)
         return True                 # 큐에 저장 성공시 True 반환
 
     def mark_visited(self, url: str) -> None:
@@ -45,7 +45,9 @@ class FrontierManager:
     def pop_next(self):             # 다음 방문할 사이트 pop
         if not self.queue:
             return None
-        return self.queue.popleft()
+        item = self.queue.popleft()
+        self.queued.discard(item[0])
+        return item
 
     def has_next(self) -> bool:     # 큐에 방문할 사이트 남아있는지 확인
         return len(self.queue) > 0
@@ -53,6 +55,7 @@ class FrontierManager:
     def stats(self) -> dict:        # 로그용 현재 상태 반환
         return {
             "queued": len(self.queue),      #큐에 대기중인 사이트 개수
+            "queued_unique": len(self.queued),
             "visited": len(self.visited),   #방문한 사이트 개수
             "max_depth": self.max_depth,    #현재 최대 깊이
         }

@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import io
+import os
 from typing import List
 
 import requests
 from PIL import Image, ImageOps
 import pytesseract
 
-pytesseract.pytesseract.tesseract_cmd = r"E:\Tesseract-OCR\tesseract.exe"     #Tesseract OCR 프로그램 경로
+tesseract_cmd = os.getenv("TESSERACT_CMD")
+if tesseract_cmd:
+    pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
 
 HEADERS = {
     "User-Agent": (

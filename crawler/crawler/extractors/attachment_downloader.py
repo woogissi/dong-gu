@@ -20,10 +20,11 @@ HEADERS = {                                 # 봇차단을 방지하기 위한 U
 
 
 class AttachmentDownloader:
-    def __init__(self, base_save_dir: str = "crawler/data/raw/files"):  # 첨부파일 저장 기본 위치 : crawler/data/raw/files
+    def __init__(self, base_save_dir: str = "crawler/data/raw/files", max_file_size: int = 100 * 1024 * 1024):
         self.session = requests.Session()                               # 요청 세션
         self.session.headers.update(HEADERS)                            # USER-agent 헤더로 적용
         self.base_save_dir = Path(base_save_dir)                        # 저장 기본 위치를 Path 객체로 바꾼다.
+        self.max_file_size = max_file_size
         self.base_save_dir.mkdir(parents=True, exist_ok=True)           # 폴더가 없으면 생성한다. parents=True: 상위 폴더도 같이 생성 exist_ok=True: 이미 있어도 에러 안 냄
 
     def sanitize_filename(self, text: str, max_len: int = 150) -> str:  # 파일명으로 저장안되는 문자들 _로 변환
@@ -123,11 +124,14 @@ class AttachmentDownloader:
         file_name = attachment["file_name"]                                                         #원래 파일명
         attachment_index = attachment["attachment_index"]                                           #몇번째 첨부파일인지
 
-        res = self.session.get(file_url, timeout=30)                                                #30초내로 다운로드 응답을 보낸다
+        res = self.session.get(file_url, timeout=30, stream=True)                                   #30초내로 다운로드 응답을 보낸다
         res.raise_for_status()                                                                      #http 상태코드가 200번대가 아니면 에러코드 발생
 
         content_disposition = res.headers.get("Content-Disposition")
         content_type = res.headers.get("Content-Type")
+        content_length = res.headers.get("Content-Length")
+        if content_length and int(content_length) > self.max_file_size:
+            raise ValueError(f"Attachment too large: {content_length} bytes url={file_url}")
 
         safe_name = self.sanitize_filename(file_name) or f"attachment_{attachment_index}"           #변환된 파일명 or 몇번째 첨부파일인지로 파일명 설정
 
@@ -146,8 +150,16 @@ class AttachmentDownloader:
 
         
 
+        file_size = 0
         with open(save_path, "wb") as f:                                                            #첨부파일 바이너리로 저장
-            f.write(res.content)
+            for chunk in res.iter_content(chunk_size=1024 * 1024):
+                if not chunk:
+                    continue
+                file_size += len(chunk)
+                if file_size > self.max_file_size:
+                    save_path.unlink(missing_ok=True)
+                    raise ValueError(f"Attachment too large: {file_size} bytes url={file_url}")
+                f.write(chunk)
 
         print(
             f"[ATTACH DEBUG] url={file_url} "
@@ -163,5 +175,6 @@ class AttachmentDownloader:
             "file_url": file_url,
             "file_ext": ext if ext else None,
             "saved_path": str(save_path.as_posix()),                                                #파일 저장 위치
-            "file_size": len(res.content),                                                          #바이트 단위 파일 크기
+            "file_size": file_size,                                                                 #바이트 단위 파일 크기
+            "content_type": content_type,
         }

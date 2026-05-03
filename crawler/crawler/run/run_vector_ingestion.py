@@ -83,7 +83,7 @@ def main():     # 메인 함수
 
                 loader.upsert_document(curated_doc)
 
-                change_type = curated_doc.get("decision", "unknown")
+                change_type = curated_doc.get("change_type") or curated_doc.get("decision", "unknown")
                 if change_type in ("new", "updated"):
                     loader.insert_document_version(curated_doc, change_type)
 

@@ -15,7 +15,7 @@ for d in [CHUNK_DIR, LOG_DIR]:          # chunk 저장 폴더와 로그 폴더�
     d.mkdir(parents=True, exist_ok=True)
 
 manifest_writer = ManifestWriter()
-chunker = DocumentChunker(max_chars=500, overlap_chars=50)
+chunker = DocumentChunker(max_chars=900, overlap_chars=100)
 
 
 def load_json(path: Path) -> dict:          # curated 문서 파일 하나를 dict로 읽어온다

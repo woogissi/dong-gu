@@ -2,6 +2,7 @@
 
 import re
 import hashlib
+import os
 from crawler.utils.content_hash import build_content_hash
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urljoin, urlparse, urldefrag
@@ -44,6 +45,12 @@ class StaticPageExtractor:
         text = re.sub(r"\s+", " ", text)
         return text.strip()
 
+    def clean_title(self, title: str) -> str:
+        title = self.normalize_text(title)
+        title = re.sub(r"\s*\|\s*동의대학교.*$", "", title)
+        title = re.sub(r"\s*-\s*동의대학교.*$", "", title)
+        return title.strip()
+
     def normalize_multiline_text(self, text: str) -> str:       #여러줄 텍스트 정리
         if not text:
             return ""
@@ -63,19 +70,22 @@ class StaticPageExtractor:
             res.raise_for_status()
             return res.text
         except requests.exceptions.SSLError:
-            if "lib.deu.ac.kr" in url:
+            if "lib.deu.ac.kr" in url and os.getenv("CRAWLER_ALLOW_INSECURE_SSL") == "1":
                 res = self.session.get(url, timeout=20, verify=False)       # 도서관 사이트 SSLhandshake failure 해결
                 res.raise_for_status()
                 return res.text
-            else:
-                raise
+            raise
 
     def make_doc_id(self, url: str) -> str:
         return f"static_{self.sha1_text(url)[:16]}"         #정적페이지는 articleNo가 없기 때문에 해시로 id생성
 
     def find_title(self, soup: BeautifulSoup) -> str:       #제목찾기
+        if soup.title:
+            title = self.clean_title(soup.title.get_text(" ", strip=True))
+            if title and title != "동의대학교 DONG-EUI UNIVERSITY":
+                return title
+
         selectors = [
-            "h1",
             "h2",
             "h3",
             ".title",
@@ -86,12 +96,9 @@ class StaticPageExtractor:
         for sel in selectors:
             node = soup.select_one(sel)
             if node:
-                text = self.normalize_text(node.get_text(" ", strip=True))
-                if text:
+                text = self.clean_title(node.get_text(" ", strip=True))
+                if text and text != "동의대학교 DONG-EUI UNIVERSITY":
                     return text
-
-        if soup.title:
-            return self.normalize_text(soup.title.get_text(" ", strip=True))
 
         return ""
 
