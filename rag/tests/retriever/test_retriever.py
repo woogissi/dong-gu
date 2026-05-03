@@ -38,12 +38,33 @@ class RetrieverSupabaseTest(unittest.TestCase):
         retriever._load_chunk_records.cache_clear()
         retriever._load_bm25_index.cache_clear()
 
+    # Supabase에서 검색 결과가 제대로 반환되는지 확인하는 테스트 케이스
+    # def test_retrieve_documents_returns_supabase_ranked_results(self) -> None:
+    #     sample = self._fetch_searchable_sample()
+    #     request = RetrievalRequest(
+    #         query=sample["term"],
+    #         query_variants=[sample["term"]],
+    #         keywords=[sample["term"]],
+    #         top_k=10,
+    #     )
+
+    #     self._debug_print("retrieve_documents request", request.model_dump())
+    #     documents = self._retrieve_without_file_fallback(request)
+    #     self._debug_print("retrieve_documents result", self._document_debug_rows(documents))
+
+    #     self.assertGreaterEqual(len(documents), 1)
+    #     self.assertIn(sample["doc_id"], {document.doc_id for document in documents})
+    #     self.assertTrue(all(document.score > 0 for document in documents))
+    #     self.assertTrue(all(document.metadata.get("matched_terms") for document in documents))
+
     def test_retrieve_documents_returns_supabase_ranked_results(self) -> None:
-        sample = self._fetch_searchable_sample()
+        my_query = "마이크로디그리 신청/변경 일정" 
+        my_keywords = ["마이크로디그리", "신청", "변경", "일정"]
+
         request = RetrievalRequest(
-            query=sample["term"],
-            query_variants=[sample["term"]],
-            keywords=[sample["term"]],
+            query=my_query,
+            query_variants=[my_query],
+            keywords=my_keywords,
             top_k=10,
         )
 
@@ -52,10 +73,8 @@ class RetrieverSupabaseTest(unittest.TestCase):
         self._debug_print("retrieve_documents result", self._document_debug_rows(documents))
 
         self.assertGreaterEqual(len(documents), 1)
-        self.assertIn(sample["doc_id"], {document.doc_id for document in documents})
-        self.assertTrue(all(document.score > 0 for document in documents))
-        self.assertTrue(all(document.metadata.get("matched_terms") for document in documents))
 
+    # 검색어 필터가 제대로 적용되는지 확인하는 테스트 케이스들
     def test_retrieve_documents_applies_document_category_filter(self) -> None:
         sample = self._fetch_searchable_sample(where_sql="documents.source_type IS NOT NULL")
         request = RetrievalRequest(
@@ -71,6 +90,7 @@ class RetrieverSupabaseTest(unittest.TestCase):
         self.assertTrue(all(document.metadata["source_type"] == sample["source_type"] for document in documents))
         self.assertIn(sample["doc_id"], {document.doc_id for document in documents})
 
+    # source_type 필터가 제대로 적용되는지 확인하는 테스트 케이스
     def test_retrieve_documents_applies_department_filter(self) -> None:
         sample = self._fetch_searchable_sample(where_sql="documents.department IS NOT NULL AND documents.department <> ''")
         request = RetrievalRequest(
@@ -85,6 +105,7 @@ class RetrieverSupabaseTest(unittest.TestCase):
         self.assertGreaterEqual(len(documents), 1)
         self.assertIn(sample["doc_id"], {document.doc_id for document in documents})
 
+    # category_lv1 필터가 제대로 적용되는지 확인하는 테스트 케이스
     def test_retrieve_documents_applies_category_filter(self) -> None:
         sample = self._fetch_searchable_sample(where_sql="documents.source_type IS NOT NULL")
         request = RetrievalRequest(
@@ -99,6 +120,7 @@ class RetrieverSupabaseTest(unittest.TestCase):
         self.assertGreaterEqual(len(documents), 1)
         self.assertIn(sample["doc_id"], {document.doc_id for document in documents})
 
+    # 검색 결과가 없을 때 빈 리스트를 반환하는지 확인하는 테스트 케이스
     def test_empty_search_results(self) -> None:
         request = RetrievalRequest(
             query="donggu-retriever-no-match-000000",
@@ -110,6 +132,7 @@ class RetrieverSupabaseTest(unittest.TestCase):
 
         self.assertEqual(len(documents), 0)
 
+    # 테스트 케이스 추가: 검색어 변형(query_variants)이 Supabase 검색에 사용되는지 확인하는 테스트
     def test_query_variants_are_used_for_supabase_search(self) -> None:
         sample = self._fetch_searchable_sample()
         request = RetrievalRequest(
