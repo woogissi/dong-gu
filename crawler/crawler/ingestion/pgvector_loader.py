@@ -12,13 +12,22 @@ from psycopg2.extras import Json
 
 class PGVectorLoader:
     def __init__(self):
-        self.conn = psycopg2.connect(                               # DB 연결 초기화
-            host=os.getenv("POSTGRES_HOST", "postgres"),           # DB 호스트
-            port=os.getenv("POSTGRES_PORT", "5432"),                # 포트 번호
-            dbname=os.getenv("POSTGRES_DB", "chatbot"),             # DB 이름
-            user=os.getenv("POSTGRES_USER", "chatbot"),             # DB 사용자명
-            password=os.getenv("POSTGRES_PASSWORD", "chatbot"),     # DB 비밀번호
-        )
+        # Supabase 또는 PostgreSQL 연결
+        database_url = os.getenv("DATABASE_URL")
+        
+        if database_url:
+            # Supabase 연결: DATABASE_URL 환경 변수 사용
+            self.conn = psycopg2.connect(database_url)
+        # else:
+        #     # 기존 PostgreSQL 직접 연결: 개별 환경 변수 사용
+        #     self.conn = psycopg2.connect(
+        #         host=os.getenv("POSTGRES_HOST", "postgres"),           # DB 호스트
+        #         port=os.getenv("POSTGRES_PORT", "5432"),                # 포트 번호
+        #         dbname=os.getenv("POSTGRES_DB", "chatbot"),             # DB 이름
+        #         user=os.getenv("POSTGRES_USER", "chatbot"),             # DB 사용자명
+        #         password=os.getenv("POSTGRES_PASSWORD", "chatbot"),     # DB 비밀번호
+        #     )
+        
         self.conn.autocommit = False                                # 자동 커밋 해제
 
     def close(self) ->  None:                                                # DB 연결 종료
