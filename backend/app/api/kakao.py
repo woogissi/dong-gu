@@ -1,6 +1,7 @@
 import time
 from fastapi import APIRouter, Request, BackgroundTasks
 
+from backend.app.utils.callback import kakao_callback
 from backend.app.database.query_logs import create_query_log, update_query_intent
 from backend.app.database.response_logs import save_response_log
 from backend.app.api.chat import general_chat_service
@@ -15,7 +16,6 @@ from backend.app.utils.kakao_ui import (
 )
 from rag.schemas.query import Query
 
-
 router = APIRouter(tags=["kakao"])
 
 primary_intent_classifier = PrimaryIntentClassifier()
@@ -24,22 +24,13 @@ chat_pipeline = None
 
 def get_chat_pipeline():
     global chat_pipeline
-
     if chat_pipeline is None:
         from rag.pipeline.chat_pipeline import ChatPipeline
         chat_pipeline = ChatPipeline()
-
     return chat_pipeline
 
 
-def add_response_log_task(
-    background_tasks: BackgroundTasks,
-    request_id: str | None,
-    answer_text: str | None,
-    success: bool,
-    response_time_ms: int,
-    error_message: str | None = None,
-):
+def add_response_log_task(background_tasks, request_id, answer_text, success, response_time_ms, error_message=None):
     if not request_id:
         return
 
@@ -57,9 +48,11 @@ def add_response_log_task(
 async def kakao_webhook(request: Request, background_tasks: BackgroundTasks):
     start_time = time.time()
     request_id = None
+    callback_mode = False
 
     body = await request.json()
 
+    callback_url = body.get("userRequest", {}).get("callbackUrl")
     user_id = body.get("userRequest", {}).get("user", {}).get("id", "unknown")
     utterance = body.get("userRequest", {}).get("utterance", "").strip()
 
@@ -67,147 +60,123 @@ async def kakao_webhook(request: Request, background_tasks: BackgroundTasks):
         return kakao_response("질문 내용을 입력해주세요.")
 
     if not acquire_user_lock(user_id):
-        return kakao_response(
-            "이전 질문을 처리 중입니다.\n잠시 후 다시 질문해주세요."
-        )
+        return kakao_response("이전 질문을 처리 중입니다.\n잠시 후 다시 질문해주세요.")
 
     try:
-        # 1. 질문 수신 즉시 저장
-        request_id = create_query_log(
-            user_id=user_id,
-            question=utterance,
-        )
+        request_id = create_query_log(user_id=user_id, question=utterance)
 
-        # 2. 의도 분류
-        primary_intent = primary_intent_classifier.classify(utterance)
+        intent = primary_intent_classifier.classify(utterance)
+        update_query_intent(request_id=request_id, intent_type=intent)
 
-        # 3. 의도 결과 즉시 업데이트
-        update_query_intent(
-            request_id=request_id,
-            intent_type=primary_intent,
-        )
-
-        # -------------------------
         # 욕설
-        # -------------------------
-        if primary_intent == "PROFANITY":
-            answer_text = "부적절한 표현은 사용할 수 없어요."
-            response_time_ms = int((time.time() - start_time) * 1000)
+        if intent == "PROFANITY":
+            return kakao_response("부적절한 표현은 사용할 수 없어요.")
 
-            # 응답 로그는 백그라운드 저장
-            add_response_log_task(
-                background_tasks=background_tasks,
-                request_id=request_id,
-                answer_text=answer_text,
-                success=True,
-                response_time_ms=response_time_ms,
-            )
-
-            return kakao_response(answer_text)
-
-        # -------------------------
         # 일반 대화
-        # -------------------------
-        if primary_intent == "GENERAL":
-            answer_text = general_chat_service.process_general_chat(
+        if intent == "GENERAL":
+            answer = general_chat_service.process_general_chat(
                 utterance=utterance,
                 user_id=user_id,
             )
+            return kakao_response(answer)
 
-            response_time_ms = int((time.time() - start_time) * 1000)
+        # -------------------------
+        # 정보성 질문 (콜백)
+        # -------------------------
+        if callback_url:
+            callback_mode = True
 
-            # 응답 로그는 백그라운드 저장
-            add_response_log_task(
-                background_tasks=background_tasks,
-                request_id=request_id,
-                answer_text=answer_text,
-                success=True,
-                response_time_ms=response_time_ms,
+            background_tasks.add_task(
+                process_info_with_callback,
+                callback_url,
+                request_id,
+                user_id,
+                utterance,
+                start_time,
             )
 
-            return kakao_response(answer_text)
+            return {
+                "version": "2.0",
+                "useCallback": True,
+                "data": {
+                    "text": "답변을 생성 중입니다. 잠시만 기다려주세요."
+                },
+            }
 
-        # -------------------------
-        # 정보성 질문
-        # -------------------------
-        print(f"[INFO] RAG start request_id={request_id}")
-
-        result = get_chat_pipeline().run(Query(text=utterance))
-
-        print(f"[INFO] RAG finished request_id={request_id}")
-
-        if isinstance(result, dict):
-            result_dict = result
-        elif hasattr(result, "model_dump"):
-            result_dict = result.model_dump()
-        elif hasattr(result, "to_dict"):
-            result_dict = result.to_dict()
-        else:
-            result_dict = {}
-
-        answer_text = (
-            result_dict.get("answer_text")
-            or result_dict.get("answer")
-            or getattr(result, "answer_text", None)
-            or getattr(result, "answer", None)
-        )
-
-        category = (
-            result_dict.get("category")
-            or getattr(result, "category", None)
-        )
-
-        if not category:
-            category = get_category_from_utterance(utterance)
-
-        answer_text = (answer_text or "답변을 생성하지 못했습니다.").strip()
-        answer_text = answer_text.replace("[DUMMY ANSWER]", "").strip()
-
-        if "문맥:" in answer_text:
-            answer_text = answer_text.split("문맥:")[0].strip()
-
-        title = get_title_by_category(category)
-        link_url = get_link_url_by_category(category)
-        quick_replies = get_quick_replies_by_category(category)
-
-        final_answer_text = f"{answer_text}\n\n사이트 바로가기: {link_url}"
-
-        response_time_ms = int((time.time() - start_time) * 1000)
-
-        # 응답 로그는 백그라운드 저장
-        add_response_log_task(
-            background_tasks=background_tasks,
-            request_id=request_id,
-            answer_text=final_answer_text,
-            success=True,
-            response_time_ms=response_time_ms,
-        )
-
-        return kakao_text_card(
-            title=title,
-            description=final_answer_text,
-            link_url=link_url,
-            quick_replies=quick_replies,
+        # 콜백 URL 없는 경우 (테스트 or 미적용)
+        return kakao_response(
+            "콜백 URL이 전달되지 않았습니다.\n"
+            "카카오톡 채널에서 다시 테스트해주세요."
         )
 
     except Exception as e:
-        print(f"[ERROR] kakao_webhook request_id={request_id}: {e}")
+        print(f"[ERROR] kakao_webhook: {e}")
+        return kakao_response("오류가 발생했습니다. 잠시 후 다시 시도해주세요.")
 
-        response_time_ms = int((time.time() - start_time) * 1000)
+    finally:
+        if not callback_mode:
+            release_user_lock(user_id)
 
-        # 실패 응답 로그도 백그라운드 저장
-        add_response_log_task(
-            background_tasks=background_tasks,
+
+# -------------------------
+# 콜백 처리
+# -------------------------
+
+def process_info_with_callback(callback_url, request_id, user_id, utterance, start_time):
+    try:
+        result = get_chat_pipeline().run(Query(text=utterance))
+
+        response_body, final_answer = build_info_response(result, utterance)
+
+        kakao_callback(callback_url, response_body)
+
+        save_response_log(
+            request_id=request_id,
+            answer_text=final_answer,
+            success=True,
+            response_time_ms=int((time.time() - start_time) * 1000),
+            error_message=None,
+        )
+
+    except Exception as e:
+        print(f"[ERROR] callback: {e}")
+
+        kakao_callback(
+            callback_url,
+            kakao_response("답변 생성 중 오류가 발생했습니다."),
+        )
+
+        save_response_log(
             request_id=request_id,
             answer_text=None,
             success=False,
-            response_time_ms=response_time_ms,
+            response_time_ms=int((time.time() - start_time) * 1000),
             error_message=str(e),
-        )
-
-        return kakao_response(
-            "질문 처리 중 오류가 발생했어요.\n잠시 후 다시 시도해주세요."
         )
 
     finally:
         release_user_lock(user_id)
+
+
+def build_info_response(result, utterance):
+    result_dict = result if isinstance(result, dict) else getattr(result, "model_dump", lambda: {})()
+
+    answer = result_dict.get("answer_text") or result_dict.get("answer") or "답변을 생성하지 못했습니다."
+
+    category = result_dict.get("category") or get_category_from_utterance(utterance)
+
+    title = get_title_by_category(category)
+    link = get_link_url_by_category(category)
+    quick = get_quick_replies_by_category(category)
+
+    final = f"{answer.strip()}\n\n사이트 바로가기: {link}"
+
+    return (
+        kakao_text_card(
+            title=title,
+            description=final,
+            link_url=link,
+            quick_replies=quick,
+        ),
+        final,
+    )
