@@ -231,7 +231,6 @@ class StaticPageExtractor:
         image_urls = self.extract_image_urls(content_node, page_url)
         image_texts = self.image_text_extractor.extract_many(image_urls)
         outgoing_links = self.extract_internal_links(content_node, page_url)
-        category_lv1, category_lv2 = self.infer_category(page_url, title)
         merged_image_text = "\n\n".join(
             item["image_text"] for item in image_texts if item.get("image_text")
         ).strip()
@@ -244,27 +243,17 @@ class StaticPageExtractor:
 
         raw_doc = StaticPageRawDocument(
         doc_id=self.make_doc_id(page_url),      # 해시기반 id
-        parent_doc_id=None,
         source_type=source_type,                # homepage, library, dormitory 등
         page_kind="static_page",
-        category_lv1=category_lv1,              #infer_category()
-        category_lv2=category_lv2,              #infer_category()
         department=None,
         title=title,
-        summary=None,
         source_url=page_url,
         published_at=None,
         updated_at=None,
-        valid_from=None,
-        valid_to=None,
-        target_audience=[],
-        keywords=[],
         raw_text=raw_text,
         normalize=None,
         table_text=table_text,
         attachment_text=None,
-        language="ko",
-        status="active",
         version=1,
         collected_at=self.now_kst_iso(),
         views=None,

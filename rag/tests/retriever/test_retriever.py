@@ -159,9 +159,7 @@ class RetrieverSupabaseTest(unittest.TestCase):
             chunks.content,
             documents.title,
             documents.source_type,
-            documents.department,
-            documents.category_lv1,
-            documents.category_lv2
+            documents.department
         FROM chunks
         JOIN documents ON documents.doc_id = chunks.doc_id
         WHERE chunks.content IS NOT NULL

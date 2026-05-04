@@ -16,28 +16,18 @@ DROP TABLE IF EXISTS documents CASCADE;
 CREATE TABLE documents (
     id BIGSERIAL PRIMARY KEY,
     doc_id TEXT NOT NULL UNIQUE,
-    parent_doc_id TEXT,
     source_type TEXT NOT NULL,
     page_kind TEXT NOT NULL,
-    category_lv1 TEXT,
-    category_lv2 TEXT,
     department TEXT,
     title TEXT NOT NULL,
-    summary TEXT,
     source_url TEXT,
     published_at TIMESTAMP,
     updated_at TIMESTAMP,
-    valid_from TIMESTAMP,
-    valid_to TIMESTAMP,
-    target_audience TEXT[] DEFAULT '{}',
-    keywords TEXT[] DEFAULT '{}',
     raw_text TEXT,
     clean_text TEXT,
     table_text TEXT,
     attachment_text TEXT,
     image_text TEXT,
-    language TEXT DEFAULT 'ko',
-    status TEXT DEFAULT 'active',
     version INT DEFAULT 1,
     content_hash TEXT,
     collected_at TIMESTAMP NOT NULL,
@@ -71,7 +61,6 @@ CREATE TABLE document_assets (
     file_url TEXT,
     file_ext TEXT,
     saved_path TEXT,
-    content_type TEXT,
     file_size BIGINT,
     parser_type TEXT,
     extracted_text TEXT,
@@ -108,7 +97,6 @@ CREATE TABLE chunks (
 CREATE TABLE chunk_embeddings (
     chunk_id TEXT PRIMARY KEY,
     embedding VECTOR(1024),
-    model_name TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     CONSTRAINT fk_embedding_chunk
@@ -161,21 +149,33 @@ CREATE TABLE query_logs (
 
 CREATE TABLE retrieval_logs (
     id BIGSERIAL PRIMARY KEY,
-    request_id UUID NOT NULL REFERENCES query_logs(request_id),
+    request_id UUID NOT NULL UNIQUE REFERENCES query_logs(request_id),
 
     original_query TEXT NOT NULL,
     normalized_query TEXT,
     rewritten_query TEXT,
+    rewritten_queries TEXT[] DEFAULT '{}',
 
-    keywords TEXT[],
-    entities JSONB,
+    keywords TEXT[] DEFAULT '{}',
+    entities JSONB DEFAULT '{}'::jsonb,
+    filters JSONB DEFAULT '{}'::jsonb,
     category TEXT,
 
+    retrieval_strategy TEXT NOT NULL,
+    retrieval_top_k INT NOT NULL,
+    retrieval_strategy_log JSONB DEFAULT '{}'::jsonb,
+
     fallback_used BOOLEAN NOT NULL DEFAULT FALSE,
-    selected_chunk_ids TEXT[],
+    retrieved_doc_count INT NOT NULL DEFAULT 0,
+    reranked_doc_count INT NOT NULL DEFAULT 0,
+    selected_doc_count INT NOT NULL DEFAULT 0,
+    selected_chunk_ids TEXT[] DEFAULT '{}',
+    selected_documents JSONB DEFAULT '[]'::jsonb,
     context TEXT,
 
-    success BOOLEAN,
+    success BOOLEAN NOT NULL DEFAULT FALSE,
+    error_message TEXT,
+    metadata JSONB DEFAULT '{}'::jsonb,
 
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
@@ -187,7 +187,7 @@ CREATE TABLE response_logs (
     id BIGSERIAL PRIMARY KEY,
     request_id UUID NOT NULL UNIQUE REFERENCES query_logs(request_id),
 
-    answer_text TEXT NOT NULL,
+    answer_text TEXT,
     success BOOLEAN NOT NULL DEFAULT FALSE,
     error_message TEXT,
     response_time_ms INT,
@@ -203,9 +203,6 @@ ON documents(doc_id);
 
 CREATE INDEX idx_documents_source_type
 ON documents(source_type);
-
-CREATE INDEX idx_documents_category
-ON documents(category_lv1, category_lv2);
 
 CREATE INDEX idx_documents_published_at
 ON documents(published_at);
@@ -237,8 +234,38 @@ ON document_assets(doc_id);
 CREATE INDEX idx_assets_type
 ON document_assets(asset_type);
 
+CREATE INDEX idx_query_logs_created_at
+ON query_logs(created_at);
+
+CREATE INDEX idx_query_logs_user_id
+ON query_logs(user_id);
+
+CREATE INDEX idx_query_logs_intent_type
+ON query_logs(intent_type);
+
+CREATE INDEX idx_response_logs_created_at
+ON response_logs(created_at);
+
+CREATE INDEX idx_response_logs_success
+ON response_logs(success);
+
+CREATE INDEX idx_crawl_jobs_status
+ON crawl_jobs(status);
+
+CREATE INDEX idx_crawl_jobs_started_at
+ON crawl_jobs(started_at);
+
 CREATE INDEX idx_sync_doc_id
 ON source_sync_history(doc_id);
 
 CREATE INDEX idx_sync_change_type
 ON source_sync_history(change_type);
+
+CREATE INDEX idx_retrieval_created_at
+ON retrieval_logs(created_at);
+
+CREATE INDEX idx_retrieval_strategy
+ON retrieval_logs(retrieval_strategy);
+
+CREATE INDEX idx_retrieval_success
+ON retrieval_logs(success);

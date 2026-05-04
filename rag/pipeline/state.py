@@ -64,6 +64,10 @@ class PipelineState:
             "retrieved_doc_count": len(self.retrieved_docs),
             "reranked_doc_count": len(self.reranked_docs),
             "selected_doc_count": len(self.selected_docs),
+            "selected_docs": [
+                doc.model_dump() if hasattr(doc, "model_dump") else dict(doc)
+                for doc in self.selected_docs
+            ],
             "context": self.context,
             "prompt": self.prompt,
             "answer_text": self.answer_text,

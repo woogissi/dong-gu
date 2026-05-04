@@ -216,8 +216,6 @@ class DocumentChunker:
                         "source_url": doc.get("source_url"),
                         "published_at": doc.get("published_at"),
                         "department": doc.get("department"),
-                        "category_lv1": doc.get("category_lv1"),
-                        "category_lv2": doc.get("category_lv2"),
                         "content": chunk_text,
                         "content_length": len(chunk_text),
                         "content_hash": self.make_chunk_hash(chunk_text),
