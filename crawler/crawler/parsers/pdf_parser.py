@@ -1,19 +1,19 @@
 # crawler/parsers/pdf_parser.py
 
+from __future__ import annotations
+
+import io
+import re
 from pathlib import Path
 import io
 import os
 import re
 
 import fitz  # PyMuPDF
-from PIL import Image, ImageOps
+from PIL import Image
 from pypdf import PdfReader
-import pytesseract
 
-
-TESSERACT_CMD = os.getenv("TESSERACT_CMD")
-if TESSERACT_CMD:
-    pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
+from crawler.ocr.korean_ocr import KoreanOCREngine
 
 
 EBOOK_URL_RE = re.compile(
@@ -21,10 +21,10 @@ EBOOK_URL_RE = re.compile(
     re.IGNORECASE,
 )
 EBOOK_DATE_RE = re.compile(
-    r"^\s*\d{2,4}\.\s*\d{1,2}\.\s*\d{1,2}\.\s*(?:[^\d:]{0,6})?\s*\d{1,2}:\d{2}\s*(?:ebook)?\s*$",
+    r"^\s*\d{2,4}\.\s*\d{1,2}\.\s*\d{1,2}\.\s*(?:[^\d:.]{0,6})?\s*\d{1,2}[:.]\d{2}\s*(?:ebook)?\s*$",
     re.IGNORECASE,
 )
-TIME_ONLY_RE = re.compile(r"^\s*\d{1,2}:\d{2}\s*$")
+TIME_ONLY_RE = re.compile(r"^\s*\d{1,2}[:.]\d{2}\s*$")
 PAGE_MARKER_RE = re.compile(r"^\s*\d+\s*/\s*\d+\s*$")
 STANDALONE_EBOOK_NOISE_RE = re.compile(
     r"^\s*(?:ebook|print-layout\.html?|DONG-EUI UNIVERSITY)\s*$",
@@ -33,6 +33,9 @@ STANDALONE_EBOOK_NOISE_RE = re.compile(
 
 
 class PDFParser:
+    def __init__(self):
+        self.ocr = KoreanOCREngine()
+
     def is_ebook_noise(self, text: str) -> bool:
         if not text:
             return False
@@ -55,7 +58,7 @@ class PDFParser:
             r"print-layout\.html?",
             r"\d+/\d+",
             r"\d{2,4}\.\s*\d{1,2}\.\s*\d{1,2}\.",
-            r"(?:[^\d:]{0,6})?\s*\d{1,2}:\d{2}",
+            r"(?:[^\d:.]{0,6})?\s*\d{1,2}[:.]\d{2}",
         ):
             noise_removed = re.sub(pattern, "", noise_removed, flags=re.IGNORECASE)
 
@@ -100,24 +103,17 @@ class PDFParser:
         text = re.sub(r"\n{3,}", "\n\n", text)
         return text.strip()
 
-    def ocr_page(self, pdf_path: Path, page_index: int) -> str:
+    def ocr_page(self, pdf_path: Path | str, page_index: int) -> tuple[str, str]:
         """OCR a zero-based PDF page index."""
         doc = fitz.open(str(pdf_path))
 
         try:
             page = doc.load_page(page_index)
-
-            # Render at a higher resolution to improve OCR accuracy.
             matrix = fitz.Matrix(2.5, 2.5)
             pix = page.get_pixmap(matrix=matrix, alpha=False)
-
             img = Image.open(io.BytesIO(pix.tobytes("png"))).convert("RGB")
-            img = ImageOps.grayscale(img)
-            img = ImageOps.autocontrast(img)
-
-            text = pytesseract.image_to_string(img, lang="kor+eng")
-            return self.clean_ocr_text(text)
-
+            result = self.ocr.extract_text_from_image(img)
+            return self.clean_ocr_text(result.text), result.engine
         finally:
             doc.close()
 
@@ -151,11 +147,11 @@ class PDFParser:
                 noise_page_count += 1
 
             if use_ocr:
-                ocr_text = self.ocr_page(path, page_index - 1)
+                ocr_text, ocr_engine = self.ocr_page(path, page_index - 1)
 
                 if ocr_text:
                     text = ocr_text
-                    parser_type = "pdf_ocr"
+                    parser_type = f"pdf_ocr_{ocr_engine}"
                     ocr_used_count += 1
                 else:
                     text = ""
@@ -181,7 +177,7 @@ class PDFParser:
             "text": full_text if full_text else None,
             "pages": pages,
             "note": (
-                "extracted with PDF text layer + OCR fallback; "
+                "extracted with PDF text layer + EasyOCR fallback; "
                 f"ocr_pages={ocr_used_count}, "
                 f"text_layer_pages={text_layer_count}, "
                 f"noise_pages={noise_page_count}"
