@@ -1,16 +1,36 @@
 # crawler/parsers/pdf_parser.py
 
 from pathlib import Path
-import re
 import io
+import os
+import re
 
-from pypdf import PdfReader
 import fitz  # PyMuPDF
 from PIL import Image, ImageOps
+from pypdf import PdfReader
 import pytesseract
 
 
-pytesseract.pytesseract.tesseract_cmd = r"E:\Tesseract-OCR\tesseract.exe"
+TESSERACT_CMD = os.getenv("TESSERACT_CMD")
+if TESSERACT_CMD:
+    pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
+
+
+EBOOK_URL_RE = re.compile(
+    r"(?:https?://)?(?:www\.)?ebookand\.com/.{0,200}?print-layout\.html?\|?(?:\s+\d+/\d+)?",
+    re.IGNORECASE,
+)
+EBOOK_DATE_RE = re.compile(
+    r"^\s*\d{2,4}\.\s*\d{1,2}\.\s*\d{1,2}\.\s*(?:[^\d:]{0,6})?\s*\d{1,2}:\d{2}\s*(?:ebook)?\s*$",
+    re.IGNORECASE,
+)
+TIME_ONLY_RE = re.compile(r"^\s*\d{1,2}:\d{2}\s*$")
+PAGE_MARKER_RE = re.compile(r"^\s*\d+\s*/\s*\d+\s*$")
+STANDALONE_EBOOK_NOISE_RE = re.compile(
+    r"^\s*(?:ebook|print-layout\.html?|DONG-EUI UNIVERSITY)\s*$",
+    re.IGNORECASE,
+)
+
 
 class PDFParser:
     def is_ebook_noise(self, text: str) -> bool:
@@ -20,7 +40,7 @@ class PDFParser:
         lower = text.lower()
         return (
             "ebookand.com" in lower
-            or "print-layout.html" in lower
+            or "print-layout.htm" in lower
             or re.search(r"\bebook\b", lower) is not None
         )
 
@@ -28,66 +48,66 @@ class PDFParser:
         if not text or not text.strip():
             return True
 
-        cleaned = text.strip()
-
-        noise_patterns = [
+        noise_removed = text.strip()
+        for pattern in (
             r"ebook",
             r"www\.ebookand\.com",
-            r"print-layout\.html",
+            r"print-layout\.html?",
             r"\d+/\d+",
-            r"\d{2}\.\s*\d{1,2}\.\s*\d{1,2}\.",
-            r"오전\s*\d+:\d+",
-            r"오후\s*\d+:\d+",
-        ]
-
-        noise_removed = cleaned
-        for pattern in noise_patterns:
-            noise_removed = re.sub(
-                pattern,
-                "",
-                noise_removed,
-                flags=re.IGNORECASE,
-            )
+            r"\d{2,4}\.\s*\d{1,2}\.\s*\d{1,2}\.",
+            r"(?:[^\d:]{0,6})?\s*\d{1,2}:\d{2}",
+        ):
+            noise_removed = re.sub(pattern, "", noise_removed, flags=re.IGNORECASE)
 
         noise_removed = re.sub(r"\s+", "", noise_removed)
-
         return len(noise_removed) < 20
 
     def clean_ocr_text(self, text: str) -> str:
         if not text:
             return ""
 
-        # ebook 출력용 머리말/꼬리말 제거
-        text = re.sub(
-            r"\d{2}\.\s*\d{1,2}\.\s*\d{1,2}\.\s*오[전후]\s*\d+:\d+\s*ebook",
-            "",
-            text,
-            flags=re.IGNORECASE,
-        )
-        text = re.sub(
-            r"www\.ebookand\.com/ebook/.*?print-layout\.html\s*\d+/\d+",
-            "",
-            text,
-            flags=re.IGNORECASE,
-        )
-        text = re.sub(r"\bebook\b", "", text, flags=re.IGNORECASE)
-
         text = text.replace("\xa0", " ")
-        text = re.sub(r"[ \t]+", " ", text)
-        text = re.sub(r"\n{3,}", "\n\n", text)
+        cleaned_lines = []
 
+        for raw_line in text.splitlines():
+            line = re.sub(r"[ \t]+", " ", raw_line).strip()
+
+            if not line:
+                cleaned_lines.append("")
+                continue
+
+            line = EBOOK_URL_RE.sub("", line).strip()
+            line = re.sub(r"\bebook\b", "", line, flags=re.IGNORECASE).strip()
+
+            if not line:
+                cleaned_lines.append("")
+                continue
+
+            if (
+                "ebookand.com" in line.lower()
+                or "print-layout" in line.lower()
+                or EBOOK_DATE_RE.match(line)
+                or TIME_ONLY_RE.match(line)
+                or PAGE_MARKER_RE.match(line)
+                or STANDALONE_EBOOK_NOISE_RE.match(line)
+            ):
+                cleaned_lines.append("")
+                continue
+
+            cleaned_lines.append(line)
+
+        text = "\n".join(cleaned_lines)
+        text = re.sub(r"\n{3,}", "\n\n", text)
         return text.strip()
 
     def ocr_page(self, pdf_path: Path, page_index: int) -> str:
-        """
-        page_index는 0부터 시작
-        """
+        """OCR a zero-based PDF page index."""
         doc = fitz.open(str(pdf_path))
 
         try:
             page = doc.load_page(page_index)
 
-            # 해상도 높일수록 OCR 정확도 증가.
+            # Render at a higher resolution to improve OCR accuracy.
             matrix = fitz.Matrix(2.5, 2.5)
             pix = page.get_pixmap(matrix=matrix, alpha=False)
 
@@ -116,22 +136,17 @@ class PDFParser:
         noise_page_count = 0
 
         for page_index, page in enumerate(reader.pages, start=1):
-            text = page.extract_text() or ""
-            text = text.strip()
-
+            text = (page.extract_text() or "").strip()
             parser_type = "pdf_text_layer"
 
-            # 핵심:
-            # ebookand / print-layout PDF는 텍스트 레이어가 헤더/푸터뿐이라 무조건 OCR
             use_ocr = False
-
             if self.is_ebook_noise(text):
                 use_ocr = True
                 noise_page_count += 1
             elif self.is_noise_text(text):
                 use_ocr = True
                 noise_page_count += 1
-            elif len(text.strip()) < 50:
+            elif len(text) < 50:
                 use_ocr = True
                 noise_page_count += 1
 
@@ -143,6 +158,7 @@ class PDFParser:
                     parser_type = "pdf_ocr"
                     ocr_used_count += 1
                 else:
+                    text = ""
                     parser_type = "pdf_ocr_empty"
             else:
                 text_layer_count += 1
