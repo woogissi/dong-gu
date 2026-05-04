@@ -1,0 +1,214 @@
+# crawler/run/run_single_file_pipeline.py
+
+import argparse
+import json
+import os
+from pathlib import Path
+
+os.environ.setdefault("HF_HOME", str(Path("crawler/.hf_cache").resolve()))
+os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(Path("crawler/.hf_cache/hub").resolve()))
+
+from crawler.storage.manifest_writer import ManifestWriter
+
+
+RAW_DIR = Path("crawler/data/raw/documents")
+CURATED_DIR = Path("crawler/data/curated/documents")
+CHUNK_DIR = Path("crawler/data/rag_ready/chunks")
+LOG_DIR = Path("crawler/data/logs")
+
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+manifest_writer = ManifestWriter()
+
+
+def load_json(path: Path) -> dict | list:
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_json(path: Path, data: dict | list) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def log_error(message: str, log_name: str = "single_file_pipeline_errors.log") -> None:
+    print(message)
+    with open(LOG_DIR / log_name, "a", encoding="utf-8") as f:
+        f.write(message + "\n")
+
+
+def resolve_path(path_value: str) -> Path:
+    path = Path(path_value)
+    if path.exists():
+        return path
+
+    project_relative = Path.cwd() / path
+    if project_relative.exists():
+        return project_relative
+
+    raise FileNotFoundError(f"file not found: {path_value}")
+
+
+def chunk_curated_file(curated_file: Path) -> Path | None:
+    from crawler.ingestion.chunker import DocumentChunker
+
+    doc = load_json(curated_file)
+    if not isinstance(doc, dict):
+        raise ValueError(f"curated file must contain a JSON object: {curated_file}")
+
+    source_type = doc.get("source_type", "unknown")
+    doc_id = doc["doc_id"]
+
+    body = doc.get("normalize", "")
+    attachment = doc.get("attachment_text", "")
+    image = doc.get("image_text", "")
+
+    has_text = any(value and str(value).strip() for value in [body, attachment, image])
+    if not has_text:
+        manifest_writer.append_jsonl("chunking.jsonl", {
+            "doc_id": doc_id,
+            "source_type": source_type,
+            "version": doc.get("version"),
+            "chunk_count": 0,
+            "source_url": doc.get("source_url"),
+            "status": "skipped",
+            "reason": "no body, attachment, or image text",
+        })
+        print(f"[INGEST SKIP] {doc_id} no body, attachment, or image text")
+        return None
+
+    chunker = DocumentChunker(max_chars=900, overlap_chars=100)
+    chunks = chunker.chunk_document(doc)
+    chunk_path = CHUNK_DIR / source_type / f"{doc_id}.json"
+    save_json(chunk_path, chunks)
+
+    manifest_writer.append_jsonl("chunking.jsonl", {
+        "doc_id": doc_id,
+        "source_type": source_type,
+        "version": doc.get("version"),
+        "chunk_count": len(chunks),
+        "source_url": doc.get("source_url"),
+        "mode": "single_file",
+    })
+
+    print(f"[INGEST OK] {doc_id} version={doc.get('version')} chunks={len(chunks)}")
+    return chunk_path
+
+
+def vector_ingest_chunk_file(chunk_file: Path) -> None:
+    from crawler.ingestion.embed_worker import EmbeddingWorker
+    from crawler.ingestion.pgvector_loader import PGVectorLoader
+
+    chunks = load_json(chunk_file)
+    if not isinstance(chunks, list):
+        raise ValueError(f"chunk file must contain a JSON list: {chunk_file}")
+    if not chunks:
+        print(f"[VECTOR SKIP] empty chunk file: {chunk_file.as_posix()}")
+        return
+
+    source_type = chunks[0]["source_type"]
+    doc_id = chunks[0]["doc_id"]
+
+    curated_path = CURATED_DIR / source_type / f"{doc_id}.json"
+    raw_path = RAW_DIR / source_type / f"{doc_id}.json"
+
+    if not curated_path.exists():
+        raise FileNotFoundError(f"curated document not found: {curated_path}")
+
+    curated_doc = load_json(curated_path)
+    raw_doc = load_json(raw_path) if raw_path.exists() else {}
+    version = curated_doc.get("version", 1)
+
+    embed_worker = EmbeddingWorker()
+    loader = PGVectorLoader()
+    loader.ensure_tables()
+
+    try:
+        loader.upsert_document(curated_doc)
+
+        change_type = curated_doc.get("change_type") or curated_doc.get("decision", "unknown")
+        if change_type in ("new", "updated"):
+            loader.insert_document_version(curated_doc, change_type)
+
+        asset_source_doc = {
+            **curated_doc,
+            "downloaded_attachments": raw_doc.get("downloaded_attachments", []),
+            "image_texts": raw_doc.get("image_texts", []),
+        }
+
+        loader.upsert_assets(asset_source_doc)
+        loader.upsert_chunks(chunks, version)
+
+        embedded_chunks = embed_worker.embed_chunks(chunks)
+        loader.upsert_embeddings(embedded_chunks)
+
+        manifest_writer.append_jsonl("vector_ingestion.jsonl", {
+            "chunk_file": chunk_file.as_posix(),
+            "source_type": source_type,
+            "doc_id": doc_id,
+            "chunk_count": len(chunks),
+            "embedding_model": embedded_chunks[0].get("embedding_model") if embedded_chunks else None,
+            "mode": "single_file",
+        })
+
+        print(f"[VECTOR OK] doc_id={doc_id} chunks={len(chunks)}")
+
+    except Exception:
+        loader.conn.rollback()
+        raise
+    finally:
+        loader.close()
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run chunking and/or vector ingestion for one selected JSON file."
+    )
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
+        "--curated-file",
+        help="Path to one curated document JSON. Creates crawler/data/rag_ready/chunks/<source_type>/<doc_id>.json.",
+    )
+    group.add_argument(
+        "--chunk-file",
+        help="Path to one chunk JSON. Runs only vector ingestion for that chunk file.",
+    )
+    parser.add_argument(
+        "--skip-vector",
+        action="store_true",
+        help="Only create chunks when --curated-file is used.",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+
+    try:
+        if args.curated_file:
+            curated_file = resolve_path(args.curated_file)
+            chunk_file = chunk_curated_file(curated_file)
+            if chunk_file and not args.skip_vector:
+                vector_ingest_chunk_file(chunk_file)
+            return
+
+        chunk_file = resolve_path(args.chunk_file)
+        vector_ingest_chunk_file(chunk_file)
+
+    except Exception as e:
+        message = f"[SINGLE FILE PIPELINE ERROR] error={e}"
+        log_error(message)
+        manifest_writer.write_error_record(
+            stage="single_file_pipeline",
+            message=message,
+            extra={
+                "curated_file": args.curated_file,
+                "chunk_file": args.chunk_file,
+                "skip_vector": args.skip_vector,
+            },
+        )
+        raise
+
+
+if __name__ == "__main__":
+    main()
