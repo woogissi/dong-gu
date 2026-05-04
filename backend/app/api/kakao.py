@@ -80,7 +80,17 @@ async def kakao_webhook(request: Request, background_tasks: BackgroundTasks = No
         update_query_intent(request_id=request_id, intent_type=intent)
 
         if intent == "PROFANITY":
-            return kakao_response("부적절한 표현은 사용할 수 없어요.")
+            answer = "부적절한 표현은 사용할 수 없어요."
+
+            save_response_log(
+                request_id=request_id,
+                answer_text=answer,
+                success=True,
+                error_message=None,
+                response_time_ms=int((time.time() - start_time) * 1000),
+            )
+
+            return kakao_response(answer)
 
         if intent == "GENERAL":
             answer = general_chat_service.process_general_chat(
@@ -149,12 +159,11 @@ def process_info_with_callback(callback_url, request_id, user_id, utterance, sta
             answer_text=final_answer,
             success=_result_success(result),
             response_time_ms=int((time.time() - start_time) * 1000),
-            error_message=None,
-            response_time_ms=int((time.time() - start_time) * 1000),
+            error_message=None
         )
 
     except Exception as e:
-        print(f"[ERROR] callback: {e}")
+        print(f"[ERROR] callback: {e}") 
 
         kakao_callback(
             callback_url,
