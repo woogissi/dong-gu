@@ -74,6 +74,7 @@ class PGVectorLoader:
             version,
             content_hash,
             collected_at,
+            metadata,
             db_updated_at
         )
         VALUES (
@@ -103,6 +104,7 @@ class PGVectorLoader:
             %(version)s,
             %(content_hash)s,
             NULLIF(%(collected_at)s, '')::timestamp,
+            %(metadata)s,
             NOW()
         )
         ON CONFLICT (doc_id) DO UPDATE SET
@@ -131,6 +133,7 @@ class PGVectorLoader:
             version = EXCLUDED.version,
             content_hash = EXCLUDED.content_hash,
             collected_at = EXCLUDED.collected_at,
+            metadata = EXCLUDED.metadata,
             db_updated_at = NOW();
         """
 
@@ -161,6 +164,7 @@ class PGVectorLoader:
             "version": doc.get("version", 1),
             "content_hash": doc.get("content_hash"),
             "collected_at": doc.get("collected_at"),
+            "metadata": Json(doc.get("metadata", {})),
         }
 
         with self.conn.cursor() as cur:

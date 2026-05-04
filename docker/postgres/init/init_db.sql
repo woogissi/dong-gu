@@ -38,6 +38,7 @@
 --     version INT DEFAULT 1,
 --     content_hash TEXT,
 --     collected_at TIMESTAMP NOT NULL,
+--     metadata JSONB DEFAULT '{}'::jsonb,
 --     created_at TIMESTAMP DEFAULT NOW(),
 --     db_updated_at TIMESTAMP DEFAULT NOW()
 -- );

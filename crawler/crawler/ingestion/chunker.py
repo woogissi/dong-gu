@@ -109,6 +109,8 @@ class DocumentChunker:
 
         chunks = []
         for idx, chunk_text in enumerate(merged_chunks, start=1):       # 최종 청크 객체 넣기
+            if len(chunk_text) < 50:  # 너무 짧은 청크는 제외
+                continue
             chunks.append({
                 "chunk_id": self.make_chunk_id(doc["doc_id"], idx),
                 "doc_id": doc["doc_id"],
