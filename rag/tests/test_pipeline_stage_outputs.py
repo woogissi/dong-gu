@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from pprint import pprint
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from rag.pipeline.chat_pipeline import ChatPipeline
 from rag.pipeline.state import PipelineState
@@ -60,8 +60,8 @@ class PipelineStageOutputTest(unittest.TestCase):
     def test_pipeline_stage_outputs(self) -> None:
         fake_embedder = Mock()
         fake_embedder.embed_query.return_value = [0.11, 0.22, 0.33]
-        with patch("rag.pipeline.chat_pipeline.KoE5Embedder", return_value=fake_embedder):
-            pipeline = ChatPipeline()
+        pipeline = ChatPipeline()
+        pipeline.embedder = fake_embedder
         state = PipelineState.from_query("수강정정 기간 알려줘")
 
         pipeline.preprocessor.run(state)
@@ -92,6 +92,15 @@ class PipelineStageOutputTest(unittest.TestCase):
         self.assertEqual(state.retrieved_docs[0].doc_id, "notice_1")
         self.assertEqual(state.retrieved_docs[0].metadata["strategy"], "lexical")
         self.assertTrue(state.retrieved_docs[0].metadata["matched_tokens"])
+
+        pipeline._select_and_build_context(state)
+        self._debug_print("after_select_and_context", self._snapshot_after_select(state))
+
+        self.assertGreaterEqual(len(state.reranked_docs), 1)
+        self.assertGreaterEqual(len(state.selected_docs), 1)
+        self.assertIn("rerank_score", state.reranked_docs[0].metadata)
+        self.assertIn("rerank_signals", state.reranked_docs[0].metadata)
+        self.assertTrue(state.context)
 
     def _write_chunk_file(self, relative_path: str, payload: list[dict]) -> None:
         file_path = self.chunk_dir / relative_path
@@ -135,6 +144,21 @@ class PipelineStageOutputTest(unittest.TestCase):
                 }
                 for doc in state.retrieved_docs
             ],
+        }
+
+    def _snapshot_after_select(self, state: PipelineState) -> dict[str, object]:
+        return {
+            "reranked_docs": [
+                {
+                    "doc_id": doc.doc_id,
+                    "chunk_id": doc.chunk_id,
+                    "score": doc.score,
+                    "rerank_signals": doc.metadata.get("rerank_signals"),
+                }
+                for doc in state.reranked_docs
+            ],
+            "selected_docs": [doc.doc_id for doc in state.selected_docs],
+            "context": state.context,
         }
 
     def _debug_print(self, label: str, payload: object) -> None:

@@ -9,6 +9,7 @@ from rag.retrieval.retriever import retrieve_documents
 from rag.retrieval.search_strategy import build_retrieval_request
 from rag.selection.topk_selector import select_topk
 from rag.selection.context_builder import build_context
+from rag.selection.reranker import rerank_documents
 
 from rag.prompt.prompt_builder import build_prompt
 from rag.llm.answer_generator import generate_answer
@@ -19,6 +20,10 @@ from rag.embedding.koe5_embedder import KoE5Embedder
 
 from pprint import pprint
 from threading import Lock, Thread
+
+
+class NoRetrievalResultsError(Exception):
+    pass
 
 
 class ChatPipeline:
@@ -82,9 +87,25 @@ class ChatPipeline:
         state.retrieved_docs = retrieve_documents(
             request=request,
         )
+        if not state.retrieved_docs:
+            state.fallback_used = True
+            state.metadata["no_retrieval_results"] = {
+                "query": request.query,
+                "keywords": request.keywords,
+                "filters": request.filters,
+                "fallback_triggers": [*request.fallback_triggers, "no_retrieval_results"],
+            }
+            raise NoRetrievalResultsError("관련 문서를 찾지 못했습니다.")
 
     def _select_and_build_context(self, state: PipelineState) -> None:
-        state.selected_docs = select_topk(state.retrieved_docs)
+        state.reranked_docs = rerank_documents(
+            state.retrieved_docs,
+            query=state.rewritten_query or state.normalized_query or state.original_query,
+            keywords=state.keywords,
+            category=state.category,
+            filters=state.filters,
+        )
+        state.selected_docs = select_topk(state.reranked_docs or state.retrieved_docs)
         state.context = build_context(state.selected_docs)
 
     def _generate(self, state: PipelineState) -> None:

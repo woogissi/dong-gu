@@ -1,5 +1,5 @@
 import time
-from fastapi import APIRouter, Request, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Request
 
 from backend.app.utils.callback import kakao_callback
 from backend.app.database.query_logs import create_query_log, update_query_intent
@@ -34,6 +34,16 @@ def add_response_log_task(background_tasks, request_id, answer_text, success, re
     if not request_id:
         return
 
+    if background_tasks is None:
+        save_response_log(
+            request_id,
+            answer_text,
+            success,
+            error_message,
+            response_time_ms,
+        )
+        return
+
     background_tasks.add_task(
         save_response_log,
         request_id,
@@ -45,7 +55,7 @@ def add_response_log_task(background_tasks, request_id, answer_text, success, re
 
 
 @router.post("/webhook")
-async def kakao_webhook(request: Request, background_tasks: BackgroundTasks):
+async def kakao_webhook(request: Request, background_tasks: BackgroundTasks = None):
     start_time = time.time()
     request_id = None
     callback_mode = False
@@ -103,11 +113,16 @@ async def kakao_webhook(request: Request, background_tasks: BackgroundTasks):
                 },
             }
 
-        # 콜백 URL 없는 경우 (테스트 or 미적용)
-        return kakao_response(
-            "콜백 URL이 전달되지 않았습니다.\n"
-            "카카오톡 채널에서 다시 테스트해주세요."
+        # 콜백 URL이 없는 경우에도 RAG -> Ollama 파이프라인을 동기로 실행해 응답합니다.
+        response_body, final_answer, success = process_info_sync(utterance)
+        add_response_log_task(
+            background_tasks,
+            request_id,
+            final_answer,
+            success,
+            int((time.time() - start_time) * 1000),
         )
+        return response_body
 
     except Exception as e:
         print(f"[ERROR] kakao_webhook: {e}")
@@ -133,7 +148,7 @@ def process_info_with_callback(callback_url, request_id, user_id, utterance, sta
         save_response_log(
             request_id=request_id,
             answer_text=final_answer,
-            success=True,
+            success=_result_success(result),
             response_time_ms=int((time.time() - start_time) * 1000),
             error_message=None,
         )
@@ -156,6 +171,19 @@ def process_info_with_callback(callback_url, request_id, user_id, utterance, sta
 
     finally:
         release_user_lock(user_id)
+
+
+def process_info_sync(utterance: str):
+    result = get_chat_pipeline().run(Query(text=utterance))
+    response_body, final_answer = build_info_response(result, utterance)
+    success = _result_success(result)
+    return response_body, final_answer, success
+
+
+def _result_success(result) -> bool:
+    if isinstance(result, dict):
+        return bool(result.get("success", True))
+    return bool(getattr(result, "success", True))
 
 
 def build_info_response(result, utterance):

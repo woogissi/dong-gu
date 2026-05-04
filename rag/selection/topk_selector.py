@@ -1,9 +1,18 @@
-"""Top-K 선택기
-"""
+"""Select top documents for answer context."""
 
-from typing import List
 from rag.schemas.retrieved_doc import RetrievedDoc
 
-#config로 k 변수 관리 고려
-def select_topk(docs: List[RetrievedDoc], k: int = 3) -> List[RetrievedDoc]:
-    return docs[:k]
+
+def select_topk(docs: list[RetrievedDoc], k: int = 3) -> list[RetrievedDoc]:
+    selected: list[RetrievedDoc] = []
+    seen_doc_ids: set[str] = set()
+
+    for doc in docs:
+        if doc.doc_id in seen_doc_ids:
+            continue
+        selected.append(doc)
+        seen_doc_ids.add(doc.doc_id)
+        if len(selected) >= k:
+            break
+
+    return selected

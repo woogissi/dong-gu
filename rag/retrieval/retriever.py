@@ -39,6 +39,15 @@ _BM25_K1 = 1.5
 _BM25_B = 0.75
 _TOKEN_PATTERN = re.compile(r"[가-힣A-Za-z0-9]+")
 _CHUNK_ENV_VAR = "RAG_CHUNK_DATA_DIR"
+_DB_SEARCH_STOPWORDS = {
+    "알려줘",
+    "알려주",
+    "뭐가",
+    "무엇",
+    "어떻게",
+    "싶어",
+    "필요해",
+}
 
 
 @dataclass(frozen=True)
@@ -138,6 +147,14 @@ def retrieve_documents(
             documents = _retrieve_documents_from_database(request)
             if documents:  # DB에서 검색 결과가 있으면 반환
                 return documents
+            if request.filters:
+                relaxed_request = request.model_copy(update={"filters": {}, "category": None})
+                documents = _retrieve_documents_from_database(relaxed_request)
+                if documents:
+                    for document in documents:
+                        document.metadata["filters_relaxed"] = True
+                        document.metadata["original_filters"] = request.filters
+                    return documents
         except Exception:
             # DB 연결 실패 시 파일 기반 검색으로 fallback
             pass
@@ -219,6 +236,34 @@ def _build_db_search_term(request: RetrievalRequest) -> str:
     return " ".join(dict.fromkeys(terms))
 
 
+def _build_db_search_terms(request: RetrievalRequest) -> list[str]:
+    candidate_texts = [
+        *(request.keywords or []),
+        request.query,
+    ]
+    terms: list[str] = []
+    for text in candidate_texts:
+        for token in _TOKENIZER.tokenize(text):
+            if _is_weak_db_search_term(token):
+                continue
+            if token and token not in terms:
+                terms.append(token)
+    return terms[:12]
+
+
+def _is_weak_db_search_term(term: str) -> bool:
+    if term in _DB_SEARCH_STOPWORDS:
+        return True
+    if re.fullmatch(r"[A-Za-z]+", term) and len(term) < 3:
+        return True
+    return False
+
+
+def _build_tsquery_or_expression(terms: list[str]) -> str:
+    safe_terms = [term for term in terms if re.fullmatch(r"[가-힣A-Za-z0-9]+", term)]
+    return " | ".join(safe_terms)
+
+
 def _build_db_filter_conditions(request: RetrievalRequest) -> tuple[str, list[Any]]:
     conditions: list[str] = []
     parameters: list[Any] = []
@@ -244,42 +289,81 @@ def _build_db_filter_conditions(request: RetrievalRequest) -> tuple[str, list[An
 
 
 def _retrieve_documents_from_database(request: RetrievalRequest) -> list[RetrievedDoc]:
-    search_term = _build_db_search_term(request)
-    if not search_term:
+    search_terms = _build_db_search_terms(request)
+    tsquery = _build_tsquery_or_expression(search_terms)
+    if not search_terms:
         return []
 
-    sql = """
-    SELECT
-        chunks.chunk_id,
-        chunks.doc_id,
-        chunks.content,
-        documents.title,
-        documents.source_url,
-        documents.source_type,
-        documents.category_lv1,
-        documents.category_lv2,
-        documents.department,
-        documents.published_at,
-        ts_rank_cd(
-            to_tsvector('simple', coalesce(documents.title, '') || ' ' || chunks.content),
-            plainto_tsquery('simple', %s)
-        ) AS score
-    FROM chunks
-    JOIN documents ON documents.doc_id = chunks.doc_id
-    WHERE to_tsvector('simple', coalesce(documents.title, '') || ' ' || chunks.content)
-        @@ plainto_tsquery('simple', %s)
+    ilike_patterns = [f"%{term}%" for term in search_terms]
+    ilike_score_sql = " + ".join(
+        ["CASE WHEN search_text ILIKE %s THEN 0.2 ELSE 0 END" for _ in ilike_patterns]
+    ) or "0"
+
+    sql = f"""
+    WITH searchable AS (
+        SELECT
+            chunks.chunk_id,
+            chunks.doc_id,
+            chunks.content,
+            documents.title,
+            documents.source_url,
+            documents.source_type,
+            documents.category_lv1,
+            documents.category_lv2,
+            documents.department,
+            documents.published_at,
+            coalesce(documents.title, '') || ' ' || coalesce(chunks.content, '') AS search_text,
+            to_tsvector('simple', coalesce(documents.title, '') || ' ' || coalesce(chunks.content, '')) AS search_vector
+        FROM chunks
+        JOIN documents ON documents.doc_id = chunks.doc_id
     """
 
     filter_clause, filter_params = _build_db_filter_conditions(request)
     if filter_clause:
-        sql += "\n    AND " + filter_clause
+        sql += "\n        WHERE " + filter_clause
+
+    sql += f"""
+    )
+    SELECT
+        chunk_id,
+        doc_id,
+        content,
+        title,
+        source_url,
+        source_type,
+        category_lv1,
+        category_lv2,
+        department,
+        published_at,
+        (
+            CASE
+                WHEN %s <> '' THEN ts_rank_cd(search_vector, to_tsquery('simple', %s))
+                ELSE 0
+            END
+            + {ilike_score_sql}
+        ) AS score
+    FROM searchable
+    WHERE (
+        (%s <> '' AND search_vector @@ to_tsquery('simple', %s))
+        OR search_text ILIKE ANY(%s)
+    )
+    """
 
     sql += (
-        "\n    ORDER BY score DESC, documents.published_at DESC NULLS LAST, chunks.chunk_id ASC"
+        "\n    ORDER BY score DESC, published_at DESC NULLS LAST, chunk_id ASC"
         "\n    LIMIT %s"
     )
 
-    parameters = [search_term, search_term, *filter_params, request.top_k or _DEFAULT_TOP_K]
+    parameters = [
+        *filter_params,
+        tsquery,
+        tsquery,
+        *ilike_patterns,
+        tsquery,
+        tsquery,
+        ilike_patterns,
+        max(request.top_k or _DEFAULT_TOP_K, (request.top_k or _DEFAULT_TOP_K) * 3),
+    ]
 
     try:
         with _open_db_connection() as conn:
@@ -291,12 +375,15 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
 
     retrieved_docs: list[RetrievedDoc] = []
     for row in rows:
+        score = float(row["score"] or 0.0)
+        if score < 0.4:
+            continue
         retrieved_docs.append(
             RetrievedDoc(
                 doc_id=row["doc_id"],
                 chunk_id=row["chunk_id"],
                 content=row["content"],
-                score=float(row["score"] or 0.0),
+                score=score,
                 title=row["title"] or "",
                 source=row["source_url"] or row["source_type"] or "",
                 category=request.category or row["source_type"],
@@ -306,7 +393,8 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
                     "query": request.query,
                     "keywords": request.keywords,
                     "filters": request.filters,
-                    "matched_terms": search_term,
+                    "matched_terms": search_terms,
+                    "search_mode": "keyword_or_tsquery_ilike",
                     "source_type": row["source_type"],
                     "published_at": row["published_at"],
                 },
