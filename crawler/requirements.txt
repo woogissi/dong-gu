@@ -12,3 +12,4 @@ pytesseract
 Pillow
 
 pyhwp
+PyMuPDF
