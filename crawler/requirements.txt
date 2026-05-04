@@ -10,3 +10,5 @@ sentence-transformers==5.1.0
 
 pytesseract
 Pillow
+
+pyhwp

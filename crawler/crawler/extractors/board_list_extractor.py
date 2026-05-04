@@ -22,7 +22,7 @@ class BoardListExtractor:
         self.session.headers.update(HEADERS)
 
     def fetch(self, url: str, params: dict | None = None) -> str:       #html 가져오기
-        res = self.session.get(url, params=params, timeout=20)          #(주소, page관련 파라미터, 20초 이내) 파라미터 : article.offset, articleLimit, mode
+        res = self.session.get(url, params=params, timeout=60)          #(주소, page관련 파라미터, 20초 이내) 파라미터 : article.offset, articleLimit, mode
         res.raise_for_status()
         return res.text
 

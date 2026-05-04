@@ -11,6 +11,15 @@ RUN apt-get update && apt-get install -y \
     curl \
     libreoffice \
     libreoffice-writer \
+    tesseract-ocr \
+    tesseract-ocr-kor \
+    fonts-noto-cjk \
+    tesseract-ocr \
+    tesseract-ocr-kor \
+    tesseract-ocr-eng \
+    libgl1 \
+    libreoffice \
+    fonts-nanum \
     fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 

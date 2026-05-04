@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 import io
+import os
 from typing import List
 
 import requests
 from PIL import Image, ImageOps
 import pytesseract
 
-pytesseract.pytesseract.tesseract_cmd = r"E:\Tesseract-OCR\tesseract.exe"     #Tesseract OCR 프로그램 경로
+
+pytesseract.pytesseract.tesseract_cmd = r"E:\Tesseract-OCR\tesseract.exe"       # 로컬용 이미지 ocr 경로
+'''
+tesseract_cmd = os.getenv("TESSERACT_CMD")
+if tesseract_cmd:
+    pytesseract.pytesseract.tesseract_cmd = tesseract_cmd '''
+
 
 HEADERS = {
     "User-Agent": (
@@ -27,7 +34,7 @@ class ImageTextExtractor:
 
     def fetch_image_bytes(self, image_url: str) -> bytes | None:
         try:
-            res = self.session.get(image_url, timeout=20)
+            res = self.session.get(image_url, timeout=60)
             res.raise_for_status()
             return res.content
         except Exception:

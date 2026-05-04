@@ -40,6 +40,8 @@ services:
     build:
       context: ./crawler
       dockerfile: Dockerfile
+    environment:                    # soffice 환경변수
+    - SOFFICE_PATH=soffice
     container_name: donggu-crawler
     volumes:
       - ./crawler:/app

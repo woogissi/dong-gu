@@ -7,3 +7,6 @@ __pycache__/
 venv/
 .git/
 .gitignore
+crawler/data/
+crawler/.hf_cache/
+**/.hf_cache/

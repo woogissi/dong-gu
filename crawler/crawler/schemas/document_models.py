@@ -39,6 +39,7 @@ class RawDocumentBase(BaseModel):
     language: str = "ko"
     status: str = "active"
     version: int = 1
+    change_type: str | None = None
     collected_at: str
 
     content_hash: str
@@ -100,6 +101,7 @@ class CuratedDocument(BaseModel):
     language: str = "ko"
     status: str = "active"
     version: int = 1
+    change_type: str | None = None
     collected_at: str
 
     content_hash: str

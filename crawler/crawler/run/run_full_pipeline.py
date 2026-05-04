@@ -176,6 +176,7 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
     version_result = version_manager.apply_version(source_type, dict(candidate_curated))
     final_curated = version_result["document"]
     decision = version_result["decision"]
+    final_curated["change_type"] = decision
 
     # 비교 결과 version을 raw에도 맞춰줌
     raw_to_save["version"] = final_curated["version"]
@@ -240,7 +241,11 @@ def run_board_pipeline(source_type: str, list_url: str, pages: int = 50, parser_
 
             for item in list_result["items"]:           # 목록에서 나온 각 상세 URL을 하나씩 처리
                 try:
-                    raw_doc = detail_extractor.extract_detail(source_type, item["detail_url"])
+                    raw_doc = detail_extractor.extract_detail(
+                        source_type,
+                        item["detail_url"],
+                        title_hint=item.get("title_hint"),
+                    )
 
                     if raw_doc["doc_id"] in seen_doc_ids:
                         continue
