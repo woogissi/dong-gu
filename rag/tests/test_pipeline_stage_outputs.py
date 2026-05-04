@@ -32,8 +32,6 @@ class PipelineStageOutputTest(unittest.TestCase):
                     "source_url": "https://example.com/notice_1",
                     "published_at": "2026-04-10",
                     "department": "학사관리팀",
-                    "category_lv1": "학사",
-                    "category_lv2": "수강",
                 },
                 {
                     "chunk_id": "notice_2_chunk_1",
@@ -44,8 +42,6 @@ class PipelineStageOutputTest(unittest.TestCase):
                     "source_url": "https://example.com/notice_2",
                     "published_at": "2026-04-11",
                     "department": "생활관",
-                    "category_lv1": "기숙사",
-                    "category_lv2": "입사",
                 },
             ],
         )

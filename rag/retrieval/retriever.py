@@ -35,6 +35,7 @@ _DB_USE_ENV_VAR = "RAG_USE_DB"
 _DB_URL_ENV_VAR = "DATABASE_URL"
 
 _DEFAULT_TOP_K = 10
+_MIN_DB_SCORE = 0.5
 _BM25_K1 = 1.5
 _BM25_B = 0.75
 _TOKEN_PATTERN = re.compile(r"[가-힣A-Za-z0-9]+")
@@ -60,8 +61,6 @@ class ChunkRecord: # 인덱싱된 문서 청크를 나타내는 데이터 클래
     source_url: str
     published_at: str | None
     department: str | None
-    category_lv1: str | None
-    category_lv2: str | None
     metadata: dict[str, Any]
 
 
@@ -239,6 +238,7 @@ def _build_db_search_term(request: RetrievalRequest) -> str:
 def _build_db_search_terms(request: RetrievalRequest) -> list[str]:
     candidate_texts = [
         *(request.keywords or []),
+        *(request.query_variants or []),
         request.query,
     ]
     terms: list[str] = []
@@ -278,13 +278,6 @@ def _build_db_filter_conditions(request: RetrievalRequest) -> tuple[str, list[An
         conditions.append("documents.department = ANY(%s)")
         parameters.append(departments)
 
-    categories = request.filters.get("category", [])
-    if categories:
-        conditions.append(
-            "(documents.category_lv1 = ANY(%s) OR documents.category_lv2 = ANY(%s) OR documents.source_type = ANY(%s))"
-        )
-        parameters.extend([categories, categories, categories])
-
     return " AND ".join(conditions), parameters
 
 
@@ -304,14 +297,21 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
         SELECT
             chunks.chunk_id,
             chunks.doc_id,
+            chunks.chunk_index,
+            chunks.section_index,
+            chunks.section_type,
+            chunks.section_title,
             chunks.content,
+            chunks.content_length,
+            chunks.content_hash,
+            chunks.version,
+            chunks.metadata AS chunk_metadata,
             documents.title,
             documents.source_url,
             documents.source_type,
-            documents.category_lv1,
-            documents.category_lv2,
             documents.department,
             documents.published_at,
+            documents.metadata AS document_metadata,
             coalesce(documents.title, '') || ' ' || coalesce(chunks.content, '') AS search_text,
             to_tsvector('simple', coalesce(documents.title, '') || ' ' || coalesce(chunks.content, '')) AS search_vector
         FROM chunks
@@ -327,14 +327,21 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
     SELECT
         chunk_id,
         doc_id,
+        chunk_index,
+        section_index,
+        section_type,
+        section_title,
         content,
+        content_length,
+        content_hash,
+        version,
+        chunk_metadata,
         title,
         source_url,
         source_type,
-        category_lv1,
-        category_lv2,
         department,
         published_at,
+        document_metadata,
         (
             CASE
                 WHEN %s <> '' THEN ts_rank_cd(search_vector, to_tsquery('simple', %s))
@@ -376,8 +383,10 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
     retrieved_docs: list[RetrievedDoc] = []
     for row in rows:
         score = float(row["score"] or 0.0)
-        if score < 0.4:
+        if score < _MIN_DB_SCORE:
             continue
+        document_metadata = _dict_or_empty(row["document_metadata"])
+        chunk_metadata = _dict_or_empty(row["chunk_metadata"])
         retrieved_docs.append(
             RetrievedDoc(
                 doc_id=row["doc_id"],
@@ -388,6 +397,8 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
                 source=row["source_url"] or row["source_type"] or "",
                 category=request.category or row["source_type"],
                 metadata={
+                    **document_metadata,
+                    **chunk_metadata,
                     **request.log_fields,
                     "strategy": request.strategy,
                     "query": request.query,
@@ -396,11 +407,23 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
                     "matched_terms": search_terms,
                     "search_mode": "keyword_or_tsquery_ilike",
                     "source_type": row["source_type"],
+                    "department": row["department"],
                     "published_at": row["published_at"],
+                    "chunk_index": row["chunk_index"],
+                    "section_index": row["section_index"],
+                    "section_type": row["section_type"],
+                    "section_title": row["section_title"],
+                    "content_length": row["content_length"],
+                    "content_hash": row["content_hash"],
+                    "version": row["version"],
                 },
             )
         )
     return retrieved_docs
+
+def _dict_or_empty(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
 
 # BM25 알고리즘을 사용하여 문서 청크에 점수를 매기는 함수
 def _score_documents(
@@ -504,12 +527,6 @@ def _matches_filters(record: ChunkRecord, filters: dict[str, list[str]]) -> bool
     if departments and not _matches_any_value(record.department, departments):
         return False
 
-    categories = filters.get("category", [])
-    if categories:
-        category_candidates = [record.category_lv1, record.category_lv2, record.source_type]
-        if not any(_matches_any_value(candidate, categories) for candidate in category_candidates):
-            return False
-
     return True
 
 # 필터의 특정 값과 실제 문서 필드 값이 일치하는지 또는 포함되는지 확인하는 함수
@@ -591,8 +608,6 @@ def _load_chunk_records() -> tuple[ChunkRecord, ...]:
                     source_url=str(item.get("source_url", "")),
                     published_at=item.get("published_at"),
                     department=item.get("department"),
-                    category_lv1=item.get("category_lv1"),
-                    category_lv2=item.get("category_lv2"),
                     metadata={
                         "chunk_index": item.get("chunk_index"),
                         "content_length": item.get("content_length"),

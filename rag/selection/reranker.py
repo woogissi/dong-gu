@@ -103,8 +103,6 @@ def _category_match_score(
     candidates = {
         _normalize_value(doc.category),
         _normalize_value(doc.metadata.get("source_type")),
-        _normalize_value(doc.metadata.get("category_lv1")),
-        _normalize_value(doc.metadata.get("category_lv2")),
         _normalize_value(doc.metadata.get("department")),
     }
     candidates.discard("")

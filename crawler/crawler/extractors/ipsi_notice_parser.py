@@ -58,14 +58,6 @@ class IpsiNoticeParser(BoardDetailExtractor):
         detail_url: str,
         html: str,
         title_hint: str | None = None,
-    ) -> dict:     # 부모의 build_raw_document를 그대로 쓰는데 category12, target_audience만 추가하여 오버라이딩
+    ) -> dict:
         raw_doc = super().build_raw_document(source_type, detail_url, html, title_hint=title_hint)
-
-        # 입학처 전용 카테고리 기본값
-        raw_doc["category_lv1"] = "입학"
-        raw_doc["category_lv2"] = "입시공지"
-
-        # target_audience 예시
-        raw_doc["target_audience"] = ["신입생", "수험생"]
-
         return raw_doc

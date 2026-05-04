@@ -4,6 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Request
 from backend.app.utils.callback import kakao_callback
 from backend.app.database.query_logs import create_query_log, update_query_intent
 from backend.app.database.response_logs import save_response_log
+from backend.app.database.retrieval_logs import save_retrieval_log
 from backend.app.api.chat import general_chat_service
 from backend.app.utils.intent_classifier import PrimaryIntentClassifier
 from backend.app.utils.user_lock import acquire_user_lock, release_user_lock
@@ -53,6 +54,38 @@ def add_response_log_task(background_tasks, request_id, answer_text, success, re
         error_message,
         response_time_ms,
     )
+
+
+def add_retrieval_log_task(background_tasks, request_id, result):
+    if not request_id:
+        return
+
+    log_data = extract_retrieval_log(result)
+    if not log_data:
+        return
+
+    if background_tasks is None:
+        safe_save_retrieval_log(request_id, log_data)
+        return
+
+    background_tasks.add_task(safe_save_retrieval_log, request_id, log_data)
+
+
+def safe_save_retrieval_log(request_id, log_data):
+    try:
+        save_retrieval_log(request_id, log_data)
+    except Exception as e:
+        print(f"[ERROR] save_retrieval_log: {e}")
+
+
+def extract_retrieval_log(result):
+    if isinstance(result, dict):
+        return result.get("retrieval_log")
+    if hasattr(result, "model_dump"):
+        return result.model_dump().get("retrieval_log")
+    if hasattr(result, "to_dict"):
+        return result.to_dict().get("retrieval_log")
+    return getattr(result, "retrieval_log", None)
 
 
 @router.post("/webhook")
@@ -117,7 +150,8 @@ async def kakao_webhook(request: Request, background_tasks: BackgroundTasks = No
             }
 
         # 콜백 URL이 없는 경우에도 RAG -> Ollama 파이프라인을 동기로 실행해 응답합니다.
-        response_body, final_answer, success = process_info_sync(utterance)
+        response_body, final_answer, success, result = process_info_sync(utterance)
+        add_retrieval_log_task(background_tasks, request_id, result)
         add_response_log_task(
             background_tasks,
             request_id,
@@ -144,13 +178,14 @@ def process_info_with_callback(callback_url, request_id, user_id, utterance, sta
 
         kakao_callback(callback_url, response_body)
 
+        safe_save_retrieval_log(request_id, extract_retrieval_log(result))
+
         save_response_log(
             request_id=request_id,
             answer_text=final_answer,
             success=_result_success(result),
             response_time_ms=int((time.time() - start_time) * 1000),
-            error_message=None,
-            response_time_ms=int((time.time() - start_time) * 1000),
+            error_message=None
         )
 
     except Exception as e:
@@ -177,7 +212,7 @@ def process_info_sync(utterance: str):
     result = get_chat_pipeline().run(Query(text=utterance))
     response_body, final_answer = build_info_response(result, utterance)
     success = _result_success(result)
-    return response_body, final_answer, success
+    return response_body, final_answer, success, result
 
 
 def _result_success(result) -> bool:

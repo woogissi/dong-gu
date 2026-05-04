@@ -347,27 +347,17 @@ class BoardDetailExtractor:
 
         raw_doc = BoardDetailRawDocument(
             doc_id=doc_id,
-            parent_doc_id=None,
             source_type=source_type,                # notice, academic_notice 등
             page_kind="board_detail",
-            category_lv1=None,
-            category_lv2=None,
             department=meta["author"],              # 작성자/부서
             title=title,
-            summary=None,
             source_url=detail_url,                  # 상세 URL
             published_at=meta["published_at"],      # 작성일
             updated_at=meta["updated_at"],
-            valid_from=None,
-            valid_to=None,
-            target_audience=[],
-            keywords=[],
             raw_text=raw_text,
             normalize=None,
             table_text=table_text,
             attachment_text=None,
-            language="ko",
-            status="active",
             version=1,
             collected_at=self.now_kst_iso(),
             views=meta["views"],

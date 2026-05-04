@@ -125,6 +125,7 @@ class ChatPipeline:
             answer=state.answer_text,
             sources=state.selected_docs,
             success=True,
+            retrieval_log=state.to_log_dict(),
         )
 
     def _build_fallback_answer(self, state: PipelineState) -> Answer:
@@ -138,5 +139,6 @@ class ChatPipeline:
             answer=fallback_text,
             sources=[],
             success=False,
+            retrieval_log=state.to_log_dict(),
         )
 
