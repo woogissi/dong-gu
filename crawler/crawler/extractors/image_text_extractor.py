@@ -2,20 +2,11 @@
 
 from __future__ import annotations
 
-import io
-import os
 from typing import List
 
 import requests
-from PIL import Image, ImageOps
-import pytesseract
 
-
-pytesseract.pytesseract.tesseract_cmd = r"E:\Tesseract-OCR\tesseract.exe"       # 로컬용 이미지 ocr 경로
-'''
-tesseract_cmd = os.getenv("TESSERACT_CMD")
-if tesseract_cmd:
-    pytesseract.pytesseract.tesseract_cmd = tesseract_cmd '''
+from crawler.ocr.korean_ocr import KoreanOCREngine
 
 
 HEADERS = {
@@ -31,6 +22,7 @@ class ImageTextExtractor:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update(HEADERS)
+        self.ocr = KoreanOCREngine()
 
     def fetch_image_bytes(self, image_url: str) -> bytes | None:
         try:
@@ -40,16 +32,8 @@ class ImageTextExtractor:
         except Exception:
             return None
 
-    def preprocess_image(self, image_bytes: bytes) -> Image.Image:
-        """
-        OCR 정확도 높이기 위한 기본 전처리
-        - grayscale
-        - auto contrast
-        """
-        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        img = ImageOps.grayscale(img)
-        img = ImageOps.autocontrast(img)
-        return img
+    def extract_text_from_bytes(self, image_bytes: bytes) -> str:
+        return self.ocr.extract_text_from_bytes(image_bytes).text
 
     def extract_text_from_image(self, image_url: str) -> str:
         image_bytes = self.fetch_image_bytes(image_url)
@@ -57,9 +41,7 @@ class ImageTextExtractor:
             return ""
 
         try:
-            img = self.preprocess_image(image_bytes)
-            text = pytesseract.image_to_string(img, lang="kor+eng")
-            return text.strip()
+            return self.extract_text_from_bytes(image_bytes)
         except Exception:
             return ""
 

@@ -1,27 +1,22 @@
 # crawler/parsers/image_parser.py
 
-import os
 from pathlib import Path
 
-import pytesseract
-from PIL import Image, ImageOps
-
-tesseract_cmd = os.getenv("TESSERACT_CMD")
-if tesseract_cmd:
-    pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+from crawler.ocr.korean_ocr import KoreanOCREngine
 
 
 class ImageParser:
+    def __init__(self):
+        self.ocr = KoreanOCREngine()
+
     def extract_text(self, file_path: str) -> dict:
         path = Path(file_path)
         if not path.exists():
             raise FileNotFoundError(f"Image file not found: {file_path}")
 
         try:
-            img = Image.open(path).convert("RGB")
-            img = ImageOps.grayscale(img)
-            img = ImageOps.autocontrast(img)
-            text = pytesseract.image_to_string(img, lang="kor+eng").strip()
+            result = self.ocr.extract_text_from_bytes(path.read_bytes())
+            text = result.text
         except Exception as e:
             return {
                 "file_path": str(path.as_posix()),
@@ -35,6 +30,16 @@ class ImageParser:
             "file_path": str(path.as_posix()),
             "page_count": 1 if text else None,
             "text": text if text else None,
-            "pages": [{"page_no": 1, "text": text}] if text else [],
-            "note": "extracted via local image OCR" if text else "image OCR returned empty text",
+            "pages": [
+                {
+                    "page_no": 1,
+                    "text": text,
+                    "parser_type": result.engine,
+                }
+            ] if text else [],
+            "note": (
+                f"extracted via local image OCR; engine={result.engine}"
+                if text
+                else "image OCR returned empty text"
+            ),
         }
