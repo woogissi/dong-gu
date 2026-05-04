@@ -124,6 +124,17 @@ def main():     # 메인 함수
                     message=message,
                     extra={"file_path": chunk_file.as_posix()},
                 )
+                loader.insert_crawl_job_error(
+                    run_type="vector_ingestion",
+                    stage="vector_ingestion",
+                    error=e,
+                    source_type=source_type if "source_type" in locals() else None,
+                    doc_id=doc_id if "doc_id" in locals() else None,
+                    file_path=chunk_file.as_posix(),
+                    context={
+                        "chunk_file": chunk_file.as_posix(),
+                    },
+                )
 
     finally:
         loader.close()

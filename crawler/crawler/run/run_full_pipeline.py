@@ -17,6 +17,7 @@ from crawler.storage.manifest_writer import ManifestWriter
 from crawler.schemas.document_models import CuratedDocument
 from crawler.ingestion.document_version_manager import DocumentVersionManager
 from crawler.normalize.text_cleaner import TextCleaner
+from crawler.ingestion.pgvector_loader import PGVectorLoader
 
 BASE_DIR = Path("crawler/data")
 RAW_HTML_DIR = BASE_DIR / "raw" / "html"
@@ -31,7 +32,7 @@ for d in [RAW_HTML_DIR, RAW_DOC_DIR, RAW_ATTACH_DIR, CURATED_DOC_DIR, LOG_DIR]:
 text_cleaner = TextCleaner()
 manifest_writer = ManifestWriter()
 version_manager = DocumentVersionManager(curated_base_dir=str(CURATED_DOC_DIR))
-
+pgv_loader = PGVectorLoader()
 
 def save_json(path: Path, data: dict | list) -> None:               # JSON 저장용 유틸 함수
     path.parent.mkdir(parents=True, exist_ok=True)                  # 부모 폴더 없으면 생성
@@ -127,6 +128,31 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
             try:
                 downloaded = downloader.download(source_type, doc_id, att)
 
+            except Exception as e:              # 특정 첨부가 깨져도 계속 저장
+                message = f"[ATTACH DOWNLOAD ERROR] doc_id={doc_id} file_url={att['file_url']} error={e}"
+                log_error(message)
+                manifest_writer.write_error_record(
+                    stage="attachment_download",
+                    message=message,
+                    extra={"doc_id": doc_id, "file_url": att["file_url"]},
+                )
+                pgv_loader.insert_crawl_job_error(
+                    run_type="full_pipeline",
+                    stage="attachment_download",
+                    error=e,
+                    source_type=source_type,
+                    doc_id=doc_id,
+                    url=raw_to_save.get("source_url"),
+                    file_url=att.get("file_url"),
+                    context={
+                        "file_name": att.get("file_name"),
+                        "attachment_index": att.get("attachment_index"),
+                    },
+                )
+                continue
+
+
+            try:    
                 parse_result = file_router.extract_text(downloaded["saved_path"])       # 파일 경로를 파일 분기 router에 넘김
                 downloaded["parser_type"] = parse_result.get("parser_type")             # 결과 받기
                 downloaded["attachment_text"] = parse_result.get("attachment_text")
@@ -139,13 +165,30 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
                 manifest_writer.write_file_parse_record(doc_id, downloaded, parse_result)
 
             except Exception as e:              # 특정 첨부가 깨져도 계속 저장
-                message = f"[ATTACH DOWNLOAD/PARSE ERROR] doc_id={doc_id} file_url={att['file_url']} error={e}"
+                message = f"[PARSE ERROR] doc_id={doc_id} file_url={att['file_url']} error={e}"
                 log_error(message)
                 manifest_writer.write_error_record(
-                    stage="attachment_download_or_parse",
+                    stage="parse",
                     message=message,
                     extra={"doc_id": doc_id, "file_url": att["file_url"]},
                 )
+                pgv_loader.insert_crawl_job_error(
+                    run_type="full_pipeline",
+                    stage="file_parse",
+                    error=e,
+                    source_type=source_type,
+                    doc_id=doc_id,
+                    url=raw_to_save.get("source_url"),
+                    file_url=downloaded.get("file_url"),
+                    file_path=downloaded.get("saved_path"),
+                    context={
+                        "file_name": downloaded.get("file_name"),
+                        "file_ext": downloaded.get("file_ext"),
+                        "file_size": downloaded.get("file_size"),
+                        "attachment_index": downloaded.get("attachment_index"),
+                    },
+                )
+                continue
 
     raw_to_save["downloaded_attachments"] = downloaded_attachments
 
@@ -260,6 +303,20 @@ def run_board_pipeline(source_type: str, list_url: str, pages: int = 50, parser_
                         message=message,
                         extra={"source_type": source_type, "url": item["detail_url"]},
                     )
+                    pgv_loader.insert_crawl_job_error(
+                        run_type="full_pipeline",
+                        stage="board_detail",
+                        error=e,
+                        source_type=source_type,
+                        doc_id=f"deu_{source_type}_{item.get('article_no')}" if item.get("article_no") else None,
+                        url=item.get("detail_url"),
+                        context={
+                            "article_no": item.get("article_no"),
+                            "title_hint": item.get("title_hint"),
+                            "published_at_hint": item.get("published_at_hint"),
+                            "row_text": item.get("row_text"),
+                        },
+                    )
 
         except Exception as e:              # 목록 페이지 자체가 실패하면 그 페이지는 건너뜀
             message = f"[LIST ERROR] source={source_type} page={page_no} error={e}"
@@ -268,6 +325,18 @@ def run_board_pipeline(source_type: str, list_url: str, pages: int = 50, parser_
                 stage="board_list",
                 message=message,
                 extra={"source_type": source_type, "list_url": list_url, "page_no": page_no},
+            )
+            pgv_loader.insert_crawl_job_error(
+                run_type="full_pipeline",
+                stage="board_list",
+                error=e,
+                source_type=source_type,
+                url=list_url,
+                context={
+                    "page_no": page_no,
+                    "page_size": 10,
+                    "list_url": list_url,
+                },
             )
 
 
@@ -289,6 +358,17 @@ def run_static_pipeline(static_urls: list[dict]) -> None:           # 정적 페
                 stage="static_page",
                 message=message,
                 extra={"source_type": item["source_type"], "url": item["url"]},
+            )
+            pgv_loader.insert_crawl_job_error(
+                run_type="full_pipeline",
+                stage="static_page",
+                error=e,
+                source_type=item.get("source_type"),
+                url=item.get("url"),
+                context={
+                    "page_kind": item.get("page_kind"),
+                    "seed_name": item.get("name"),
+                },
             )
 
 

@@ -393,3 +393,60 @@ class PGVectorLoader:
             cur.executemany(sql, rows)
 
         self.conn.commit()
+
+
+    def insert_crawl_job_error(
+        self,
+        run_type: str,
+        stage: str,
+        error: Exception,
+        source_type: str | None = None,
+        doc_id: str | None = None,
+        url: str | None = None,
+        file_url: str | None = None,
+        file_path: str | None = None,
+        context: dict | None = None,
+    ) -> None:
+        import traceback as tb
+
+        sql = """
+        INSERT INTO crawl_jobs (
+            run_type,
+            stage,
+            status,
+            source_type,
+            doc_id,
+            url,
+            file_url,
+            file_path,
+            error_type,
+            error_message,
+            traceback,
+            context
+        )
+        VALUES (
+            %s, %s, 'failed',
+            %s, %s, %s, %s, %s,
+            %s, %s, %s, %s
+        );
+        """
+
+        with self.conn.cursor() as cur:
+            cur.execute(
+                sql,
+                (
+                    run_type,
+                    stage,
+                    source_type,
+                    doc_id,
+                    url,
+                    file_url,
+                    file_path,
+                    error.__class__.__name__,
+                    str(error),
+                    tb.format_exc(),
+                    Json(context or {}),
+                ),
+            )
+
+        self.conn.commit()

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from crawler.ingestion.chunker import DocumentChunker
 from crawler.storage.manifest_writer import ManifestWriter
+from crawler.ingestion.pgvector_loader import PGVectorLoader
 
 
 CURATED_DIR = Path("crawler/data/curated/documents")
@@ -16,6 +17,7 @@ for d in [CHUNK_DIR, LOG_DIR]:          # chunk 저장 폴더와 로그 폴더�
 
 manifest_writer = ManifestWriter()
 chunker = DocumentChunker(max_chars=900, overlap_chars=100)
+pgv_loader = PGVectorLoader()
 
 
 def load_json(path: Path) -> dict:          # curated 문서 파일 하나를 dict로 읽어온다
@@ -106,6 +108,17 @@ def run_ingestion():                # 전체 ingestion 파이프라인 함수
                 stage="ingestion",
                 message=message,
                 extra={"file_path": path.as_posix()},
+            )
+            pgv_loader.insert_crawl_job_error(
+                run_type="ingestion_pipeline",
+                stage="chunking",
+                error=e,
+                source_type=source_type if "source_type" in locals() else None,
+                doc_id=doc_id if "doc_id" in locals() else None,
+                file_path=path.as_posix(),
+                context={
+                    "curated_file": path.as_posix(),
+                },
             )
 
 
