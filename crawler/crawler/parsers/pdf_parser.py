@@ -5,6 +5,9 @@ from __future__ import annotations
 import io
 import re
 from pathlib import Path
+import io
+import os
+import re
 
 import fitz  # PyMuPDF
 from PIL import Image

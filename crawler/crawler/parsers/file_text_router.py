@@ -30,6 +30,7 @@ class FileTextRouter:                                   # 파일 확장자를 �
                 "attachment_text": result["text"],
                 "page_count": result["page_count"],
                 "pages": result["pages"],
+                "note": result.get("note"),
             }
 
         if ext == ".hwpx":                              # 확장자가 hwpx일때

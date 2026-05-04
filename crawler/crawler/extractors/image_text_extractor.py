@@ -18,7 +18,27 @@ HEADERS = {
 }
 
 
+EBOOK_URL_RE = re.compile(
+    r"(?:https?://)?(?:www\.)?ebookand\.com/.{0,200}?print-layout\.html?\|?(?:\s+\d+/\d+)?",
+    re.IGNORECASE,
+)
+EBOOK_DATE_PREFIX_RE = re.compile(
+    r"^\s*\d{2,4}\.\s*\d{1,2}\.\s*\d{1,2}\.\s*(?:[^\d:]{0,6})?\s*\d{1,2}:\d{2}\s*(?:ebook)?\s*(?:\|)?\s*",
+    re.IGNORECASE,
+)
+PAGE_MARKER_RE = re.compile(r"^\s*\d+\s*/\s*\d+\s*$")
+STANDALONE_EBOOK_NOISE_RE = re.compile(
+    r"^\s*(?:ebook|print-layout\.html?|DONG-EUI UNIVERSITY)\s*$",
+    re.IGNORECASE,
+)
+
+
 class ImageTextExtractor:
+    OCR_LANG = "kor+eng"
+    OCR_LANG_CANDIDATES = ("kor+eng", "kor")
+    OCR_CONFIG = "--oem 3 --psm 6"
+    MIN_OCR_WIDTH = 1200
+
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update(HEADERS)
