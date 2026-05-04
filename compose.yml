@@ -40,13 +40,13 @@ services:
     build:
       context: ./crawler
       dockerfile: Dockerfile
-    environment:                    # soffice 환경변수
-    - SOFFICE_PATH=soffice
     container_name: donggu-crawler
     volumes:
       - ./crawler:/app
     env_file:
       - .env
+    environment:
+      - HWP5TXT_PATH=hwp5txt
     command: tail -f /dev/null
 
 #   postgres:
