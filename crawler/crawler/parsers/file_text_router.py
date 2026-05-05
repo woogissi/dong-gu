@@ -1,6 +1,8 @@
 # crawler/parsers/file_text_router.py
 
 from pathlib import Path
+import zipfile
+import tempfile
 
 from crawler.parsers.pdf_parser import PDFParser
 from crawler.parsers.hwpx_parser import HWPXParser
@@ -22,6 +24,10 @@ class FileTextRouter:                                   # 파일 확장자를 �
 
     def extract_text(self, file_path: str) -> dict:     # 메인 함수
         ext = self.get_extension(file_path)
+
+        # ZIP 처리
+        if ext == ".zip":
+            return self.extract_zip_and_parse(file_path)
 
         if ext == ".pdf":                               # 확장자가 pdf일때
             result = self.pdf_parser.extract_text(file_path)
@@ -80,4 +86,46 @@ class FileTextRouter:                                   # 파일 확장자를 �
             "page_count": None,
             "pages": [],
             "note": f"unsupported extension: {ext or '(none)'}",
+        }
+
+    def extract_zip_and_parse(self, file_path: str) -> dict:
+        """
+        zip 파일 압축 해제 후 내부 파일들을 재귀적으로 파싱
+        """
+        results = []
+        extracted_files = []
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+
+            with zipfile.ZipFile(file_path, 'r') as zip_ref:
+                zip_ref.extractall(tmpdir_path)
+
+            for inner_file in tmpdir_path.rglob("*"):
+                if not inner_file.is_file():
+                    continue
+
+                try:
+                    parsed = self.extract_text(str(inner_file))
+
+                    if parsed:
+                        text = parsed.get("text") or parsed.get("attachment_text")
+
+                        if text:
+                            results.append(
+                                f"[ZIP:{inner_file.name}]\n{text}"
+                            )
+
+                        extracted_files.append(inner_file.name)
+
+                except Exception as e:
+                    print(f"[ZIP PARSE ERROR] {inner_file} error={e}")
+
+        merged_text = "\n\n".join(results).strip()
+
+        return {
+            "parser_type": "zip_recursive",
+            "attachment_text": merged_text if merged_text else None,
+            "extracted_files": extracted_files,
+            "file_count": len(extracted_files),
         }

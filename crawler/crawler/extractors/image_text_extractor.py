@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import List
 
 import requests
-
+import re
 from crawler.ocr.korean_ocr import KoreanOCREngine
 
 
