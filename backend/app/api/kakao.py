@@ -16,6 +16,7 @@ from backend.app.utils.kakao_ui import (
     get_title_by_category,
 )
 from rag.schemas.query import Query
+from rag.utils.demo_logger import demo_log
 
 
 router = APIRouter(tags=["kakao"])
@@ -135,6 +136,14 @@ async def kakao_webhook(request: Request, background_tasks: BackgroundTasks = No
     callback_url = body.get("userRequest", {}).get("callbackUrl")
     user_id = body.get("userRequest", {}).get("user", {}).get("id", "unknown")
     utterance = body.get("userRequest", {}).get("utterance", "").strip()
+    demo_log(
+        "1. Kakao webhook received",
+        {
+            "user_id": user_id,
+            "utterance": utterance,
+            "callback_mode": bool(callback_url),
+        },
+    )
 
     if not utterance:
         return kakao_response("질문 내용을 입력해주세요.")
@@ -147,6 +156,13 @@ async def kakao_webhook(request: Request, background_tasks: BackgroundTasks = No
 
         intent = primary_intent_classifier.classify(utterance)
         update_query_intent(request_id=request_id, intent_type=intent)
+        demo_log(
+            "1-1. Intent classified",
+            {
+                "request_id": request_id,
+                "intent": intent,
+            },
+        )
 
         if intent == "PROFANITY":
             answer = "부적절한 표현은 사용할 수 없어요."

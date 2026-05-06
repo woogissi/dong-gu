@@ -20,6 +20,7 @@ from rag.embedding.koe5_embedder import KoE5Embedder
 
 from pprint import pprint
 from threading import Lock, Thread
+from rag.utils.demo_logger import demo_log, preview_text, summarize_docs
 
 
 class NoRetrievalResultsError(Exception):
@@ -41,6 +42,7 @@ class ChatPipeline:
 
         try:
             self.preprocessor.run(state)
+            self._log_preprocess(state)
             self._embed_query(state)
             self._retrieve(state)
             self._select_and_build_context(state)
@@ -53,6 +55,13 @@ class ChatPipeline:
             state.success = False
             state.error = str(e)
             state.fallback_used = True
+            demo_log(
+                "Pipeline fallback triggered",
+                {
+                    "error": state.error,
+                    "retrieved_doc_count": len(state.retrieved_docs),
+                },
+            )
             return self._build_fallback_answer(state)
 
 
@@ -77,6 +86,12 @@ class ChatPipeline:
         query_text = state.rewritten_query or state.normalized_query or state.original_query
         embedder = self._get_embedder()
         state.query_vector = embedder.embed_query(query_text)
+        demo_log(
+            "2-1. Query embedding created",
+            {
+                "vector_size": len(state.query_vector),
+            },
+        )
 
     def _retrieve(self, state: PipelineState) -> None:
         request = build_retrieval_request(state)
@@ -84,8 +99,26 @@ class ChatPipeline:
         state.retrieval_top_k = request.top_k
         state.metadata["retrieval_request"] = request.model_dump()
         state.metadata["retrieval_strategy_log"] = request.log_fields
+        demo_log(
+            "3. Retrieval strategy selected",
+            {
+                "strategy": request.strategy,
+                "top_k": request.top_k,
+                "query": preview_text(request.query, max_length=180),
+                "keyword_count": len(request.keywords),
+                "category": request.category,
+                "filter_fields": list(request.filters.keys()),
+            },
+        )
         state.retrieved_docs = retrieve_documents(
             request=request,
+        )
+        demo_log(
+            "3-1. Retrieved documents",
+            {
+                "retrieved_doc_count": len(state.retrieved_docs),
+                "top_documents": summarize_docs(state.retrieved_docs, limit=3),
+            },
         )
         if not state.retrieved_docs:
             state.fallback_used = True
@@ -107,13 +140,36 @@ class ChatPipeline:
         )
         state.selected_docs = select_topk(state.reranked_docs or state.retrieved_docs)
         state.context = build_context(state.selected_docs)
+        demo_log(
+            "3-2. Reranked and selected documents",
+            {
+                "reranked_doc_count": len(state.reranked_docs),
+                "selected_doc_count": len(state.selected_docs),
+                "selected_top_documents": summarize_docs(state.selected_docs, limit=3),
+            },
+        )
 
     def _generate(self, state: PipelineState) -> None:
         state.prompt = build_prompt(
             query=state.original_query,
             context=state.context,
         )
+        demo_log(
+            "4. Prompt generated",
+            {
+                "prompt_length": len(state.prompt),
+                "selected_doc_count": len(state.selected_docs),
+                "prompt_preview": preview_text(state.prompt, max_length=350),
+            },
+        )
         state.answer_text = generate_answer(state.prompt)
+        demo_log(
+            "5. LLM answer generated",
+            {
+                "answer_length": len(state.answer_text),
+                "answer_preview": preview_text(state.answer_text, max_length=500),
+            },
+        )
 
     def _postprocess(self, state: PipelineState) -> None:
         # : response validation / polishing
@@ -133,6 +189,13 @@ class ChatPipeline:
             query=state.original_query,
             error=state.error,
         )
+        demo_log(
+            "5. Fallback answer generated",
+            {
+                "error": state.error,
+                "answer_preview": preview_text(fallback_text, max_length=500),
+            },
+        )
 
         return Answer(
             question=state.original_query,
@@ -140,5 +203,18 @@ class ChatPipeline:
             sources=[],
             success=False,
             retrieval_log=state.to_log_dict(),
+        )
+
+    def _log_preprocess(self, state: PipelineState) -> None:
+        demo_log(
+            "2. Query preprocessing completed",
+            {
+                "original_query": preview_text(state.original_query, max_length=180),
+                "normalized_query": preview_text(state.normalized_query, max_length=180),
+                "keywords": state.keywords[:5],
+                "keyword_count": len(state.keywords),
+                "category": state.category,
+                "rewritten_query": preview_text(state.rewritten_query, max_length=160),
+            },
         )
 
