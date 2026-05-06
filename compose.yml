@@ -49,32 +49,31 @@ services:
       - HWP5TXT_PATH=hwp5txt
     command: tail -f /dev/null
 
-#   postgres:
-#     image: pgvector/pgvector:pg15
-#     container_name: donggu-postgres
-#     restart: always
-#     environment:
-#       POSTGRES_USER: ${POSTGRES_USER}
-#       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-#       POSTGRES_DB: ${POSTGRES_DB}
-#     ports:
-#       - "5432:5432"
-#     volumes:
-#       - postgres_data:/var/lib/postgresql/data
-#       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: donggu-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
 
-#   pgadmin:
-#     image: dpage/pgadmin4
-#     container_name: donggu-pgadmin
-#     restart: always
-#     environment:
-#       PGADMIN_DEFAULT_EMAIL: admin@example.com
-#       PGADMIN_DEFAULT_PASSWORD: admin1234
-#     ports:
-#       - "5050:80"
-#     depends_on:
-#       - postgres
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: donggu-pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin1234
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
 
-# volumes:
-#   postgres_data:
-#     command: tail -f /dev/null
+volumes:
+  postgres_data:
