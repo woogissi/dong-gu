@@ -1,0 +1,46 @@
+[33m7e3b4bd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/crawler-metaX[m[33m, [m[1;32mfeature/crawler[m[33m, [m[1;32mdev[m[33m, [m[1;32mbackup-before-switch[m[33m)[m HEAD@{0}: reset: moving to backup-before-switch
+[33m3ac7891[m[33m ([m[1;31morigin/feature/crawler-metaX[m[33m)[m HEAD@{1}: checkout: moving from backup-before-switch to feature/crawler-metaX
+[33m7e3b4bd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/crawler-metaX[m[33m, [m[1;32mfeature/crawler[m[33m, [m[1;32mdev[m[33m, [m[1;32mbackup-before-switch[m[33m)[m HEAD@{2}: checkout: moving from feature/crawler-metaX to backup-before-switch
+[33m3ac7891[m[33m ([m[1;31morigin/feature/crawler-metaX[m[33m)[m HEAD@{3}: checkout: moving from dev to feature/crawler-metaX
+[33m7e3b4bd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/crawler-metaX[m[33m, [m[1;32mfeature/crawler[m[33m, [m[1;32mdev[m[33m, [m[1;32mbackup-before-switch[m[33m)[m HEAD@{4}: checkout: moving from dev to dev
+[33m7e3b4bd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/crawler-metaX[m[33m, [m[1;32mfeature/crawler[m[33m, [m[1;32mdev[m[33m, [m[1;32mbackup-before-switch[m[33m)[m HEAD@{5}: reset: moving to HEAD
+[33m7e3b4bd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/crawler-metaX[m[33m, [m[1;32mfeature/crawler[m[33m, [m[1;32mdev[m[33m, [m[1;32mbackup-before-switch[m[33m)[m HEAD@{6}: checkout: moving from feature/crawler-metaX to dev
+[33m3ac7891[m[33m ([m[1;31morigin/feature/crawler-metaX[m[33m)[m HEAD@{7}: reset: moving to HEAD
+[33m3ac7891[m[33m ([m[1;31morigin/feature/crawler-metaX[m[33m)[m HEAD@{8}: commit: refactor: metadata 적재 부분 제거
+[33me85f339[m[33m ([m[1;32mfeature/crawler-imagePDF-ocr[m[33m)[m HEAD@{9}: checkout: moving from feature/crawler-imagePDF-ocr to feature/crawler-metaX
+[33me85f339[m[33m ([m[1;32mfeature/crawler-imagePDF-ocr[m[33m)[m HEAD@{10}: checkout: moving from dev to feature/crawler-imagePDF-ocr
+[33m7e3b4bd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/crawler-metaX[m[33m, [m[1;32mfeature/crawler[m[33m, [m[1;32mdev[m[33m, [m[1;32mbackup-before-switch[m[33m)[m HEAD@{11}: checkout: moving from feature/crawler-imagePDF-ocr to dev
+[33me85f339[m[33m ([m[1;32mfeature/crawler-imagePDF-ocr[m[33m)[m HEAD@{12}: commit: feat: 수동 첨부파일 수집 run파일 생성 및 신입생 가이드 전용 처리 로직 생성
+[33m7e3b4bd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/crawler-metaX[m[33m, [m[1;32mfeature/crawler[m[33m, [m[1;32mdev[m[33m, [m[1;32mbackup-before-switch[m[33m)[m HEAD@{13}: checkout: moving from feature/crawler to feature/crawler-imagePDF-ocr
+[33m7e3b4bd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/crawler-metaX[m[33m, [m[1;32mfeature/crawler[m[33m, [m[1;32mdev[m[33m, [m[1;32mbackup-before-switch[m[33m)[m HEAD@{14}: merge dev: Fast-forward
+[33m05ec2d9[m HEAD@{15}: checkout: moving from dev to feature/crawler
+[33m7e3b4bd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/crawler-metaX[m[33m, [m[1;32mfeature/crawler[m[33m, [m[1;32mdev[m[33m, [m[1;32mbackup-before-switch[m[33m)[m HEAD@{16}: pull origin dev: Fast-forward
+[33m72b1659[m HEAD@{17}: checkout: moving from feature/crawler to dev
+[33m05ec2d9[m HEAD@{18}: commit: refactor: hwp 파싱 코드 수정
+[33mcf73dce[m HEAD@{19}: commit (merge): fix: crawler-refactor 최신화 및 libreoffice기반 hwp 파싱 완성 코드
+[33mc3eeccf[m HEAD@{20}: checkout: moving from feature/crawler-refactor to feature/crawler
+[33m158645c[m[33m ([m[1;32mfeature/crawler-refactor[m[33m)[m HEAD@{21}: checkout: moving from feature/crawler to feature/crawler-refactor
+[33mc3eeccf[m HEAD@{22}: checkout: moving from dev to feature/crawler
+[33m72b1659[m HEAD@{23}: checkout: moving from feature/crawler to dev
+[33mc3eeccf[m HEAD@{24}: commit: delete data파일 삭제
+[33m3b522a1[m HEAD@{25}: checkout: moving from dev to feature/crawler
+[33m72b1659[m HEAD@{26}: checkout: moving from feature/crawler to dev
+[33m3b522a1[m HEAD@{27}: reset: moving to HEAD
+[33m3b522a1[m HEAD@{28}: merge origin/dev: updating HEAD
+[33m3b522a1[m HEAD@{29}: reset: moving to HEAD
+[33m3b522a1[m HEAD@{30}: checkout: moving from dev to feature/crawler
+[33m72b1659[m HEAD@{31}: checkout: moving from feature/crawler to dev
+[33m3b522a1[m HEAD@{32}: reset: moving to HEAD
+[33m3b522a1[m HEAD@{33}: reset: moving to HEAD
+[33m3b522a1[m HEAD@{34}: checkout: moving from dev to feature/crawler
+[33m72b1659[m HEAD@{35}: checkout: moving from feature/crawler to dev
+[33m3b522a1[m HEAD@{36}: reset: moving to HEAD
+[33m3b522a1[m HEAD@{37}: checkout: moving from dev to feature/crawler
+[33m72b1659[m HEAD@{38}: pull origin dev: Fast-forward
+[33mfdd53a8[m HEAD@{39}: checkout: moving from feature/crawler to dev
+[33m3b522a1[m HEAD@{40}: commit: refactor: tesseract-ocr 사용가능하게 dockerfile 수정
+[33mfdd53a8[m HEAD@{41}: checkout: moving from feature/crawler to feature/crawler
+[33mfdd53a8[m HEAD@{42}: checkout: moving from dev to feature/crawler
+[33mfdd53a8[m HEAD@{43}: reset: moving to HEAD
+[33mfdd53a8[m HEAD@{44}: checkout: moving from main to dev
+[33md58074f[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m HEAD@{45}: clone: from https://github.com/woogissi/dong-gu.git

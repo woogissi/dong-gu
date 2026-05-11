@@ -6,7 +6,6 @@ from typing import List
 
 import requests
 import re
-
 from crawler.ocr.korean_ocr import KoreanOCREngine
 
 
