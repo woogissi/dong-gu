@@ -84,7 +84,7 @@ class BoardListExtractor:
             "mode": "list",
         }
 
-        html = self.fetch(list_url, params=params)
+        html = self.fetch(list_url, params)
         items = self.parse_rows(html, list_url)
 
         return {

@@ -56,12 +56,8 @@ def add_response_log_task(background_tasks, request_id, answer_text, success, re
     )
 
 
-def add_retrieval_log_task(background_tasks, request_id, result):
+def add_retrieval_log_task(background_tasks, request_id, log_data):
     if not request_id:
-        return
-
-    log_data = extract_retrieval_log(result)
-    if not log_data:
         return
 
     if background_tasks is None:
@@ -86,6 +82,46 @@ def extract_retrieval_log(result):
     if hasattr(result, "to_dict"):
         return result.to_dict().get("retrieval_log")
     return getattr(result, "retrieval_log", None)
+
+
+def extract_pipeline_retrieval_log(pipeline):
+    state = getattr(pipeline, "last_state", None)
+    if state is None or not hasattr(state, "to_log_dict"):
+        return None
+    return state.to_log_dict()
+
+
+def resolve_retrieval_log(result, utterance: str, pipeline=None):
+    return (
+        extract_retrieval_log(result)
+        or extract_pipeline_retrieval_log(pipeline)
+        or build_minimal_retrieval_log(result, utterance)
+    )
+
+
+def build_minimal_retrieval_log(result, utterance: str):
+    return {
+        "original_query": utterance,
+        "normalized_query": None,
+        "rewritten_query": None,
+        "rewritten_queries": [],
+        "keywords": [],
+        "entities": {},
+        "filters": {},
+        "category": get_category_from_utterance(utterance),
+        "retrieval_strategy": "lexical",
+        "retrieval_top_k": 10,
+        "retrieval_strategy_log": {"fallback_reason": "missing_pipeline_retrieval_log"},
+        "fallback_used": not _result_success(result),
+        "retrieved_doc_count": 0,
+        "reranked_doc_count": 0,
+        "selected_doc_count": 0,
+        "selected_docs": [],
+        "context": None,
+        "success": _result_success(result),
+        "error": None,
+        "metadata": {},
+    }
 
 
 @router.post("/webhook")
@@ -160,8 +196,8 @@ async def kakao_webhook(request: Request, background_tasks: BackgroundTasks = No
             }
 
         # 콜백 URL이 없는 경우에도 RAG -> Ollama 파이프라인을 동기로 실행해 응답합니다.
-        response_body, final_answer, success, result = process_info_sync(utterance)
-        add_retrieval_log_task(background_tasks, request_id, result)
+        response_body, final_answer, success, retrieval_log = process_info_sync(utterance)
+        add_retrieval_log_task(background_tasks, request_id, retrieval_log)
         add_response_log_task(
             background_tasks,
             request_id,
@@ -182,13 +218,17 @@ async def kakao_webhook(request: Request, background_tasks: BackgroundTasks = No
 
 def process_info_with_callback(callback_url, request_id, user_id, utterance, start_time):
     try:
-        result = get_chat_pipeline().run(Query(text=utterance))
+        pipeline = get_chat_pipeline()
+        result = pipeline.run(Query(text=utterance))
 
         response_body, final_answer = build_info_response(result, utterance)
 
         kakao_callback(callback_url, response_body)
 
-        safe_save_retrieval_log(request_id, extract_retrieval_log(result))
+        safe_save_retrieval_log(
+            request_id,
+            resolve_retrieval_log(result, utterance, pipeline),
+        )
 
         save_response_log(
             request_id=request_id,
@@ -219,10 +259,12 @@ def process_info_with_callback(callback_url, request_id, user_id, utterance, sta
 
 
 def process_info_sync(utterance: str):
-    result = get_chat_pipeline().run(Query(text=utterance))
+    pipeline = get_chat_pipeline()
+    result = pipeline.run(Query(text=utterance))
     response_body, final_answer = build_info_response(result, utterance)
     success = _result_success(result)
-    return response_body, final_answer, success, result
+    retrieval_log = resolve_retrieval_log(result, utterance, pipeline)
+    return response_body, final_answer, success, retrieval_log
 
 
 def _result_success(result) -> bool:

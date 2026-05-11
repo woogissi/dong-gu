@@ -261,7 +261,7 @@ def run_board_pipeline(source_type: str, list_url: str, pages: int = 50, parser_
         if stop_crawling:
             break
         try:
-            list_result = list_extractor.extract_list(list_url, page_no=page_no, page_size=10)      # 목록 페이지 HTML을 읽고, 상세 URL 목록 추출
+            list_result = list_extractor.extract_list(list_url, page_no, page_size=10)      # 목록 페이지 HTML을 읽고, 상세 URL 목록 추출
             print(f"[LIST] source={source_type} page={page_no} count={list_result['count']}")
 
             manifest_path = Path("crawler/data/manifest") / f"{source_type}_page_{page_no}.json"

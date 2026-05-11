@@ -1,6 +1,12 @@
 import os
 from psycopg2.pool import SimpleConnectionPool
-from dotenv import load_dotenv
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv() -> None:
+        return None
+
 
 load_dotenv()
 
