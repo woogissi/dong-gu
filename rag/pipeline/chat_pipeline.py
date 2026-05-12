@@ -74,7 +74,12 @@ class ChatPipeline:
 
     def _embed_query(self, state: PipelineState) -> None:
         # 쿼리 텍스트를 임베딩하여 벡터 생성
-        query_text = state.rewritten_query or state.normalized_query or state.original_query
+        query_understanding = state.metadata.get("query_understanding", {})
+        query_text = (
+            query_understanding.get("embedding_query")
+            or state.normalized_query
+            or state.original_query
+        )
         embedder = self._get_embedder()
         state.query_vector = embedder.embed_query(query_text)
 

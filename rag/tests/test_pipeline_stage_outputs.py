@@ -75,7 +75,9 @@ class PipelineStageOutputTest(unittest.TestCase):
         self._debug_print("after_embed_query", self._snapshot_after_embedding(state))
 
         self.assertEqual(state.query_vector, [0.11, 0.22, 0.33])
-        pipeline.embedder.embed_query.assert_called_once_with(state.rewritten_query)
+        pipeline.embedder.embed_query.assert_called_once_with(
+            state.metadata["query_understanding"]["embedding_query"]
+        )
 
         pipeline._retrieve(state)
         self._debug_print("after_retrieve", self._snapshot_after_retrieve(state))
@@ -119,6 +121,7 @@ class PipelineStageOutputTest(unittest.TestCase):
     def _snapshot_after_embedding(self, state: PipelineState) -> dict[str, object]:
         return {
             "query_for_embedding": state.rewritten_query or state.normalized_query or state.original_query,
+            "embedding_query": state.metadata.get("query_understanding", {}).get("embedding_query"),
             "query_vector": state.query_vector,
             "vector_size": len(state.query_vector),
         }
