@@ -11,7 +11,7 @@ from rag.preprocess.normalizer import normalize_query
 from rag.preprocess.keyword_extractor import extract_keywords
 from rag.preprocess.hybrid_keyword_extractor import extract_hybrid_keywords
 from rag.preprocess.entity_extractor import build_filters, extract_entities, primary_category
-from rag.preprocess.query_rewriter import rewrite_queries
+from rag.preprocess.query_rewriter import rewrite_queries, rewrite_query
 
 
 _SYNONYMS: dict[str, tuple[str, ...]] = {
@@ -182,26 +182,41 @@ class QueryPreprocessor:
         
         # 조사 제거 로직을 추가시 앞서 작성한 hybrid_keyword_extractor의 
         # kiwi를 활용해 명사만 추출한 버전을 state.rewritten_query 후보군
+        query_bundle = rewrite_query(
+            query=normalized_query,
+            keywords=keywords,
+            entities=entities,
+        )
         rewritten_queries = rewrite_queries(
             query=normalized_query,
             keywords=keywords,
             entities=entities,
         )
         if lexical_query != normalized_query:
-            rewritten_queries = list(dict.fromkeys([normalized_query, lexical_query, *rewritten_queries]))
+            rewritten_queries = list(dict.fromkeys([query_bundle.keyword_query, lexical_query, *rewritten_queries]))
 
         embedding_query = normalized_query
         state.normalized_query = normalized_query
         state.keywords = keywords
         state.entities = entities
+        state.query_bundle = query_bundle.to_dict()
         state.filters = build_filters(entities)
-        state.category = primary_category(entities)
+        bundle_filters = query_bundle.filters
+        for field, values in bundle_filters.items():
+            if field not in state.filters and isinstance(values, list):
+                state.filters[field] = values
+        state.category = primary_category(entities) or (
+            query_bundle.filters.get("category", [None])[0]
+            if isinstance(query_bundle.filters.get("category"), list)
+            else None
+        )
         state.rewritten_queries = rewritten_queries
-        state.rewritten_query = rewritten_queries[-1] if rewritten_queries else normalized_query
+        state.rewritten_query = query_bundle.keyword_query or normalized_query
         state.metadata["query_understanding"] = {
             "normalized_query": normalized_query,
             "lexical_query": lexical_query,
             "embedding_query": embedding_query,
+            "query_bundle": state.query_bundle,
             "keywords": keywords,
             "entities": entities,
             "filters": state.filters,
