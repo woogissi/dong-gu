@@ -54,21 +54,21 @@ def record_crawl_job_error(**kwargs) -> None:
     except Exception as exc:
         log_error(f"[CRAWL JOB LOG ERROR] stage={kwargs.get('stage')} error={exc}")
 
-def save_json(path: Path, data: dict | list) -> None:               # JSON ??μ슜 ?좏떥 ?⑥닔
-    path.parent.mkdir(parents=True, exist_ok=True)                  # 遺紐??대뜑 ?놁쑝硫??앹꽦
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")       # JSON pretty format, UTF-8 ?쒓? ??源⑥?寃????
+def save_json(path: Path, data: dict | list) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 def load_json(path: Path) -> dict | list:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
-def save_text(path: Path, text: str) -> None:           # HTML ?먮Ц 媛숈? ?띿뒪???뚯씪 ??μ슜 ?⑥닔
+def save_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
 
-def log_error(message: str) -> None:                    # ?먮윭 濡쒓렇瑜?肄섏넄?먮룄 李띻퀬 ?뚯씪?먮룄 ?④린???⑥닔
+def log_error(message: str) -> None:
     print(message)
     with open(LOG_DIR / "crawl_errors.log", "a", encoding="utf-8") as f:
         f.write(message + "\n")
@@ -98,7 +98,7 @@ def reusable_attachment(existing_raw: dict | None, file_url: str) -> dict | None
     return None
 
 
-def merge_attachment_texts(downloaded_attachments: list[dict]) -> str | None:       # 泥⑤??뚯씪?ㅼ뿉??戮묒? ?띿뒪?몃? 臾몄꽌 蹂몃Ц???⑹튌 ???덈뒗 ?섎굹??臾몄옄?대줈 留뚮뱶???⑥닔
+def merge_attachment_texts(downloaded_attachments: list[dict]) -> str | None:
     texts = []
 
     for item in downloaded_attachments:
@@ -124,7 +124,7 @@ def merge_image_texts(image_texts: list[dict]) -> str | None:
     return merged if merged else None
 
 
-def build_curated_document(raw_doc: dict, version: int) -> dict:                                  # raw 臾몄꽌瑜?curated 臾몄꽌濡?諛붽씀???⑥닔
+def build_curated_document(raw_doc: dict, version: int) -> dict:
     attachment_text = merge_attachment_texts(raw_doc.get("downloaded_attachments", []))
     image_text = merge_image_texts(raw_doc.get("image_texts", []))
 
@@ -153,7 +153,7 @@ def build_curated_document(raw_doc: dict, version: int) -> dict:                
     return curated_doc.model_dump()
 
 
-def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> None:        # ?듭떖 ?⑥닔
+def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> None:
     source_type = raw_doc["source_type"]
     doc_id = raw_doc["doc_id"]
 
@@ -161,9 +161,9 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
     raw_path = RAW_DOC_DIR / source_type / f"{doc_id}.json"
     curated_path = CURATED_DOC_DIR / source_type / f"{doc_id}.json"
 
-    save_text(html_path, raw_doc["html"])           # ?먮낯 html ???
+    save_text(html_path, raw_doc["html"])
 
-    raw_to_save = dict(raw_doc)                     # raw_doc 蹂듭궗(?먮Ц ?먯떎 諛⑹?)
+    raw_to_save = dict(raw_doc)
     raw_to_save["html_path"] = str(html_path.as_posix())
     raw_to_save.pop("html", None)
 
@@ -184,7 +184,8 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
         downloaded_attachments = existing_raw.get("downloaded_attachments", []) or []
         raw_to_save["attachments"] = existing_raw.get("attachments", raw_to_save.get("attachments", []))
         print(f"[ATTACH SKIP] doc_id={doc_id} reason=unchanged_document reused={len(downloaded_attachments)}")
-    elif download_attachments and raw_to_save.get("attachments"):     # 泥⑤? ?ㅼ슫濡쒕뱶媛 耳쒖졇 ?덇퀬, ?ㅼ젣 泥⑤?媛 ?덉쑝硫?        from crawler.extractors.attachment_downloader import AttachmentDownloader
+    elif download_attachments and raw_to_save.get("attachments"):
+        from crawler.extractors.attachment_downloader import AttachmentDownloader
         from crawler.parsers.file_text_router import FileTextRouter
 
         downloader = AttachmentDownloader(timeout=RUNTIME["timeout"])
@@ -200,7 +201,7 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
             try:
                 downloaded = downloader.download(source_type, doc_id, att)
 
-            except Exception as e:              # ?뱀젙 泥⑤?媛 源⑥졇??怨꾩냽 ???
+            except Exception as e:
                 message = f"[ATTACH DOWNLOAD ERROR] doc_id={doc_id} file_url={att['file_url']} error={e}"
                 log_error(message)
                 manifest_writer.write_error_record(
@@ -225,8 +226,8 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
 
 
             try:    
-                parse_result = file_router.extract_text(downloaded["saved_path"])       # ?뚯씪 寃쎈줈瑜??뚯씪 遺꾧린 router???섍?
-                downloaded["parser_type"] = parse_result.get("parser_type")             # 寃곌낵 諛쏄린
+                parse_result = file_router.extract_text(downloaded["saved_path"])
+                downloaded["parser_type"] = parse_result.get("parser_type")
                 downloaded["attachment_text"] = parse_result.get("attachment_text")
                 downloaded["page_count"] = parse_result.get("page_count")
                 downloaded["pages"] = parse_result.get("pages")
@@ -236,7 +237,7 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
                 downloaded_attachments.append(downloaded)
                 manifest_writer.write_file_parse_record(doc_id, downloaded, parse_result)
 
-            except Exception as e:              # ?뱀젙 泥⑤?媛 源⑥졇??怨꾩냽 ???
+            except Exception as e:
                 message = f"[PARSE ERROR] doc_id={doc_id} file_url={att['file_url']} error={e}"
                 log_error(message)
                 manifest_writer.write_error_record(
@@ -273,16 +274,13 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
         image_text=image_text,
     )
 
-    # 癒쇱? "??curated ?꾨낫"瑜?硫붾え由ъ뿉??留뚮뱺??
     candidate_curated = build_curated_document(raw_to_save, version=1)
 
-    # ????꾩뿉 湲곗〈 curated? 鍮꾧탳
     version_result = version_manager.apply_version(source_type, dict(candidate_curated))
     final_curated = version_result["document"]
     decision = version_result["decision"]
     final_curated["change_type"] = decision
 
-    # 鍮꾧탳 寃곌낵 version??raw?먮룄 留욎떠以?
     raw_to_save["version"] = final_curated["version"]
 
     save_json(raw_path, raw_to_save)
@@ -299,7 +297,7 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
 
     print(f"[SAVE OK] doc_id={doc_id} decision={decision} version={final_curated['version']}")
 
-    for att in raw_to_save["attachments"]:              # 泥⑤? 硫뷀?瑜?蹂꾨룄 attachment 臾몄꽌濡쒕룄 ???
+    for att in raw_to_save["attachments"]:
         att_doc = {
             "doc_id": f"{doc_id}_att_{att['attachment_index']:03d}",
             "parent_doc_id": doc_id,
@@ -337,10 +335,10 @@ def run_board_pipeline(
     parser_type: str = "default",
     since_date: str | None = None,
     max_detail_count: int | None = None,
-) -> None:      # 寃뚯떆?먰삎 seed瑜?泥섎━?섎뒗 ?ㅽ뻾 ?⑥닔
+) -> None:
     list_extractor = BoardListExtractor(timeout=RUNTIME["timeout"])
 
-    if parser_type == "ipsi":           # ?낇븰泥섎㈃ ?꾩슜 ?뚯꽌, ?꾨땲硫??쇰컲 ?뚯꽌 ?ъ슜
+    if parser_type == "ipsi":
         detail_extractor = IpsiNoticeParser(
             enable_image_ocr=RUNTIME["enable_image_ocr"],
             timeout=RUNTIME["timeout"],
@@ -356,11 +354,11 @@ def run_board_pipeline(
 
     seen_doc_ids = set()
 
-    for page_no in range(1, pages + 1):     # 吏?뺥븳 page留뚰겮 ?먯깋
+    for page_no in range(1, pages + 1):
         if stop_crawling:
             break
         try:
-            list_result = list_extractor.extract_list(list_url, page_no, page_size=10)      # 紐⑸줉 ?섏씠吏 HTML???쎄퀬, ?곸꽭 URL 紐⑸줉 異붿텧
+            list_result = list_extractor.extract_list(list_url, page_no, page_size=10)
             print(f"[LIST] source={source_type} page={page_no} count={list_result['count']}")
 
             manifest_path = Path("crawler/data/manifest") / f"{source_type}_page_{page_no}.json"
@@ -371,7 +369,7 @@ def run_board_pipeline(
                 "items": list_result["items"],
             })
 
-            for item in list_result["items"]:           # 紐⑸줉?먯꽌 ?섏삩 媛??곸꽭 URL???섎굹??泥섎━
+            for item in list_result["items"]:
                 try:
                     published_at = item.get("published_at_hint")
                     if since_date and published_at and published_at < since_date:
@@ -421,7 +419,7 @@ def run_board_pipeline(
                         },
                     )
 
-        except Exception as e:              # 紐⑸줉 ?섏씠吏 ?먯껜媛 ?ㅽ뙣?섎㈃ 洹??섏씠吏??嫄대꼫?
+        except Exception as e:
             message = f"[LIST ERROR] source={source_type} page={page_no} error={e}"
             log_error(message)
             manifest_writer.write_error_record(
@@ -477,7 +475,7 @@ def process_static_seed(item: dict) -> None:
         )
 
 
-def run_static_pipeline(static_urls: list[dict], workers: int = 1) -> None:           # ?뺤쟻 ?섏씠吏 seed 泥섎━ ?⑥닔
+def run_static_pipeline(static_urls: list[dict], workers: int = 1) -> None:
     if workers <= 1:
         for item in static_urls:
             process_static_seed(item)
