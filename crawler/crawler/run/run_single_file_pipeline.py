@@ -49,9 +49,7 @@ def resolve_path(path_value: str) -> Path:
     raise FileNotFoundError(f"file not found: {path_value}")
 
 
-def chunk_curated_file(curated_file: Path) -> Path | None:
-    from crawler.ingestion.chunker import DocumentChunker
-
+def chunk_curated_file(curated_file: Path, chunker=None) -> Path | None:
     doc = load_json(curated_file)
     if not isinstance(doc, dict):
         raise ValueError(f"curated file must contain a JSON object: {curated_file}")
@@ -77,7 +75,11 @@ def chunk_curated_file(curated_file: Path) -> Path | None:
         print(f"[INGEST SKIP] {doc_id} no body, attachment, or image text")
         return None
 
-    chunker = DocumentChunker(max_chars=900, overlap_chars=100)
+    if chunker is None:
+        from crawler.ingestion.chunker import DocumentChunker
+
+        chunker = DocumentChunker(max_chars=900, overlap_chars=100)
+
     chunks = chunker.chunk_document(doc)
     chunk_path = CHUNK_DIR / source_type / f"{doc_id}.json"
     save_json(chunk_path, chunks)
@@ -95,10 +97,7 @@ def chunk_curated_file(curated_file: Path) -> Path | None:
     return chunk_path
 
 
-def vector_ingest_chunk_file(chunk_file: Path) -> None:
-    from crawler.ingestion.embed_worker import EmbeddingWorker
-    from crawler.ingestion.pgvector_loader import PGVectorLoader
-
+def vector_ingest_chunk_file(chunk_file: Path, embed_worker=None, loader=None) -> None:
     chunks = load_json(chunk_file)
     if not isinstance(chunks, list):
         raise ValueError(f"chunk file must contain a JSON list: {chunk_file}")
@@ -119,9 +118,16 @@ def vector_ingest_chunk_file(chunk_file: Path) -> None:
     raw_doc = load_json(raw_path) if raw_path.exists() else {}
     version = curated_doc.get("version", 1)
 
-    embed_worker = EmbeddingWorker()
-    loader = PGVectorLoader()
-    loader.ensure_tables()
+    owns_loader = loader is None
+    if embed_worker is None:
+        from crawler.ingestion.embed_worker import EmbeddingWorker
+
+        embed_worker = EmbeddingWorker()
+    if loader is None:
+        from crawler.ingestion.pgvector_loader import PGVectorLoader
+
+        loader = PGVectorLoader()
+        loader.ensure_tables()
 
     try:
         loader.upsert_document(curated_doc)
@@ -157,7 +163,8 @@ def vector_ingest_chunk_file(chunk_file: Path) -> None:
         loader.conn.rollback()
         raise
     finally:
-        loader.close()
+        if owns_loader:
+            loader.close()
 
 
 def parse_args() -> argparse.Namespace:
@@ -167,10 +174,12 @@ def parse_args() -> argparse.Namespace:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
         "--curated-file",
+        nargs="+",
         help="Path to one curated document JSON. Creates crawler/data/rag_ready/chunks/<source_type>/<doc_id>.json.",
     )
     group.add_argument(
         "--chunk-file",
+        nargs="+",
         help="Path to one chunk JSON. Runs only vector ingestion for that chunk file.",
     )
     parser.add_argument(
@@ -186,14 +195,42 @@ def main() -> None:
 
     try:
         if args.curated_file:
-            curated_file = resolve_path(args.curated_file)
-            chunk_file = chunk_curated_file(curated_file)
-            if chunk_file and not args.skip_vector:
-                vector_ingest_chunk_file(chunk_file)
+            from crawler.ingestion.chunker import DocumentChunker
+
+            chunker = DocumentChunker(max_chars=900, overlap_chars=100)
+            chunk_files = []
+            for curated_file_arg in args.curated_file:
+                curated_file = resolve_path(curated_file_arg)
+                chunk_file = chunk_curated_file(curated_file, chunker=chunker)
+                if chunk_file:
+                    chunk_files.append(chunk_file)
+
+            if chunk_files and not args.skip_vector:
+                from crawler.ingestion.embed_worker import EmbeddingWorker
+                from crawler.ingestion.pgvector_loader import PGVectorLoader
+
+                embed_worker = EmbeddingWorker()
+                loader = PGVectorLoader()
+                loader.ensure_tables()
+                try:
+                    for chunk_file in chunk_files:
+                        vector_ingest_chunk_file(chunk_file, embed_worker=embed_worker, loader=loader)
+                finally:
+                    loader.close()
             return
 
-        chunk_file = resolve_path(args.chunk_file)
-        vector_ingest_chunk_file(chunk_file)
+        from crawler.ingestion.embed_worker import EmbeddingWorker
+        from crawler.ingestion.pgvector_loader import PGVectorLoader
+
+        embed_worker = EmbeddingWorker()
+        loader = PGVectorLoader()
+        loader.ensure_tables()
+        try:
+            for chunk_file_arg in args.chunk_file:
+                chunk_file = resolve_path(chunk_file_arg)
+                vector_ingest_chunk_file(chunk_file, embed_worker=embed_worker, loader=loader)
+        finally:
+            loader.close()
 
     except Exception as e:
         message = f"[SINGLE FILE PIPELINE ERROR] error={e}"

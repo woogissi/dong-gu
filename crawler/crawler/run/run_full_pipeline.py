@@ -1,5 +1,6 @@
 # crawler/run/run_full_pipeline.py
 
+import argparse
 import json
 from pathlib import Path
 from datetime import datetime
@@ -11,13 +12,10 @@ from crawler.extractors.board_list_extractor import BoardListExtractor
 from crawler.extractors.board_detail_extractor import BoardDetailExtractor
 from crawler.extractors.ipsi_notice_parser import IpsiNoticeParser
 from crawler.extractors.static_page_extractor import StaticPageExtractor
-from crawler.extractors.attachment_downloader import AttachmentDownloader
-from crawler.parsers.file_text_router import FileTextRouter
 from crawler.storage.manifest_writer import ManifestWriter
 from crawler.schemas.document_models import CuratedDocument
 from crawler.ingestion.document_version_manager import DocumentVersionManager
 from crawler.normalize.text_cleaner import TextCleaner
-from crawler.ingestion.pgvector_loader import PGVectorLoader
 
 BASE_DIR = Path("crawler/data")
 RAW_HTML_DIR = BASE_DIR / "raw" / "html"
@@ -32,7 +30,16 @@ for d in [RAW_HTML_DIR, RAW_DOC_DIR, RAW_ATTACH_DIR, CURATED_DOC_DIR, LOG_DIR]:
 text_cleaner = TextCleaner()
 manifest_writer = ManifestWriter()
 version_manager = DocumentVersionManager(curated_base_dir=str(CURATED_DOC_DIR))
-pgv_loader = PGVectorLoader()
+pgv_loader = None
+
+
+def get_pgv_loader():
+    global pgv_loader
+    if pgv_loader is None:
+        from crawler.ingestion.pgvector_loader import PGVectorLoader
+
+        pgv_loader = PGVectorLoader()
+    return pgv_loader
 
 def save_json(path: Path, data: dict | list) -> None:               # JSON 저장용 유틸 함수
     path.parent.mkdir(parents=True, exist_ok=True)                  # 부모 폴더 없으면 생성
@@ -121,6 +128,9 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
 
     downloaded_attachments = []
     if download_attachments and raw_to_save.get("attachments"):     # 첨부 다운로드가 켜져 있고, 실제 첨부가 있으면
+        from crawler.extractors.attachment_downloader import AttachmentDownloader
+        from crawler.parsers.file_text_router import FileTextRouter
+
         downloader = AttachmentDownloader()
         file_router = FileTextRouter()
 
@@ -136,7 +146,7 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
                     message=message,
                     extra={"doc_id": doc_id, "file_url": att["file_url"]},
                 )
-                pgv_loader.insert_crawl_job_error(
+                get_pgv_loader().insert_crawl_job_error(
                     run_type="full_pipeline",
                     stage="attachment_download",
                     error=e,
@@ -172,7 +182,7 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
                     message=message,
                     extra={"doc_id": doc_id, "file_url": att["file_url"]},
                 )
-                pgv_loader.insert_crawl_job_error(
+                get_pgv_loader().insert_crawl_job_error(
                     run_type="full_pipeline",
                     stage="file_parse",
                     error=e,
@@ -303,7 +313,7 @@ def run_board_pipeline(source_type: str, list_url: str, pages: int = 50, parser_
                         message=message,
                         extra={"source_type": source_type, "url": item["detail_url"]},
                     )
-                    pgv_loader.insert_crawl_job_error(
+                    get_pgv_loader().insert_crawl_job_error(
                         run_type="full_pipeline",
                         stage="board_detail",
                         error=e,
@@ -326,7 +336,7 @@ def run_board_pipeline(source_type: str, list_url: str, pages: int = 50, parser_
                 message=message,
                 extra={"source_type": source_type, "list_url": list_url, "page_no": page_no},
             )
-            pgv_loader.insert_crawl_job_error(
+            get_pgv_loader().insert_crawl_job_error(
                 run_type="full_pipeline",
                 stage="board_list",
                 error=e,
@@ -359,7 +369,7 @@ def run_static_pipeline(static_urls: list[dict]) -> None:           # 정적 페
                 message=message,
                 extra={"source_type": item["source_type"], "url": item["url"]},
             )
-            pgv_loader.insert_crawl_job_error(
+            get_pgv_loader().insert_crawl_job_error(
                 run_type="full_pipeline",
                 stage="static_page",
                 error=e,
@@ -372,7 +382,29 @@ def run_static_pipeline(static_urls: list[dict]) -> None:           # 정적 페
             )
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run DEU crawling pipeline.")
+    parser.add_argument(
+        "--static-seed-names",
+        nargs="+",
+        help="Run only the named static seeds from crawler.config.seeds.",
+    )
+    parser.add_argument(
+        "--skip-image-ocr",
+        action="store_true",
+        help="Skip image OCR while crawling static pages.",
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
+
+    if args.skip_image_ocr:
+        import crawler.extractors.image_text_extractor as image_text_extractor
+
+        image_text_extractor.ImageTextExtractor.extract_many = lambda self, urls: []
+
     board_seeds = []
     static_seeds = []
 
@@ -381,6 +413,15 @@ def main():
             board_seeds.append(seed)
         elif seed["page_kind"] in {"seed", "static_page"}:
             static_seeds.append(seed)
+
+    if args.static_seed_names:
+        selected_names = set(args.static_seed_names)
+        static_seeds = [seed for seed in static_seeds if seed.get("name") in selected_names]
+        missing_names = sorted(selected_names - {seed.get("name") for seed in static_seeds})
+        if missing_names:
+            raise ValueError(f"unknown static seed names: {', '.join(missing_names)}")
+        run_static_pipeline(static_seeds)
+        return
 
     for seed in board_seeds:
         parser_type = "ipsi" if "ipsi" in seed["url"] else "default"
