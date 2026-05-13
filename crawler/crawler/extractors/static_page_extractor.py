@@ -9,6 +9,7 @@ from urllib.parse import urljoin, urlparse, urldefrag
 
 from crawler.schemas.document_models import StaticPageRawDocument
 from crawler.extractors.image_text_extractor import ImageTextExtractor
+from crawler.utils.text_quality import is_binary_like_text
 
 import requests
 from bs4 import BeautifulSoup
@@ -71,17 +72,30 @@ class StaticPageExtractor:
         url, _ = urldefrag(url)
         return url
 
+    def _response_text(self, res: requests.Response, url: str) -> str:
+        content_type = res.headers.get("content-type", "").lower()
+        if content_type and not any(
+            marker in content_type
+            for marker in ("text/html", "application/xhtml", "text/plain")
+        ):
+            raise ValueError(f"non-html static response: url={url} content_type={content_type}")
+
+        text = res.text
+        if is_binary_like_text(text[:2000]):
+            raise ValueError(f"binary-like static response: url={url} content_type={content_type or 'unknown'}")
+        return text
+
     def fetch(self, url: str) -> str:                       #정적 페이지 HTML을 실제로 가져오는 함수
         try:
             res = self.session.get(url, timeout=self.timeout)
             res.raise_for_status()
-            return res.text
+            return self._response_text(res, url)
         except requests.exceptions.SSLError:
             insecure_ssl_hosts = ("lib.deu.ac.kr", "has.deu.ac.kr")
             if any(host in url for host in insecure_ssl_hosts) and os.getenv("CRAWLER_ALLOW_INSECURE_SSL") == "1":
                 res = self.session.get(url, timeout=self.timeout, verify=False)       # 도서관 사이트 SSLhandshake failure 해결
                 res.raise_for_status()
-                return res.text
+                return self._response_text(res, url)
             raise
 
     def make_doc_id(self, url: str) -> str:

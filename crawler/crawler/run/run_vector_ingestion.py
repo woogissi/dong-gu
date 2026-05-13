@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import traceback
 from pathlib import Path
 
 os.environ.setdefault("HF_HOME", str(Path("crawler/.hf_cache").resolve()))
@@ -11,6 +12,7 @@ os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(Path("crawler/.hf_cache/hub")
 from crawler.ingestion.embed_worker import EmbeddingWorker
 from crawler.ingestion.pgvector_loader import PGVectorLoader
 from crawler.storage.manifest_writer import ManifestWriter
+from crawler.utils.text_quality import document_quality_report, text_quality_report
 
 
 RAW_DIR = Path("crawler/data/raw/documents")
@@ -56,6 +58,20 @@ def parse_args() -> argparse.Namespace:
         help="Embedding batch size passed to sentence-transformers.",
     )
     return parser.parse_args()
+
+
+def write_vector_manifest(item: dict, status: str, embed_worker: EmbeddingWorker) -> None:
+    manifest_writer.append_jsonl(
+        "vector_ingestion.jsonl",
+        {
+            "chunk_file": item["chunk_file"].as_posix(),
+            "source_type": item["source_type"],
+            "doc_id": item["doc_id"],
+            "chunk_count": len(item["chunks"]),
+            "embedding_model": embed_worker.model_name,
+            "status": status,
+        },
+    )
 
 
 def load_ingestion_item(chunk_file: Path) -> dict:
@@ -107,89 +123,150 @@ def upsert_document_side(loader: PGVectorLoader, item: dict) -> None:
     loader.upsert_chunks(item["chunks"], item["version"])
 
 
+def ingestion_item_quality_report(item: dict) -> dict[str, object]:
+    doc_quality = document_quality_report(item["curated_doc"])
+    bad_chunks = []
+    for chunk in item["chunks"]:
+        report = text_quality_report(chunk.get("content"))
+        if report["is_binary_like"]:
+            bad_chunks.append(
+                {
+                    "chunk_id": chunk.get("chunk_id"),
+                    "chunk_index": chunk.get("chunk_index"),
+                    "quality": report,
+                }
+            )
+    return {
+        "is_binary_like": bool(doc_quality["is_binary_like"] or bad_chunks),
+        "document": doc_quality,
+        "bad_chunks": bad_chunks[:20],
+        "bad_chunk_count": len(bad_chunks),
+    }
+
+
 def main() -> None:
     args = parse_args()
     chunk_files = collect_chunk_files()
-    print(f"[INFO] chunk files found: {len(chunk_files)}")
+    print(f"[INFO] chunk files found: {len(chunk_files)}", flush=True)
 
     embed_worker = EmbeddingWorker()
     loader = PGVectorLoader(autocommit_writes=False)
     loader.ensure_tables()
 
-    items = []
-    all_chunks = []
+    processed_count = 0
+    failed_count = 0
+    embedded_chunk_count = 0
 
     try:
-        for chunk_file in chunk_files:
+        for file_index, chunk_file in enumerate(chunk_files, start=1):
             item = {}
             try:
                 item = load_ingestion_item(chunk_file)
                 if not item["chunks"]:
                     continue
 
+                quality = ingestion_item_quality_report(item)
+                if quality["is_binary_like"]:
+                    failed_count += 1
+                    manifest_writer.append_jsonl(
+                        "vector_ingestion.jsonl",
+                        {
+                            "chunk_file": chunk_file.as_posix(),
+                            "source_type": item["source_type"],
+                            "doc_id": item["doc_id"],
+                            "chunk_count": len(item["chunks"]),
+                            "status": "skipped",
+                            "reason": "binary_like_text",
+                            "quality": quality,
+                        },
+                    )
+                    print(
+                        "[VECTOR SKIP] "
+                        f"doc_id={item['doc_id']} reason=binary_like_text "
+                        f"bad_chunks={quality['bad_chunk_count']}",
+                        flush=True,
+                    )
+                    continue
+
+                print(
+                    "[VECTOR START] "
+                    f"file={file_index}/{len(chunk_files)} "
+                    f"doc_id={item['doc_id']} chunks={len(item['chunks'])}",
+                    flush=True,
+                )
                 upsert_document_side(loader, item)
                 loader.commit()
-                item["start_index"] = len(all_chunks)
-                all_chunks.extend(item["chunks"])
-                item["end_index"] = len(all_chunks)
-                items.append(item)
+                write_vector_manifest(item, "chunks_upserted", embed_worker)
+                print(f"[CHUNKS OK] doc_id={item['doc_id']} chunks={len(item['chunks'])}", flush=True)
 
-                manifest_writer.append_jsonl(
-                    "vector_ingestion.jsonl",
-                    {
-                        "chunk_file": chunk_file.as_posix(),
-                        "source_type": item["source_type"],
-                        "doc_id": item["doc_id"],
-                        "chunk_count": len(item["chunks"]),
-                        "embedding_model": embed_worker.model_name,
-                        "status": "chunks_upserted",
-                    },
+                for start in range(0, len(item["chunks"]), args.batch_size):
+                    end = min(start + args.batch_size, len(item["chunks"]))
+                    batch = item["chunks"][start:end]
+                    print(
+                        "[EMBED BATCH] "
+                        f"doc_id={item['doc_id']} "
+                        f"chunks={start + 1}-{end}/{len(item['chunks'])} "
+                        f"batch_size={args.batch_size}",
+                        flush=True,
+                    )
+                    embedded_chunks = embed_worker.embed_chunks(batch, batch_size=args.batch_size)
+                    loader.upsert_embeddings(embedded_chunks)
+                    loader.commit()
+                    embedded_chunk_count += len(embedded_chunks)
+
+                write_vector_manifest(item, "embeddings_upserted", embed_worker)
+                processed_count += 1
+                print(
+                    "[VECTOR OK] "
+                    f"doc_id={item['doc_id']} chunks={len(item['chunks'])} "
+                    f"processed_docs={processed_count} embedded_chunks={embedded_chunk_count}",
+                    flush=True,
                 )
-                print(f"[VECTOR QUEUED] doc_id={item['doc_id']} chunks={len(item['chunks'])}")
 
             except Exception as error:
-                loader.conn.rollback()
+                failed_count += 1
+                loader.rollback()
+                stack_trace = traceback.format_exc()
                 message = f"[VECTOR ERROR] file={chunk_file.as_posix()} error={error}"
                 log_error(message)
+                log_error(stack_trace.rstrip())
                 manifest_writer.write_error_record(
                     stage="vector_ingestion",
                     message=message,
                     extra={"file_path": chunk_file.as_posix()},
                 )
-                loader.insert_crawl_job_error(
-                    run_type="vector_ingestion",
-                    stage="vector_ingestion",
-                    error=error,
-                    source_type=item.get("source_type") if "item" in locals() else None,
-                    doc_id=item.get("doc_id") if "item" in locals() else None,
-                    file_path=chunk_file.as_posix(),
-                    context={"chunk_file": chunk_file.as_posix()},
-                )
-                loader.commit()
+                try:
+                    loader.insert_crawl_job_error(
+                        run_type="vector_ingestion",
+                        stage="vector_ingestion",
+                        error=error,
+                        source_type=item.get("source_type"),
+                        doc_id=item.get("doc_id"),
+                        file_path=chunk_file.as_posix(),
+                        context={"chunk_file": chunk_file.as_posix()},
+                    )
+                    loader.commit()
+                except Exception as logging_error:
+                    loader.rollback()
+                    log_error(
+                        "[VECTOR ERROR LOGGING FAILED] "
+                        f"file={chunk_file.as_posix()} error={logging_error}"
+                    )
 
-        if not all_chunks:
-            print("[INFO] no chunks to embed")
-            return
+        print(
+            "[SUMMARY] "
+            f"processed_docs={processed_count} failed_docs={failed_count} "
+            f"embedded_chunks={embedded_chunk_count}",
+            flush=True,
+        )
 
-        print(f"[EMBED] chunks={len(all_chunks)} batch_size={args.batch_size}")
-        embedded_chunks = embed_worker.embed_chunks(all_chunks, batch_size=args.batch_size)
-        loader.upsert_embeddings(embedded_chunks)
-        loader.commit()
-
-        for item in items:
-            manifest_writer.append_jsonl(
-                "vector_ingestion.jsonl",
-                {
-                    "chunk_file": item["chunk_file"].as_posix(),
-                    "source_type": item["source_type"],
-                    "doc_id": item["doc_id"],
-                    "chunk_count": len(item["chunks"]),
-                    "embedding_model": embed_worker.model_name,
-                    "status": "embeddings_upserted",
-                },
-            )
-            print(f"[VECTOR OK] doc_id={item['doc_id']} chunks={len(item['chunks'])}")
-
+    except KeyboardInterrupt:
+        loader.rollback()
+        print(
+            "[INTERRUPTED] vector ingestion stopped; rolled back open transaction",
+            flush=True,
+        )
+        raise
     finally:
         loader.close()
 

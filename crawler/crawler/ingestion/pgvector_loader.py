@@ -28,6 +28,21 @@ class PGVectorLoader:
         self._column_cache: dict[tuple[str, str], bool] = {}
         self.autocommit_writes = autocommit_writes
 
+    @classmethod
+    def _strip_nul(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return value.replace("\x00", "")
+        if isinstance(value, dict):
+            return {cls._strip_nul(key): cls._strip_nul(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [cls._strip_nul(item) for item in value]
+        if isinstance(value, tuple):
+            return tuple(cls._strip_nul(item) for item in value)
+        return value
+
+    def _json(self, value: Any) -> Json:
+        return Json(self._strip_nul(value))
+
     def close(self) -> None:
         self.conn.close()
 
@@ -118,17 +133,17 @@ class PGVectorLoader:
         """
 
         params = {
-            "doc_id": doc.get("doc_id"),
-            "source_type": doc.get("source_type"),
-            "page_kind": doc.get("page_kind"),
-            "department": doc.get("department"),
-            "title": doc.get("title") or "",
-            "source_url": doc.get("source_url"),
-            "published_at": doc.get("published_at"),
-            "updated_at": doc.get("updated_at"),
-            "content_hash": doc.get("content_hash"),
-            "collected_at": doc.get("collected_at"),
-            "metadata": Json(doc.get("metadata", {})),
+            "doc_id": self._strip_nul(doc.get("doc_id")),
+            "source_type": self._strip_nul(doc.get("source_type")),
+            "page_kind": self._strip_nul(doc.get("page_kind")),
+            "department": self._strip_nul(doc.get("department")),
+            "title": self._strip_nul(doc.get("title") or ""),
+            "source_url": self._strip_nul(doc.get("source_url")),
+            "published_at": self._strip_nul(doc.get("published_at")),
+            "updated_at": self._strip_nul(doc.get("updated_at")),
+            "content_hash": self._strip_nul(doc.get("content_hash")),
+            "collected_at": self._strip_nul(doc.get("collected_at")),
+            "metadata": self._json(doc.get("metadata", {})),
         }
 
         with self.conn.cursor() as cur:
@@ -158,9 +173,9 @@ class PGVectorLoader:
                 (
                     doc["doc_id"],
                     int(doc.get("version", 1)),
-                    doc.get("content_hash"),
-                    self._normalize_change_type(change_type),
-                    Json(doc),
+                    self._strip_nul(doc.get("content_hash")),
+                    self._strip_nul(self._normalize_change_type(change_type)),
+                    self._json(doc),
                 ),
             )
             version_id = int(cur.fetchone()[0])
@@ -195,8 +210,8 @@ class PGVectorLoader:
                         "doc_id": doc["doc_id"],
                         "document_version_id": document_version_id,
                         "content_type": content_type,
-                        "content": content,
-                        "metadata": Json({}),
+                        "content": self._strip_nul(content),
+                        "metadata": self._json({}),
                     }
                 )
 
@@ -230,7 +245,7 @@ class PGVectorLoader:
                         %(metadata)s
                     );
                     """,
-                    row,
+                    self._strip_nul(row),
                 )
 
         self._commit_if_needed()
@@ -325,7 +340,7 @@ class PGVectorLoader:
                     )
                     RETURNING id;
                     """,
-                    {**row, "metadata": Json(row["metadata"])},
+                    {**self._strip_nul(row), "metadata": self._json(row["metadata"])},
                 )
                 asset_id = int(cur.fetchone()[0])
                 extracted_text = row.get("extracted_text")
@@ -349,9 +364,9 @@ class PGVectorLoader:
                             asset_id,
                             document_version_id,
                             row["asset_type"],
-                            extracted_text,
-                            row.get("parser_type"),
-                            Json({}),
+                            self._strip_nul(extracted_text),
+                            self._strip_nul(row.get("parser_type")),
+                            self._json({}),
                         ),
                     )
 
@@ -379,11 +394,11 @@ class PGVectorLoader:
                     "section_index": chunk.get("section_index"),
                     "section_type": self._normalize_section_type(chunk.get("section_type")),
                     "section_title": chunk.get("section_title"),
-                    "content": chunk["content"],
+                    "content": self._strip_nul(chunk["content"]),
                     "content_length": chunk.get("content_length"),
-                    "content_hash": chunk.get("content_hash"),
-                    "chunking_strategy": chunk.get("chunking_strategy"),
-                    "metadata": Json(chunk.get("metadata", {})),
+                    "content_hash": self._strip_nul(chunk.get("content_hash")),
+                    "chunking_strategy": self._strip_nul(chunk.get("chunking_strategy")),
+                    "metadata": self._json(chunk.get("metadata", {})),
                 }
             )
 
@@ -520,9 +535,9 @@ class PGVectorLoader:
                     file_url,
                     file_path,
                     error.__class__.__name__,
-                    str(error),
-                    tb.format_exc(),
-                    Json(context or {}),
+                    self._strip_nul(str(error)),
+                    self._strip_nul(tb.format_exc()),
+                    self._json(context or {}),
                 ),
             )
 

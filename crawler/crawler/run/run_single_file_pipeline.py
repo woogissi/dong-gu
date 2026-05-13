@@ -9,6 +9,7 @@ os.environ.setdefault("HF_HOME", str(Path("crawler/.hf_cache").resolve()))
 os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(Path("crawler/.hf_cache/hub").resolve()))
 
 from crawler.storage.manifest_writer import ManifestWriter
+from crawler.utils.text_quality import document_quality_report, text_quality_report
 
 
 RAW_DIR = Path("crawler/data/raw/documents")
@@ -75,6 +76,22 @@ def chunk_curated_file(curated_file: Path, chunker=None) -> Path | None:
         print(f"[INGEST SKIP] {doc_id} no body, attachment, or image text")
         return None
 
+    quality = document_quality_report(doc)
+    if quality["is_binary_like"]:
+        manifest_writer.append_jsonl("chunking.jsonl", {
+            "doc_id": doc_id,
+            "source_type": source_type,
+            "version": doc.get("version"),
+            "chunk_count": 0,
+            "source_url": doc.get("source_url"),
+            "status": "skipped",
+            "reason": "binary_like_text",
+            "quality": quality,
+            "mode": "single_file",
+        })
+        print(f"[INGEST SKIP] {doc_id} binary_like_text fields={quality['bad_fields']}")
+        return None
+
     if chunker is None:
         from crawler.ingestion.chunker import DocumentChunker
 
@@ -103,6 +120,25 @@ def vector_ingest_chunk_file(chunk_file: Path, embed_worker=None, loader=None) -
         raise ValueError(f"chunk file must contain a JSON list: {chunk_file}")
     if not chunks:
         print(f"[VECTOR SKIP] empty chunk file: {chunk_file.as_posix()}")
+        return
+
+    bad_chunks = [
+        chunk
+        for chunk in chunks
+        if text_quality_report(chunk.get("content"))["is_binary_like"]
+    ]
+    if bad_chunks:
+        manifest_writer.append_jsonl("vector_ingestion.jsonl", {
+            "chunk_file": chunk_file.as_posix(),
+            "doc_id": chunks[0].get("doc_id"),
+            "source_type": chunks[0].get("source_type"),
+            "chunk_count": len(chunks),
+            "status": "skipped",
+            "reason": "binary_like_text",
+            "bad_chunk_count": len(bad_chunks),
+            "mode": "single_file",
+        })
+        print(f"[VECTOR SKIP] {chunk_file.as_posix()} binary_like_text bad_chunks={len(bad_chunks)}")
         return
 
     source_type = chunks[0]["source_type"]
