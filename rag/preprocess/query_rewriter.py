@@ -1,142 +1,452 @@
-﻿"""질문 리라이팅 모듈
-- 사용자 질문에서 핵심 키워드와 엔티티를 추출하여 확장
-- 의도 확장 규칙과 엔티티 기반 확장 규칙 적용
-- 중복 제거 및 정렬된 확장된 질문 리스트 반환"""
+"""질문 리라이팅 모듈.
 
-# 단순 확장 규칙 기반으로 구현되어 있어 오탐과 과확장이 발생할 수 있음
-# - 쿼리 타임 분리로 변경 고려
-# - 원문: 휴학 어떻게 해?
-# keyword_query: 휴학 신청 방법 절차
-# entity_focused_query: 휴학 학적변동 신청기간
-# expanded_query: 휴학 신청 절차 기간 필요서류
-
-# TODO: 질문형 제거/정규화 추가
-# - 어떻게 해? → 방법
-# - 언제야? → 일정
-# - 어디서 확인해? → 조회 방법
-# expansion 규칙 더 조건부로
-# ex) 
-# 방법 계열 + 신청 엔티티 -> 절차, 제출처
-# 확인 계열 + 장학 엔티티 -> 조회, 선발결과, 지급일
+검색 역할별 쿼리를 분리하고, 원문에 드러난 intent/entity 조합에만
+조건부 확장을 적용한다.
+"""
 
 from __future__ import annotations
 
-from rag.preprocess.domain_knowledge import ENTITY_LEXICON
+from dataclasses import asdict, dataclass, field
+from typing import Iterable
 
-_INTENT_EXPANSION_RULES: dict[tuple[str, ...], list[str]] = {
-    ("언제", "기간", "마감", "기한", "일까지", "까지"): ["기간", "일정", "마감일", "시점"],
-    ("어디", "어떻게", "방법", "절차"): ["방법", "절차", "안내", "제출처"],
-    ("확인", "조회", "알려줘", "알려주세요", "궁금", "뭐", "무엇"): ["확인", "조회", "안내"],
-    ("신청", "접수", "지원"): ["신청", "접수", "제출"],
-    ("취소", "철회"): ["취소", "철회", "변경"],
+from rag.preprocess.domain_knowledge import (
+    CATEGORY_BY_REWRITE_ENTITY,
+    CONDITIONAL_EXPANSION_RULES,
+    ENTITY_LEXICON,
+    EXPANSIONS_REQUIRING_SOURCE_TERM,
+    GENERIC_INTENT_EXPANSIONS,
+    REWRITE_ENTITY_GROUPS,
+    REWRITE_ENTITY_SURFACES,
+    REWRITE_ENTITY_SYNONYMS,
+)
+from rag.preprocess.hybrid_keyword_extractor import (
+    extract_kiwi_candidates,
+    extract_kiwi_token_terms,
+)
+from rag.preprocess.query_analysis import QueryAnalysisResult
+from rag.preprocess.tokenizer import (
+    QUERY_FILLERS,
+    normalize_token,
+    ordered_unique,
+    regex_tokens,
+    is_weak_token,
+)
+
+
+@dataclass(frozen=True)
+class RewrittenQuery:
+    original: str
+    semantic_query: str
+    keyword_query: str
+    entity_query: str
+    intent: str | None
+    entities: list[str]
+    rewrite_entities: list[str] = field(default_factory=list)
+    filters: dict[str, str | list[str]] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+_FILLERS = QUERY_FILLERS
+
+_INTENT_TRIGGERS: dict[str, tuple[str, ...]] = {
+    "기간": ("언제", "언제야", "기간", "일정", "마감", "마감일", "기한", "까지"),
+    "방법": ("방법", "어떻게", "어떻게해", "절차", "어디서"),
+    "확인": ("확인", "조회", "열람", "봐", "보다", "결과", "고지서"),
+    "신청": ("신청", "접수", "지원"),
+    "자격": ("자격", "대상", "요건", "조건"),
+    "서류": ("서류", "제출서류", "필요서류", "신청서", "양식"),
 }
+_INTENT_PRIORITY = ("기간", "방법", "확인", "신청", "자격", "서류")
 
-_ENTITY_EXPANSION_RULES: dict[str, list[str]] = {
-    "신청": ["신청", "접수", "제출"],
-    "장학": ["장학금", "선발", "지급"],
-    "수강": ["수강신청", "정정", "학사공지"],
-    "학사": ["수강신청", "정정", "학사공지"],
-    "등록": ["등록금", "납부", "고지서"],
-    "졸업": ["졸업요건", "졸업학점", "제출서류"],
-    "휴학": ["신청기간", "복학절차", "학적변동"],
-    "복학": ["신청기간", "복학절차", "학적변동"],
-}
-
-_ENTITY_MAP_FIELDS = ("category", "action", "target")
-
-# substring match라서 오탐, 과확장 다수 존재
-# TODO: 의도 확장 규칙과 엔티티 기반 확장 규칙을 분리하여 적용하는 방식으로 개선 필요
-# 형태소 분석 기반 명사/용언 매칭
-# 공백 단위 + 사전 lexeme 매칭
-def _has_any(text: str, words: list[str]) -> bool:
-    return any(word in text for word in words)
+@dataclass(frozen=True)
+class _ExpansionRule:
+    intents: tuple[str, ...]
+    entities: tuple[str, ...] = ()
+    entity_groups: tuple[str, ...] = ()
+    expansions: tuple[str, ...] = ()
 
 
-def _collect_entities(query: str, keywords: list[str]) -> set[str]:
-    entities: set[str] = set()
-    keyword_set = set(keywords)
-
-    for entity, lexemes in ENTITY_LEXICON.items():
-        # entity in keyword_set은 exact match인데 _has_any는 substring match라서 오탐, 과확장 다수 존재
-        if entity in keyword_set or _has_any(query, lexemes):
-            entities.add(entity)
-
-    return entities
-
-
-def _ordered_unique(terms: list[str]) -> list[str]:
-    deduped: list[str] = []
-    seen: set[str] = set()
-
-    for term in terms:
-        normalized = term.strip()
-        if not normalized or normalized in seen:
-            continue
-        deduped.append(normalized)
-        seen.add(normalized)
-
-    return deduped
-
-# category, action, target을 전부 같은 비중으로 추가하여 노이즈 증가 우려
-# TODO: 의도 확장 규칙과 엔티티 기반 확장 규칙을 분리하여 적용하는 방식으로 개선 필요
-def _intent_expansions(query: str, entities: set[str], entity_map: dict[str, list[str]]) -> list[str]:
-    expanded_terms: list[str] = []
-
-    for triggers, expansions in _INTENT_EXPANSION_RULES.items():
-        if _has_any(query, list(triggers)):
-            expanded_terms.extend(expansions)
-
-    for entity, expansions in _ENTITY_EXPANSION_RULES.items():
-        if entity in entities:
-            expanded_terms.extend(expansions)
-
-    for field in _ENTITY_MAP_FIELDS:
-        expanded_terms.extend(entity_map.get(field, []))
-
-    return _ordered_unique(expanded_terms)
-
-
-def rewrite_queries(
-    query: str,
-    keywords: list[str],
-    entities: dict[str, list[str]] | None = None,
-) -> list[str]:
-    if not query:
-        return []
-
-    collected_entities = _collect_entities(query, keywords)
-    entity_map = entities or {}
-    compact_terms = _ordered_unique([*keywords, *sorted(collected_entities)])
-    expansion_terms = _intent_expansions(query, collected_entities, entity_map)
-
-    queries = [query]
-
-    if compact_terms:
-        queries.append(f"{query} {' '.join(compact_terms)}".strip())
-
-    if expansion_terms:
-        queries.append(f"{query} {' '.join(expansion_terms)}".strip())
-
-    if compact_terms and expansion_terms:
-        queries.append(
-            f"{query} {' '.join(_ordered_unique([*compact_terms, *expansion_terms]))}".strip()
-        )
-
-    return _ordered_unique(queries)
+_CONDITIONAL_EXPANSION_RULES = tuple(
+    _ExpansionRule(
+        intents=rule["intents"],
+        entities=rule["entities"],
+        entity_groups=rule["entity_groups"],
+        expansions=rule["expansions"],
+    )
+    for rule in CONDITIONAL_EXPANSION_RULES
+)
+_EXPANSIONS_REQUIRING_SOURCE_TERM = EXPANSIONS_REQUIRING_SOURCE_TERM
+_CATEGORY_BY_ENTITY = CATEGORY_BY_REWRITE_ENTITY
+_ENTITY_SURFACES = REWRITE_ENTITY_SURFACES
+_ENTITY_SYNONYMS = REWRITE_ENTITY_SYNONYMS
+_ENTITY_GROUPS = REWRITE_ENTITY_GROUPS
+_GENERIC_INTENT_EXPANSIONS = GENERIC_INTENT_EXPANSIONS
 
 
 def rewrite_query(
     query: str,
     keywords: list[str],
     entities: dict[str, list[str]] | None = None,
-) -> str:
-    rewritten_queries = rewrite_queries(
-        query=query,
-        keywords=keywords,
-        entities=entities,
+    analysis: QueryAnalysisResult | None = None,
+) -> RewrittenQuery:
+    original = query.strip()
+    if not original:
+        return RewrittenQuery(
+            original="",
+            semantic_query="",
+            keyword_query="",
+            entity_query="",
+            intent=None,
+            entities=[],
+            filters={},
+        )
+
+    token_info = _TokenInfo.from_analysis(analysis) if analysis else _TokenInfo.from_text(original)
+    detected_entities = (
+        analysis.rewrite_entities
+        if analysis and analysis.rewrite_entities
+        else _detect_entities(original, keywords, token_info)
     )
-    if not rewritten_queries:
-        return ""
-    # 현재 가장 확장된 쿼리 반환
-    # TODO:추후 best scored rewrite로 변경
-    return rewritten_queries[-1]
+    intent = analysis.intent if analysis and analysis.intent else _detect_intent(token_info)
+    filters = _build_filters(detected_entities, entities or (analysis.extracted_entities if analysis else {}))
+    keyword_terms = _keyword_terms(
+        original,
+        keywords,
+        token_info,
+        detected_entities,
+        intent,
+        noun_terms=analysis.noun_terms if analysis else None,
+    )
+    entity_terms = _entity_terms(detected_entities)
+
+    semantic_query = _build_semantic_query(original, detected_entities, intent)
+    keyword_query = " ".join(keyword_terms) or " ".join(token_info.content_tokens) or original
+    entity_query = " ".join(entity_terms) or " ".join(detected_entities)
+
+    return RewrittenQuery(
+        original=original,
+        semantic_query=semantic_query,
+        keyword_query=keyword_query,
+        entity_query=entity_query,
+        intent=intent,
+        entities=detected_entities,
+        rewrite_entities=detected_entities,
+        filters=filters,
+    )
+
+
+def rewrite_queries(
+    query: str,
+    keywords: list[str],
+    entities: dict[str, list[str]] | None = None,
+    analysis: QueryAnalysisResult | None = None,
+) -> list[str]:
+    bundle = rewrite_query(query=query, keywords=keywords, entities=entities, analysis=analysis)
+    return rewrite_queries_from_bundle(bundle, query=query, analysis=analysis)
+
+
+def rewrite_queries_from_bundle(
+    bundle: RewrittenQuery,
+    *,
+    query: str | None = None,
+    analysis: QueryAnalysisResult | None = None,
+) -> list[str]:
+    noun_only = _noun_only_query(query or bundle.original, analysis=analysis)
+    return _ordered_unique(
+        [
+            bundle.keyword_query,
+            bundle.entity_query,
+            bundle.semantic_query,
+            noun_only,
+            bundle.original,
+        ]
+    )
+
+
+@dataclass(frozen=True)
+class _TokenInfo:
+    raw_tokens: tuple[str, ...]
+    normalized_tokens: tuple[str, ...]
+    content_tokens: tuple[str, ...]
+
+    @classmethod
+    def from_text(cls, text: str) -> "_TokenInfo":
+        raw_tokens = tuple(regex_tokens(text))
+        regex_normalized = tuple(_normalize_token(token) for token in raw_tokens)
+        kiwi_terms, _ = extract_kiwi_token_terms(text)
+        normalized = tuple(_ordered_unique((*regex_normalized, *kiwi_terms)))
+        content_source = kiwi_terms or normalized
+        content = tuple(
+            _ordered_unique(
+                token
+                for token in content_source
+                if token and token not in _FILLERS and not _is_weak_token(token)
+            )
+        )
+        return cls(
+            raw_tokens=raw_tokens,
+            normalized_tokens=tuple(token for token in normalized if token),
+            content_tokens=content,
+        )
+
+    @classmethod
+    def from_analysis(cls, analysis: QueryAnalysisResult) -> "_TokenInfo":
+        raw_tokens = tuple(analysis.tokens)
+        regex_normalized = tuple(_normalize_token(token) for token in raw_tokens)
+        normalized = tuple(_ordered_unique((*regex_normalized, *analysis.morph_terms)))
+        content_source = analysis.morph_terms or normalized
+        content = tuple(
+            _ordered_unique(
+                token
+                for token in content_source
+                if token and token not in _FILLERS and not _is_weak_token(token)
+            )
+        )
+        return cls(
+            raw_tokens=raw_tokens,
+            normalized_tokens=tuple(token for token in normalized if token),
+            content_tokens=content,
+        )
+
+    @property
+    def token_set(self) -> set[str]:
+        return {*self.raw_tokens, *self.normalized_tokens}
+
+
+def _normalize_token(token: str) -> str:
+    return normalize_token(token)
+
+
+def _detect_intent(token_info: _TokenInfo) -> str | None:
+    token_set = token_info.token_set
+    for intent in _INTENT_PRIORITY:
+        if any(_trigger_matches(trigger, token_set) for trigger in _INTENT_TRIGGERS[intent]):
+            return intent
+    return None
+
+
+def detect_intent(*, analysis: QueryAnalysisResult | None = None, text: str | None = None) -> str | None:
+    if analysis is None:
+        if text is None:
+            return None
+        analysis = QueryAnalysisResult(
+            raw_text=text,
+            normalized_text=text,
+            lexical_text=text,
+            tokens=regex_tokens(text),
+            morph_terms=[],
+            noun_terms=[],
+            aho_matches=[],
+            keywords=[],
+            extracted_entities={},
+        )
+    return _detect_intent(_TokenInfo.from_analysis(analysis))
+
+
+def _trigger_matches(trigger: str, token_set: set[str]) -> bool:
+    normalized = _normalize_token(trigger)
+    return trigger in token_set or normalized in token_set
+
+
+def _detect_entities(
+    query: str,
+    keywords: list[str],
+    token_info: _TokenInfo,
+) -> list[str]:
+    token_set = token_info.token_set
+    keyword_set = {_normalize_token(keyword) for keyword in keywords}
+    detected: list[str] = []
+
+    for entity, surfaces in _ENTITY_SURFACES.items():
+        terms = (entity, *surfaces, *ENTITY_LEXICON.get(_CATEGORY_BY_ENTITY.get(entity, entity), []))
+        if any(_term_matches(term, token_set) for term in terms):
+            detected.append(entity)
+            continue
+        if any(_keyword_is_safe_entity_hint(keyword, entity, token_set) for keyword in keyword_set):
+            detected.append(entity)
+
+    # "등록금 고지서 확인"처럼 고지서는 별도 recall entity로 유지한다.
+    if "등록금" in detected and _term_matches("고지서", token_set) and "고지서" not in detected:
+        detected.append("고지서")
+
+    return _drop_subsumed_terms(_ordered_unique(detected))
+
+
+def detect_rewrite_entities(
+    query: str,
+    keywords: list[str],
+    *,
+    analysis: QueryAnalysisResult | None = None,
+) -> list[str]:
+    token_info = _TokenInfo.from_analysis(analysis) if analysis else _TokenInfo.from_text(query)
+    return _detect_entities(query, keywords, token_info)
+
+
+def _term_matches(term: str, token_set: set[str]) -> bool:
+    normalized = _normalize_token(term)
+    return term.lower() in token_set or normalized in token_set
+
+
+def _keyword_is_safe_entity_hint(keyword: str, entity: str, token_set: set[str]) -> bool:
+    if not keyword or keyword not in token_set:
+        return False
+    return keyword == _normalize_token(entity) or keyword in {
+        _normalize_token(surface) for surface in _ENTITY_SURFACES.get(entity, ())
+    }
+
+
+def _build_filters(
+    detected_entities: list[str],
+    extracted_entities: dict[str, list[str]],
+) -> dict[str, str | list[str]]:
+    categories = [
+        _CATEGORY_BY_ENTITY[entity]
+        for entity in detected_entities
+        if entity in _CATEGORY_BY_ENTITY
+    ]
+    filters: dict[str, str | list[str]] = {}
+    if categories:
+        filters["category"] = _ordered_unique(categories)
+
+    for field in ("target", "department", "time"):
+        values = extracted_entities.get(field, [])
+        if values:
+            filters[field] = _ordered_unique(values)
+    return filters
+
+
+def _keyword_terms(
+    query: str,
+    keywords: list[str],
+    token_info: _TokenInfo,
+    entities: list[str],
+    intent: str | None,
+    noun_terms: list[str] | None = None,
+) -> list[str]:
+    terms: list[str] = []
+    terms.extend(entities)
+    terms.extend(_safe_keywords(keywords, token_info))
+    if intent:
+        terms.append(intent)
+        terms.extend(_GENERIC_INTENT_EXPANSIONS.get(intent, ()))
+        terms.extend(_conditional_expansions(query, intent, entities, token_info=token_info))
+    terms.extend(_noun_only_terms(query, noun_terms=noun_terms))
+    return _ordered_unique(_drop_subsumed_terms(terms))
+
+
+def _safe_keywords(keywords: list[str], token_info: _TokenInfo) -> list[str]:
+    token_set = token_info.token_set
+    safe: list[str] = []
+    for keyword in keywords:
+        normalized = _normalize_token(keyword)
+        if not normalized or normalized in _FILLERS or _is_weak_token(normalized):
+            continue
+        if normalized in token_set:
+            safe.append(normalized)
+    return safe
+
+
+def _conditional_expansions(
+    query: str,
+    intent: str,
+    entities: list[str],
+    *,
+    token_info: _TokenInfo | None = None,
+) -> list[str]:
+    expansions: list[str] = []
+    entity_set = set(entities)
+    for rule in _CONDITIONAL_EXPANSION_RULES:
+        if intent not in rule.intents:
+            continue
+        if not _expansion_rule_matches_entities(rule, entity_set):
+            continue
+        expansions.extend(rule.expansions)
+
+    # Negative constraint: 원문에 근거 토큰이 없으면 해당 확장을 만들지 않는다.
+    token_set = (token_info or _TokenInfo.from_text(query)).token_set
+    expansions = [
+        term
+        for term in expansions
+        if _has_required_source_term(term, token_set)
+    ]
+
+    return _ordered_unique(expansions)
+
+
+def _has_required_source_term(expansion: str, token_set: set[str]) -> bool:
+    required = _EXPANSIONS_REQUIRING_SOURCE_TERM.get(expansion)
+    return required is None or required in token_set
+
+
+def _expansion_rule_matches_entities(rule: _ExpansionRule, entities: set[str]) -> bool:
+    if entities.intersection(rule.entities):
+        return True
+    return any(entities.intersection(_ENTITY_GROUPS.get(group, ())) for group in rule.entity_groups)
+
+
+def _entity_terms(entities: list[str]) -> list[str]:
+    terms: list[str] = []
+    for entity in entities:
+        terms.append(entity)
+        terms.extend(_ENTITY_SYNONYMS.get(entity, ()))
+    return _ordered_unique(terms)
+
+
+def _build_semantic_query(original: str, entities: list[str], intent: str | None) -> str:
+    suffix_terms: list[str] = []
+    if entities and not any(entity in original for entity in entities):
+        suffix_terms.extend(entities)
+    if intent and intent not in original:
+        suffix_terms.append(intent)
+    if not suffix_terms:
+        return original
+    return f"{original} {' '.join(_ordered_unique(suffix_terms))}"
+
+
+def _noun_only_query(query: str, *, analysis: QueryAnalysisResult | None = None) -> str:
+    if analysis is not None:
+        return " ".join(
+            _noun_only_terms(
+                query,
+                noun_terms=analysis.noun_terms,
+                fallback_terms=list(_TokenInfo.from_analysis(analysis).content_tokens),
+            )
+        )
+    return " ".join(_noun_only_terms(query))
+
+
+def _noun_only_terms(
+    query: str,
+    *,
+    noun_terms: list[str] | None = None,
+    fallback_terms: list[str] | None = None,
+) -> list[str]:
+    if noun_terms is not None:
+        terms = [term for term in noun_terms if term not in _FILLERS]
+        return terms or list(fallback_terms or [])
+    kiwi_terms, _ = extract_kiwi_candidates(query)
+    if kiwi_terms:
+        return [term for term in kiwi_terms if term not in _FILLERS]
+    token_info = _TokenInfo.from_text(query)
+    return list(token_info.content_tokens)
+
+
+def _drop_subsumed_terms(terms: list[str]) -> list[str]:
+    ordered = _ordered_unique(terms)
+    by_length = sorted(ordered, key=len, reverse=True)
+    kept: list[str] = []
+    for term in by_length:
+        if any(term != other and term in other for other in kept):
+            continue
+        kept.append(term)
+    return sorted(kept, key=ordered.index)
+
+
+def _is_weak_token(token: str) -> bool:
+    return is_weak_token(token)
+
+
+def _ordered_unique(values: Iterable[str]) -> list[str]:
+    return ordered_unique(values)
