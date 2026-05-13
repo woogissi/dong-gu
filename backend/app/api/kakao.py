@@ -8,7 +8,10 @@ from backend.app.database.retrieval_logs import save_retrieval_log
 from backend.app.api.chat import general_chat_service
 from backend.app.utils.intent_classifier import PrimaryIntentClassifier
 from backend.app.utils.user_lock import acquire_user_lock, release_user_lock
-from backend.app.utils.kakao_template import kakao_response, kakao_text_card
+from backend.app.utils.kakao_template import (
+    kakao_response,
+    kakao_mixed_response,
+)
 from backend.app.utils.kakao_ui import (
     get_category_from_utterance,
     get_quick_replies_by_context,
@@ -310,11 +313,11 @@ def build_info_response(result, utterance):
     final = f"{answer}\n\n사이트 바로가기: {link}"
 
     return (
-        kakao_text_card(
-            title=title,
-            description=final,
-            link_url=link,
-            quick_replies=quick,
-        ),
-        final,
-    )
+    kakao_mixed_response(
+        text=answer,
+        title=title,
+        link_url=link,
+        quick_replies=quick,
+    ),
+    final,
+)
