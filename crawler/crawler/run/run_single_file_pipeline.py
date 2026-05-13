@@ -210,11 +210,12 @@ def main() -> None:
                 from crawler.ingestion.pgvector_loader import PGVectorLoader
 
                 embed_worker = EmbeddingWorker()
-                loader = PGVectorLoader()
+                loader = PGVectorLoader(autocommit_writes=False)
                 loader.ensure_tables()
                 try:
                     for chunk_file in chunk_files:
                         vector_ingest_chunk_file(chunk_file, embed_worker=embed_worker, loader=loader)
+                        loader.commit()
                 finally:
                     loader.close()
             return
@@ -223,12 +224,13 @@ def main() -> None:
         from crawler.ingestion.pgvector_loader import PGVectorLoader
 
         embed_worker = EmbeddingWorker()
-        loader = PGVectorLoader()
+        loader = PGVectorLoader(autocommit_writes=False)
         loader.ensure_tables()
         try:
             for chunk_file_arg in args.chunk_file:
                 chunk_file = resolve_path(chunk_file_arg)
                 vector_ingest_chunk_file(chunk_file, embed_worker=embed_worker, loader=loader)
+                loader.commit()
         finally:
             loader.close()
 

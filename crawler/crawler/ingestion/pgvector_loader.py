@@ -11,7 +11,7 @@ from psycopg2.extras import Json
 
 
 class PGVectorLoader:
-    def __init__(self):
+    def __init__(self, autocommit_writes: bool = True):
         database_url = os.getenv("DATABASE_URL")
         
         if database_url:
@@ -27,9 +27,20 @@ class PGVectorLoader:
         
         self.conn.autocommit = False                                # 자동 커밋 해제
         self._column_cache: dict[tuple[str, str], bool] = {}
+        self.autocommit_writes = autocommit_writes
 
     def close(self) ->  None:                                                # DB 연결 종료
         self.conn.close()
+
+    def commit(self) -> None:
+        self.conn.commit()
+
+    def rollback(self) -> None:
+        self.conn.rollback()
+
+    def _commit_if_needed(self) -> None:
+        if self.autocommit_writes:
+            self.conn.commit()
 
     def ensure_tables(self) -> None:
         """
@@ -162,7 +173,7 @@ class PGVectorLoader:
 
         with self.conn.cursor() as cur:
             cur.execute(sql, params)
-        self.conn.commit()
+        self._commit_if_needed()
 
     def insert_document_version(self, doc: dict, change_type: str) -> None:
         sql = """
@@ -188,7 +199,7 @@ class PGVectorLoader:
                     Json(doc),
                 ),
             )
-        self.conn.commit()
+        self._commit_if_needed()
 
     def upsert_assets(self, doc: dict) -> None:
         """
@@ -280,7 +291,7 @@ class PGVectorLoader:
                 row["metadata"] = Json(row["metadata"])
                 cur.execute(insert_sql, row)
 
-        self.conn.commit()
+        self._commit_if_needed()
 
     def upsert_chunks(self, chunks: list[dict], version: int) -> None:
         if not chunks:
@@ -366,7 +377,7 @@ class PGVectorLoader:
             for row in rows:
                 cur.execute(sql, row)
 
-        self.conn.commit()
+        self._commit_if_needed()
 
     def upsert_embeddings(self, embedded_chunks: list[dict]) -> None:
         sql = """
@@ -392,7 +403,7 @@ class PGVectorLoader:
         with self.conn.cursor() as cur:
             cur.executemany(sql, rows)
 
-        self.conn.commit()
+        self._commit_if_needed()
 
 
     def insert_crawl_job_error(
@@ -449,4 +460,4 @@ class PGVectorLoader:
                 ),
             )
 
-        self.conn.commit()
+        self._commit_if_needed()

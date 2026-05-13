@@ -17,12 +17,13 @@ HEADERS = {
 
 
 class BoardListExtractor:
-    def __init__(self):
+    def __init__(self, timeout: tuple[float, float] = (5, 30)):
         self.session = requests.Session()
         self.session.headers.update(HEADERS)
+        self.timeout = timeout
 
     def fetch(self, url: str, params: dict | None = None) -> str:       #html 가져오기
-        res = self.session.get(url, params=params, timeout=60)          #(주소, page관련 파라미터, 20초 이내) 파라미터 : article.offset, articleLimit, mode
+        res = self.session.get(url, params=params, timeout=self.timeout)
         res.raise_for_status()
         return res.text
 
