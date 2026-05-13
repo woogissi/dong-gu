@@ -1,6 +1,7 @@
 # crawler/run/run_static_discovery.py
 
 import json
+import argparse
 import time
 from pathlib import Path
 
@@ -133,9 +134,31 @@ def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type�
 
     print(f"[STATIC SAVE OK] doc_id={doc_id} decision={decision} version={final_curated['version']}")
 
-def main(max_pages: int = 50, max_depth: int = 2):
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Discover and crawl static DEU pages.")
+    parser.add_argument("--max-pages", type=int, default=50, help="Maximum static pages to crawl.")
+    parser.add_argument("--max-depth", type=int, default=2, help="Maximum discovery depth.")
+    parser.add_argument("--enable-image-ocr", action="store_true", help="Enable image OCR. Disabled by default.")
+    parser.add_argument("--skip-image-ocr", action="store_true", help="Compatibility flag. Image OCR is skipped by default.")
+    parser.add_argument("--connect-timeout", type=float, default=5, help="HTTP connect timeout in seconds.")
+    parser.add_argument("--read-timeout", type=float, default=30, help="HTTP read timeout in seconds.")
+    parser.add_argument("--sleep", type=float, default=0.5, help="Delay between successful requests.")
+    return parser.parse_args()
+
+
+def main(
+    max_pages: int = 50,
+    max_depth: int = 2,
+    enable_image_ocr: bool = False,
+    timeout: tuple[float, float] = (5, 30),
+    sleep_seconds: float = 0.5,
+):
     frontier = FrontierManager(ALLOWED_HOSTS, max_depth=max_depth)
-    extractor = StaticPageExtractor(allowed_hosts=ALLOWED_HOSTS)
+    extractor = StaticPageExtractor(
+        allowed_hosts=ALLOWED_HOSTS,
+        enable_image_ocr=enable_image_ocr,
+        timeout=timeout,
+    )
 
     # static seed만 넣기
     for seed in SEED_URLS:
@@ -181,7 +204,8 @@ def main(max_pages: int = 50, max_depth: int = 2):
 
             crawled_count += 1
             print(f"[DISCOVERY OK] depth={depth} source={source_type} url={url}")
-            time.sleep(0.5)
+            if sleep_seconds > 0:
+                time.sleep(sleep_seconds)
 
         except Exception as e:
             message = f"[DISCOVERY ERROR] url={url} depth={depth} error={e}"
@@ -197,4 +221,11 @@ def main(max_pages: int = 50, max_depth: int = 2):
 
 
 if __name__ == "__main__":
-    main(max_pages=50, max_depth=2)
+    args = parse_args()
+    main(
+        max_pages=args.max_pages,
+        max_depth=args.max_depth,
+        enable_image_ocr=bool(args.enable_image_ocr and not args.skip_image_ocr),
+        timeout=(args.connect_timeout, args.read_timeout),
+        sleep_seconds=args.sleep,
+    )
