@@ -6,7 +6,7 @@ from rag.pipeline.state import PipelineState
 from rag.preprocess.normalizer import normalize_query
 from rag.preprocess.keyword_extractor import extract_keywords
 from rag.preprocess.entity_extractor import build_filters, extract_entities, primary_category
-from rag.preprocess.query_rewriter import rewrite_queries, rewrite_query
+from rag.preprocess.query_rewriter import rewrite_queries_from_bundle, rewrite_query
 
 
 class QueryPreprocessor:
@@ -22,11 +22,7 @@ class QueryPreprocessor:
             keywords=keywords,
             entities=entities,
         )
-        rewritten_queries = rewrite_queries(
-            query=normalized_query,
-            keywords=keywords,
-            entities=entities,
-        )
+        rewritten_queries = rewrite_queries_from_bundle(query_bundle, query=normalized_query)
 
         state.normalized_query = normalized_query
         state.keywords = keywords

@@ -6,23 +6,27 @@ from collections import deque
 from dataclasses import dataclass
 
 from rag.pipeline.state import PipelineState
-from rag.preprocess.domain_knowledge import ENTITY_LEXICON
+from rag.preprocess.domain_knowledge import ENTITY_LEXICON, ENTITY_SYNONYMS
 from rag.preprocess.normalizer import normalize_query
 from rag.preprocess.keyword_extractor import extract_keywords
-from rag.preprocess.hybrid_keyword_extractor import extract_hybrid_keywords
+from rag.preprocess.hybrid_keyword_extractor import (
+    HybridKeywordConfig,
+    extract_hybrid_keywords,
+    extract_kiwi_analysis,
+    is_kiwi_available,
+)
 from rag.preprocess.entity_extractor import build_filters, extract_entities, primary_category
-from rag.preprocess.query_rewriter import rewrite_queries, rewrite_query
+from rag.preprocess.query_analysis import QueryAnalysisResult
+from rag.preprocess.query_rewriter import (
+    detect_intent,
+    detect_rewrite_entities,
+    rewrite_queries_from_bundle,
+    rewrite_query,
+)
+from rag.preprocess.tokenizer import regex_tokens
 
 
-_SYNONYMS: dict[str, tuple[str, ...]] = {
-    "장학금": ("학자금", "학자금 지원"),
-    "국가장학": ("국가장학금", "학자금 지원"),
-    "등록금": ("수업료", "학비"),
-    "기숙사": ("생활관",),
-    "생활관": ("기숙사",),
-    "수강신청": ("강의신청",),
-    "교환학생": ("국제교류",),
-}
+_SYNONYMS = ENTITY_SYNONYMS
 _AHO_OUTPUT = "_out"
 _AHO_FAIL = "_fail"
 
@@ -154,24 +158,74 @@ def _drop_subsumed_terms(terms: list[str]) -> list[str]:
 
 
 class QueryPreprocessor:
-    def run(self, state: PipelineState) -> None:
-
-        normalized_query = normalize_query(state.original_query)
+    def analyze_query_once(self, raw_query: str) -> QueryAnalysisResult:
+        normalized_query = normalize_query(raw_query)
         lexical_query = _apply_synonym_filter(normalized_query)
 
-        aho_keywords = _extract_aho_keywords(lexical_query)
+        aho_matches = _extract_aho_keywords(lexical_query)
+        lexical_terms = extract_keywords(lexical_query)
+        cfg = HybridKeywordConfig.from_env()
+        should_analyze_kiwi = cfg.mode != "off" and is_kiwi_available()
+        kiwi_analysis = extract_kiwi_analysis(lexical_query) if should_analyze_kiwi else None
+        morph_terms = kiwi_analysis.keyword_candidates if kiwi_analysis else []
+        noun_terms = kiwi_analysis.noun_terms if kiwi_analysis else []
         hybrid_result = extract_hybrid_keywords(
             lexical_query,
-            aho_keywords=aho_keywords,
-            lexical_keywords=extract_keywords(lexical_query),
+            aho_keywords=aho_matches,
+            lexical_keywords=lexical_terms,
+            morph_terms=morph_terms,
+            config=cfg,
             context="query",
         )
         keywords = hybrid_result.keywords
-        
-        entities = extract_entities(
+        extracted_entities = extract_entities(
             query=lexical_query,
             keywords=keywords,
         )
+        partial_analysis = QueryAnalysisResult(
+            raw_text=raw_query,
+            normalized_text=normalized_query,
+            lexical_text=lexical_query,
+            tokens=regex_tokens(normalized_query),
+            morph_terms=kiwi_analysis.morph_terms if kiwi_analysis else [],
+            noun_terms=noun_terms,
+            aho_matches=aho_matches,
+            keywords=keywords,
+            extracted_entities=extracted_entities,
+            kiwi_enabled=should_analyze_kiwi,
+            kiwi_called=kiwi_analysis is not None and not kiwi_analysis.cache_hit,
+            kiwi_cache_hit=bool(kiwi_analysis and kiwi_analysis.cache_hit),
+        )
+        rewrite_entities = detect_rewrite_entities(
+            normalized_query,
+            keywords,
+            analysis=partial_analysis,
+        )
+        intent = detect_intent(analysis=partial_analysis)
+        return QueryAnalysisResult(
+            raw_text=partial_analysis.raw_text,
+            normalized_text=partial_analysis.normalized_text,
+            lexical_text=partial_analysis.lexical_text,
+            tokens=partial_analysis.tokens,
+            morph_terms=partial_analysis.morph_terms,
+            noun_terms=partial_analysis.noun_terms,
+            aho_matches=partial_analysis.aho_matches,
+            keywords=partial_analysis.keywords,
+            extracted_entities=partial_analysis.extracted_entities,
+            intent=intent,
+            rewrite_entities=rewrite_entities,
+            kiwi_enabled=partial_analysis.kiwi_enabled,
+            kiwi_called=partial_analysis.kiwi_called,
+            kiwi_cache_hit=partial_analysis.kiwi_cache_hit,
+        )
+
+    def run(self, state: PipelineState) -> None:
+
+        analysis = self.analyze_query_once(state.original_query)
+        normalized_query = analysis.normalized_text
+        lexical_query = analysis.lexical_text
+        keywords = analysis.keywords
+        extracted_entities = analysis.extracted_entities
 
         # TODO:Semantic enrichment 추가 구현
         # 검색 친화 형태
@@ -185,12 +239,13 @@ class QueryPreprocessor:
         query_bundle = rewrite_query(
             query=normalized_query,
             keywords=keywords,
-            entities=entities,
+            entities=extracted_entities,
+            analysis=analysis,
         )
-        rewritten_queries = rewrite_queries(
+        rewritten_queries = rewrite_queries_from_bundle(
+            query_bundle,
             query=normalized_query,
-            keywords=keywords,
-            entities=entities,
+            analysis=analysis,
         )
         if lexical_query != normalized_query:
             rewritten_queries = list(dict.fromkeys([query_bundle.keyword_query, lexical_query, *rewritten_queries]))
@@ -198,14 +253,14 @@ class QueryPreprocessor:
         embedding_query = normalized_query
         state.normalized_query = normalized_query
         state.keywords = keywords
-        state.entities = entities
+        state.entities = extracted_entities
         state.query_bundle = query_bundle.to_dict()
-        state.filters = build_filters(entities)
+        state.filters = build_filters(extracted_entities)
         bundle_filters = query_bundle.filters
         for field, values in bundle_filters.items():
             if field not in state.filters and isinstance(values, list):
                 state.filters[field] = values
-        state.category = primary_category(entities) or (
+        state.category = primary_category(extracted_entities) or (
             query_bundle.filters.get("category", [None])[0]
             if isinstance(query_bundle.filters.get("category"), list)
             else None
@@ -218,15 +273,17 @@ class QueryPreprocessor:
             "embedding_query": embedding_query,
             "query_bundle": state.query_bundle,
             "keywords": keywords,
-            "entities": entities,
+            "extracted_entities": extracted_entities,
+            "rewrite_entities": query_bundle.entities,
+            "entities": extracted_entities,
             "filters": state.filters,
             "primary_category": state.category,
             "rewritten_queries": rewritten_queries,
             "hybrid_keyword_extraction": {
-                "mode": hybrid_result.stats.hybrid_mode,
-                "kiwi_enabled": hybrid_result.stats.kiwi_enabled,
-                "kiwi_called": hybrid_result.stats.kiwi_called,
-                "kiwi_cache_hit": hybrid_result.stats.kiwi_cache_hit,
-                "aho_keyword_count": len(aho_keywords),
+                "mode": HybridKeywordConfig.from_env().mode,
+                "kiwi_enabled": analysis.kiwi_enabled,
+                "kiwi_called": analysis.kiwi_called,
+                "kiwi_cache_hit": analysis.kiwi_cache_hit,
+                "aho_keyword_count": len(analysis.aho_matches),
             },
         }

@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import os
-import re
 import threading
 from collections import OrderedDict
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Iterable
+
+from rag.preprocess.tokenizer import (
+    CANDIDATE_STOPWORDS,
+    normalize_candidate,
+    ordered_unique,
+)
 
 try:  # pragma: no cover - exercised through fallback tests when unavailable
     from kiwipiepy import Kiwi as _KiwiClass
@@ -25,23 +30,8 @@ _DEFAULT_CACHE_SIZE = 512
 _MAX_KEYWORDS = 12
 _KIWI_CLASS = _KiwiClass
 _KIWI_CALL_COUNT = 0
-_KIWI_CACHE: OrderedDict[str, tuple[str, ...]] = OrderedDict()
-_KIWI_TOKEN_TERM_CACHE: OrderedDict[str, tuple[str, ...]] = OrderedDict()
+_KIWI_ANALYSIS_CACHE: OrderedDict[str, "KiwiAnalysisResult"] = OrderedDict()
 _STATE_LOCK = threading.RLock()
-_PARTICLE_SUFFIX_RE = re.compile(r"(은|는|이|가|을|를|에|의|로|으로|에서|부터|까지|도|만|와|과|랑|하고)$")
-_TOKEN_RE = re.compile(r"[가-힣A-Za-z0-9]+")
-_ASCII_OR_DIGIT_RE = re.compile(r"[a-z0-9]")
-_CANDIDATE_STOPWORDS = {
-    "관련",
-    "문서",
-    "보고서",
-    "발표",
-    "의무",
-    "방법",
-    "내용",
-    "안내",
-    "경우",
-}
 _NOUN_TAG_PREFIXES = ("NNG", "NNP", "SL", "SN")
 _TOKEN_TERM_TAG_PREFIXES = (*_NOUN_TAG_PREFIXES, "VV", "VA")
 
@@ -74,11 +64,20 @@ class HybridExtractionResult:
     stats: HybridExtractionStats
 
 
+@dataclass(frozen=True)
+class KiwiAnalysisResult:
+    keyword_candidates: list[str]
+    morph_terms: list[str]
+    noun_terms: list[str]
+    cache_hit: bool = False
+
+
 def extract_hybrid_keywords(
     text: str,
     *,
     aho_keywords: Iterable[str] = (),
     lexical_keywords: Iterable[str] = (),
+    morph_terms: Iterable[str] | None = None,
     config: HybridKeywordConfig | None = None,
     text_id: str | None = None,
     context: str = "query",
@@ -101,10 +100,13 @@ def extract_hybrid_keywords(
         context=context,
     )
 
-    kiwi_candidates: list[str] = []
+    kiwi_candidates = list(morph_terms or [])
     cache_hit = False
-    if should_call_kiwi:
-        kiwi_candidates, cache_hit = extract_kiwi_candidates(text, text_id=text_id)
+    kiwi_called = morph_terms is None and should_call_kiwi
+    if kiwi_called:
+        analysis = extract_kiwi_analysis(text, text_id=text_id)
+        kiwi_candidates = analysis.keyword_candidates
+        cache_hit = analysis.cache_hit
 
     keywords = _rank_and_merge(
         aho_keywords=aho,
@@ -116,7 +118,7 @@ def extract_hybrid_keywords(
         keywords=keywords,
         stats=HybridExtractionStats(
             kiwi_enabled=kiwi_enabled,
-            kiwi_called=should_call_kiwi,
+            kiwi_called=kiwi_called,
             kiwi_cache_hit=cache_hit,
             hybrid_mode=cfg.mode,
         ),
@@ -124,53 +126,50 @@ def extract_hybrid_keywords(
 
 
 def extract_kiwi_candidates(text: str, *, text_id: str | None = None) -> tuple[list[str], bool]:
-    if not text or not _kiwi_available():
-        return [], False
-
-    cache_key = _cache_key(text, text_id)
-    with _STATE_LOCK:
-        cached = _KIWI_CACHE.get(cache_key)
-        if cached is not None:
-            _KIWI_CACHE.move_to_end(cache_key)
-            return list(cached), True
-
-    candidates = _analyze_with_kiwi(text)
-    with _STATE_LOCK:
-        cached = _KIWI_CACHE.get(cache_key)
-        if cached is not None:
-            _KIWI_CACHE.move_to_end(cache_key)
-            return list(cached), True
-        _KIWI_CACHE[cache_key] = tuple(candidates)
-        _trim_cache()
-    return candidates, False
+    analysis = extract_kiwi_analysis(text, text_id=text_id)
+    return analysis.keyword_candidates, analysis.cache_hit
 
 
 def extract_kiwi_token_terms(text: str, *, text_id: str | None = None) -> tuple[list[str], bool]:
+    analysis = extract_kiwi_analysis(text, text_id=text_id)
+    return analysis.morph_terms, analysis.cache_hit
+
+
+def extract_kiwi_analysis(text: str, *, text_id: str | None = None) -> KiwiAnalysisResult:
     if not text or not _kiwi_available():
-        return [], False
+        return KiwiAnalysisResult(keyword_candidates=[], morph_terms=[], noun_terms=[])
 
     cache_key = _cache_key(text, text_id)
     with _STATE_LOCK:
-        cached = _KIWI_TOKEN_TERM_CACHE.get(cache_key)
+        cached = _KIWI_ANALYSIS_CACHE.get(cache_key)
         if cached is not None:
-            _KIWI_TOKEN_TERM_CACHE.move_to_end(cache_key)
-            return list(cached), True
+            _KIWI_ANALYSIS_CACHE.move_to_end(cache_key)
+            return KiwiAnalysisResult(
+                keyword_candidates=list(cached.keyword_candidates),
+                morph_terms=list(cached.morph_terms),
+                noun_terms=list(cached.noun_terms),
+                cache_hit=True,
+            )
 
-    terms = _analyze_token_terms_with_kiwi(text)
+    analysis = _analyze_with_kiwi(text)
     with _STATE_LOCK:
-        cached = _KIWI_TOKEN_TERM_CACHE.get(cache_key)
+        cached = _KIWI_ANALYSIS_CACHE.get(cache_key)
         if cached is not None:
-            _KIWI_TOKEN_TERM_CACHE.move_to_end(cache_key)
-            return list(cached), True
-        _KIWI_TOKEN_TERM_CACHE[cache_key] = tuple(terms)
+            _KIWI_ANALYSIS_CACHE.move_to_end(cache_key)
+            return KiwiAnalysisResult(
+                keyword_candidates=list(cached.keyword_candidates),
+                morph_terms=list(cached.morph_terms),
+                noun_terms=list(cached.noun_terms),
+                cache_hit=True,
+            )
+        _KIWI_ANALYSIS_CACHE[cache_key] = analysis
         _trim_cache()
-    return terms, False
+    return analysis
 
 
 def clear_kiwi_cache() -> None:
     with _STATE_LOCK:
-        _KIWI_CACHE.clear()
-        _KIWI_TOKEN_TERM_CACHE.clear()
+        _KIWI_ANALYSIS_CACHE.clear()
     _get_kiwi.cache_clear()
     _get_max_cache_size.cache_clear()
     reset_kiwi_call_count()
@@ -179,8 +178,8 @@ def clear_kiwi_cache() -> None:
 def get_kiwi_cache_info() -> dict[str, int]:
     with _STATE_LOCK:
         return {
-            "size": len(_KIWI_CACHE),
-            "token_term_size": len(_KIWI_TOKEN_TERM_CACHE),
+            "size": len(_KIWI_ANALYSIS_CACHE),
+            "analysis_size": len(_KIWI_ANALYSIS_CACHE),
             "kiwi_calls": _KIWI_CALL_COUNT,
         }
 
@@ -191,54 +190,43 @@ def reset_kiwi_call_count() -> None:
         _KIWI_CALL_COUNT = 0
 
 
-def _analyze_with_kiwi(text: str) -> list[str]:
+def _analyze_with_kiwi(text: str) -> KiwiAnalysisResult:
     global _KIWI_CALL_COUNT
     kiwi = _get_kiwi()
     if kiwi is None:
-        return []
+        return KiwiAnalysisResult(keyword_candidates=[], morph_terms=[], noun_terms=[])
 
     with _STATE_LOCK:
         _KIWI_CALL_COUNT += 1
     noun_run: list[str] = []
     candidates: list[str] = []
+    morph_terms: list[str] = []
+    noun_terms: list[str] = []
 
     for token in kiwi.tokenize(text):
-        form = _normalize_candidate(getattr(token, "form", ""))
+        form = normalize_candidate(getattr(token, "form", ""))
         tag = str(getattr(token, "tag", ""))
         if not form:
             _flush_noun_run(noun_run, candidates)
             continue
-        if form in _CANDIDATE_STOPWORDS:
+        if form in CANDIDATE_STOPWORDS:
             _flush_noun_run(noun_run, candidates)
             continue
+        if tag.startswith(_TOKEN_TERM_TAG_PREFIXES):
+            morph_terms.append(form)
         if tag.startswith(_NOUN_TAG_PREFIXES):
             noun_run.append(form)
+            noun_terms.append(form)
             candidates.append(form)
             continue
         _flush_noun_run(noun_run, candidates)
 
     _flush_noun_run(noun_run, candidates)
-    return _ordered_unique(candidates)
-
-
-def _analyze_token_terms_with_kiwi(text: str) -> list[str]:
-    global _KIWI_CALL_COUNT
-    kiwi = _get_kiwi()
-    if kiwi is None:
-        return []
-
-    with _STATE_LOCK:
-        _KIWI_CALL_COUNT += 1
-
-    terms: list[str] = []
-    for token in kiwi.tokenize(text):
-        form = _normalize_candidate(getattr(token, "form", ""))
-        tag = str(getattr(token, "tag", ""))
-        if not form or form in _CANDIDATE_STOPWORDS:
-            continue
-        if tag.startswith(_TOKEN_TERM_TAG_PREFIXES):
-            terms.append(form)
-    return _ordered_unique(terms)
+    return KiwiAnalysisResult(
+        keyword_candidates=ordered_unique(candidates),
+        morph_terms=ordered_unique(morph_terms),
+        noun_terms=ordered_unique(noun_terms),
+    )
 
 
 def _flush_noun_run(noun_run: list[str], candidates: list[str]) -> None:
@@ -261,7 +249,7 @@ def _rank_and_merge(
     insertion = 0
     for source_score, terms in ((300, aho_keywords), (200, lexical_keywords), (100, kiwi_keywords)):
         for term in terms:
-            normalized = _normalize_candidate(term)
+            normalized = normalize_candidate(term)
             if not normalized:
                 continue
             score = (source_score, len(normalized), -insertion)
@@ -283,24 +271,16 @@ def _should_call_kiwi(*, mode: str, aho_count: int, min_aho_matches: int, contex
     return aho_count < min_aho_matches
 
 
-def _normalize_candidate(term: str) -> str:
-    normalized = term.strip().lower()
-    normalized = _PARTICLE_SUFFIX_RE.sub("", normalized)
-    if not normalized or normalized in _CANDIDATE_STOPWORDS:
-        return ""
-    if len(normalized) <= 1 and not _ASCII_OR_DIGIT_RE.match(normalized):
-        return ""
-    if not _TOKEN_RE.fullmatch(normalized):
-        return ""
-    return normalized
-
-
 def _ordered_unique(values: Iterable[str]) -> list[str]:
-    return list(dict.fromkeys(value for value in values if value))
+    return ordered_unique(value for value in values if value)
 
 
 def _kiwi_available() -> bool:
     return _KIWI_CLASS is not None
+
+
+def is_kiwi_available() -> bool:
+    return _kiwi_available()
 
 
 @lru_cache(maxsize=1)
@@ -322,10 +302,8 @@ def _cache_key(text: str, text_id: str | None) -> str:
 
 def _trim_cache() -> None:
     max_size = _get_max_cache_size()
-    while len(_KIWI_CACHE) > max_size:
-        _KIWI_CACHE.popitem(last=False)
-    while len(_KIWI_TOKEN_TERM_CACHE) > max_size:
-        _KIWI_TOKEN_TERM_CACHE.popitem(last=False)
+    while len(_KIWI_ANALYSIS_CACHE) > max_size:
+        _KIWI_ANALYSIS_CACHE.popitem(last=False)
 
 
 @lru_cache(maxsize=1)
