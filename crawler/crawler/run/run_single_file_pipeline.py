@@ -133,8 +133,9 @@ def vector_ingest_chunk_file(chunk_file: Path, embed_worker=None, loader=None) -
         loader.upsert_document(curated_doc)
 
         change_type = curated_doc.get("change_type") or curated_doc.get("decision", "unknown")
-        if change_type in ("new", "updated"):
-            loader.insert_document_version(curated_doc, change_type)
+        document_version_id = loader.insert_document_version(curated_doc, change_type)
+
+        loader.upsert_document_contents(curated_doc, document_version_id)
 
         asset_source_doc = {
             **curated_doc,
@@ -142,7 +143,7 @@ def vector_ingest_chunk_file(chunk_file: Path, embed_worker=None, loader=None) -
             "image_texts": raw_doc.get("image_texts", []),
         }
 
-        loader.upsert_assets(asset_source_doc)
+        loader.upsert_assets(asset_source_doc, document_version_id)
         loader.upsert_chunks(chunks, version)
 
         embedded_chunks = embed_worker.embed_chunks(chunks)

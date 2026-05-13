@@ -182,8 +182,8 @@ class DocumentChunker:
         parts.append(section_chunk_text)
         return "\n\n".join(part for part in parts if part).strip()
 
-    def make_chunk_id(self, doc_id: str, chunk_index: int) -> str:
-        return f"{doc_id}_chunk_{chunk_index:03d}"
+    def make_chunk_id(self, doc_id: str, version: int, chunk_index: int) -> str:
+        return f"{doc_id}_v{int(version):03d}_chunk_{chunk_index:03d}"
 
     def make_chunk_hash(self, text: str) -> str:
         return hashlib.sha1(text.encode("utf-8")).hexdigest()
@@ -205,7 +205,7 @@ class DocumentChunker:
 
                 chunks.append(
                     {
-                        "chunk_id": self.make_chunk_id(doc["doc_id"], chunk_index),
+                        "chunk_id": self.make_chunk_id(doc["doc_id"], doc.get("version", 1), chunk_index),
                         "doc_id": doc["doc_id"],
                         "chunk_index": chunk_index,
                         "section_index": section_index,

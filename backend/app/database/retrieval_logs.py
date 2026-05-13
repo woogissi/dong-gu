@@ -17,11 +17,8 @@ def save_retrieval_log(request_id: str, log_data: dict[str, Any] | None) -> None
     if not isinstance(selected_docs, list):
         selected_docs = []
 
-    selected_chunk_ids = [
-        str(doc.get("chunk_id"))
-        for doc in selected_docs
-        if isinstance(doc, dict) and doc.get("chunk_id")
-    ]
+    stage = _retrieval_stage(log_data.get("stage"))
+    attempt_no = _int_value(log_data.get("attempt_no"), default=1)
 
     conn = get_conn()
     try:
@@ -31,6 +28,8 @@ def save_retrieval_log(request_id: str, log_data: dict[str, Any] | None) -> None
                 INSERT INTO retrieval_logs
                 (
                     request_id,
+                    attempt_no,
+                    stage,
                     original_query,
                     normalized_query,
                     rewritten_query,
@@ -46,8 +45,6 @@ def save_retrieval_log(request_id: str, log_data: dict[str, Any] | None) -> None
                     retrieved_doc_count,
                     reranked_doc_count,
                     selected_doc_count,
-                    selected_chunk_ids,
-                    selected_documents,
                     context,
                     success,
                     error_message,
@@ -58,7 +55,7 @@ def save_retrieval_log(request_id: str, log_data: dict[str, Any] | None) -> None
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
-                ON CONFLICT (request_id) DO UPDATE SET
+                ON CONFLICT (request_id, attempt_no, stage) DO UPDATE SET
                     original_query = EXCLUDED.original_query,
                     normalized_query = EXCLUDED.normalized_query,
                     rewritten_query = EXCLUDED.rewritten_query,
@@ -74,15 +71,16 @@ def save_retrieval_log(request_id: str, log_data: dict[str, Any] | None) -> None
                     retrieved_doc_count = EXCLUDED.retrieved_doc_count,
                     reranked_doc_count = EXCLUDED.reranked_doc_count,
                     selected_doc_count = EXCLUDED.selected_doc_count,
-                    selected_chunk_ids = EXCLUDED.selected_chunk_ids,
-                    selected_documents = EXCLUDED.selected_documents,
                     context = EXCLUDED.context,
                     success = EXCLUDED.success,
                     error_message = EXCLUDED.error_message,
-                    metadata = EXCLUDED.metadata;
+                    metadata = EXCLUDED.metadata
+                RETURNING id;
                 """,
                 (
                     request_id,
+                    attempt_no,
+                    stage,
                     log_data.get("original_query") or "",
                     log_data.get("normalized_query") or None,
                     log_data.get("rewritten_query") or None,
@@ -91,21 +89,59 @@ def save_retrieval_log(request_id: str, log_data: dict[str, Any] | None) -> None
                     Json(_json_object(log_data.get("entities"))),
                     Json(_json_object(log_data.get("filters"))),
                     log_data.get("category"),
-                    log_data.get("retrieval_strategy") or "lexical",
+                    _retrieval_strategy(log_data.get("retrieval_strategy")),
                     _int_value(log_data.get("retrieval_top_k"), default=10),
                     Json(_json_object(log_data.get("retrieval_strategy_log"))),
                     bool(log_data.get("fallback_used", False)),
                     _int_value(log_data.get("retrieved_doc_count")),
                     _int_value(log_data.get("reranked_doc_count")),
-                    _int_value(log_data.get("selected_doc_count")),
-                    selected_chunk_ids,
-                    Json(selected_docs),
+                    _int_value(log_data.get("selected_doc_count"), default=len(selected_docs)),
                     log_data.get("context") or None,
                     bool(log_data.get("success", False)),
-                    log_data.get("error") or None,
+                    log_data.get("error") or log_data.get("error_message") or None,
                     Json(_json_object(log_data.get("metadata"))),
                 ),
             )
+            retrieval_log_id = int(cur.fetchone()[0])
+
+            cur.execute(
+                "DELETE FROM retrieval_selected_chunks WHERE retrieval_log_id = %s;",
+                (retrieval_log_id,),
+            )
+            for rank, doc in enumerate(selected_docs, start=1):
+                if not isinstance(doc, dict):
+                    continue
+                cur.execute(
+                    """
+                    INSERT INTO retrieval_selected_chunks (
+                        retrieval_log_id,
+                        chunk_id,
+                        doc_id,
+                        rank,
+                        score,
+                        rerank_score,
+                        metadata
+                    )
+                    VALUES (
+                        %s,
+                        (SELECT chunk_id FROM chunks WHERE chunk_id = %s),
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        %s
+                    );
+                    """,
+                    (
+                        retrieval_log_id,
+                        doc.get("chunk_id"),
+                        doc.get("doc_id"),
+                        rank,
+                        _float_value(doc.get("score")),
+                        _float_value(doc.get("rerank_score")),
+                        Json(_json_object(doc.get("metadata"))),
+                    ),
+                )
         conn.commit()
 
     except Exception:
@@ -114,6 +150,20 @@ def save_retrieval_log(request_id: str, log_data: dict[str, Any] | None) -> None
 
     finally:
         put_conn(conn)
+
+
+def _retrieval_strategy(value: Any) -> str | None:
+    if value in ("vector", "hybrid", "keyword"):
+        return value
+    if value in ("lexical", "bm25", "fts"):
+        return "keyword"
+    return None
+
+
+def _retrieval_stage(value: Any) -> str:
+    if value in ("initial", "fallback", "retry", "rerank"):
+        return value
+    return "initial"
 
 
 def _text_list(value: Any) -> list[str]:
@@ -134,6 +184,14 @@ def _int_value(value: Any, default: int = 0) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _float_value(value: Any) -> float | None:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
 
 
 def _json_safe(value: Any) -> Any:

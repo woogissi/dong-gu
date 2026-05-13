@@ -94,15 +94,16 @@ def upsert_document_side(loader: PGVectorLoader, item: dict) -> None:
     loader.upsert_document(curated_doc)
 
     change_type = curated_doc.get("change_type") or curated_doc.get("decision", "unknown")
-    if change_type in ("new", "updated"):
-        loader.insert_document_version(curated_doc, change_type)
+    document_version_id = loader.insert_document_version(curated_doc, change_type)
+
+    loader.upsert_document_contents(curated_doc, document_version_id)
 
     asset_source_doc = {
         **curated_doc,
         "downloaded_attachments": raw_doc.get("downloaded_attachments", []),
         "image_texts": raw_doc.get("image_texts", []),
     }
-    loader.upsert_assets(asset_source_doc)
+    loader.upsert_assets(asset_source_doc, document_version_id)
     loader.upsert_chunks(item["chunks"], item["version"])
 
 
