@@ -70,7 +70,8 @@ class StaticPageExtractor:
             res.raise_for_status()
             return res.text
         except requests.exceptions.SSLError:
-            if "lib.deu.ac.kr" in url and os.getenv("CRAWLER_ALLOW_INSECURE_SSL") == "1":
+            insecure_ssl_hosts = ("lib.deu.ac.kr", "has.deu.ac.kr")
+            if any(host in url for host in insecure_ssl_hosts) and os.getenv("CRAWLER_ALLOW_INSECURE_SSL") == "1":
                 res = self.session.get(url, timeout=60, verify=False)       # 도서관 사이트 SSLhandshake failure 해결
                 res.raise_for_status()
                 return res.text
