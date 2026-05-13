@@ -33,7 +33,24 @@ STANDALONE_EBOOK_NOISE_RE = re.compile(
 
 
 class PDFParser:
-    def __init__(self):
+    def __init__(
+        self,
+        skip_ocr: bool | None = None,
+        ocr_max_pages: int | None = None,
+        ocr_first_pages: int | None = None,
+    ):
+        if skip_ocr is None:
+            skip_ocr = os.getenv("CRAWLER_SKIP_PDF_OCR", "1") == "1"
+        if ocr_max_pages is None:
+            raw_max_pages = os.getenv("CRAWLER_PDF_OCR_MAX_PAGES", "5")
+            ocr_max_pages = int(raw_max_pages) if raw_max_pages else None
+        if ocr_first_pages is None:
+            raw_first_pages = os.getenv("CRAWLER_PDF_OCR_FIRST_PAGES", "")
+            ocr_first_pages = int(raw_first_pages) if raw_first_pages else None
+
+        self.skip_ocr = skip_ocr
+        self.ocr_max_pages = ocr_max_pages
+        self.ocr_first_pages = ocr_first_pages
         self.ocr = KoreanOCREngine()
 
     def is_ebook_noise(self, text: str) -> bool:
@@ -130,6 +147,8 @@ class PDFParser:
         ocr_used_count = 0
         text_layer_count = 0
         noise_page_count = 0
+        ocr_skipped_count = 0
+        ocr_limit_count = 0
 
         for page_index, page in enumerate(reader.pages, start=1):
             text = (page.extract_text() or "").strip()
@@ -147,6 +166,34 @@ class PDFParser:
                 noise_page_count += 1
 
             if use_ocr:
+                can_run_ocr = True
+                if self.skip_ocr:
+                    can_run_ocr = False
+                    ocr_skipped_count += 1
+                elif self.ocr_first_pages is not None and page_index > self.ocr_first_pages:
+                    can_run_ocr = False
+                    ocr_limit_count += 1
+                elif self.ocr_max_pages is not None and ocr_used_count >= self.ocr_max_pages:
+                    can_run_ocr = False
+                    ocr_limit_count += 1
+
+                if not can_run_ocr:
+                    parser_type = "pdf_ocr_skipped"
+                    text = self.clean_ocr_text(text)
+                    pages.append({
+                        "page_no": page_index,
+                        "text": text,
+                        "parser_type": parser_type,
+                    })
+                    if text:
+                        full_text_parts.append(text)
+                    print(
+                        f"[PDF OCR SKIP] file={path.as_posix()} page={page_index} "
+                        f"skip_ocr={self.skip_ocr} max_pages={self.ocr_max_pages} "
+                        f"first_pages={self.ocr_first_pages}"
+                    )
+                    continue
+
                 ocr_text, ocr_engine = self.ocr_page(path, page_index - 1)
 
                 if ocr_text:
@@ -180,6 +227,8 @@ class PDFParser:
                 "extracted with PDF text layer + EasyOCR fallback; "
                 f"ocr_pages={ocr_used_count}, "
                 f"text_layer_pages={text_layer_count}, "
-                f"noise_pages={noise_page_count}"
+                f"noise_pages={noise_page_count}, "
+                f"ocr_skipped_pages={ocr_skipped_count}, "
+                f"ocr_limited_pages={ocr_limit_count}"
             ),
         }

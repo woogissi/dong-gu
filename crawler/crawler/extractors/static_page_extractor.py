@@ -9,6 +9,7 @@ from urllib.parse import urljoin, urlparse, urldefrag
 
 from crawler.schemas.document_models import StaticPageRawDocument
 from crawler.extractors.image_text_extractor import ImageTextExtractor
+from crawler.utils.text_quality import is_binary_like_text
 
 import requests
 from bs4 import BeautifulSoup
@@ -26,10 +27,17 @@ KST = timezone(timedelta(hours=9))
 
 
 class StaticPageExtractor:
-    def __init__(self, allowed_hosts: set[str] | None = None):
+    def __init__(
+        self,
+        allowed_hosts: set[str] | None = None,
+        enable_image_ocr: bool = False,
+        timeout: tuple[float, float] = (5, 30),
+    ):
         self.session = requests.Session()
         self.session.headers.update(HEADERS)
         self.allowed_hosts = allowed_hosts or set()     #허용도메인
+        self.enable_image_ocr = enable_image_ocr
+        self.timeout = timeout
         self.image_text_extractor = ImageTextExtractor()
 
     def now_kst_iso(self) -> str:                       #현재 시각을 한국 시간 ISO 문자열로 반환
@@ -64,16 +72,30 @@ class StaticPageExtractor:
         url, _ = urldefrag(url)
         return url
 
+    def _response_text(self, res: requests.Response, url: str) -> str:
+        content_type = res.headers.get("content-type", "").lower()
+        if content_type and not any(
+            marker in content_type
+            for marker in ("text/html", "application/xhtml", "text/plain")
+        ):
+            raise ValueError(f"non-html static response: url={url} content_type={content_type}")
+
+        text = res.text
+        if is_binary_like_text(text[:2000]):
+            raise ValueError(f"binary-like static response: url={url} content_type={content_type or 'unknown'}")
+        return text
+
     def fetch(self, url: str) -> str:                       #정적 페이지 HTML을 실제로 가져오는 함수
         try:
-            res = self.session.get(url, timeout=60)
+            res = self.session.get(url, timeout=self.timeout)
             res.raise_for_status()
-            return res.text
+            return self._response_text(res, url)
         except requests.exceptions.SSLError:
-            if "lib.deu.ac.kr" in url and os.getenv("CRAWLER_ALLOW_INSECURE_SSL") == "1":
-                res = self.session.get(url, timeout=60, verify=False)       # 도서관 사이트 SSLhandshake failure 해결
+            insecure_ssl_hosts = ("lib.deu.ac.kr", "has.deu.ac.kr")
+            if any(host in url for host in insecure_ssl_hosts) and os.getenv("CRAWLER_ALLOW_INSECURE_SSL") == "1":
+                res = self.session.get(url, timeout=self.timeout, verify=False)       # 도서관 사이트 SSLhandshake failure 해결
                 res.raise_for_status()
-                return res.text
+                return self._response_text(res, url)
             raise
 
     def make_doc_id(self, url: str) -> str:
@@ -229,7 +251,14 @@ class StaticPageExtractor:
         raw_text = self.normalize_multiline_text(content_node.get_text("\n", strip=True)) if content_node else ""
         table_text = self.extract_table_text(content_node)
         image_urls = self.extract_image_urls(content_node, page_url)
-        image_texts = self.image_text_extractor.extract_many(image_urls)
+        image_texts = (
+            self.image_text_extractor.extract_many(image_urls)
+            if self.enable_image_ocr
+            else [
+                {"image_index": idx, "image_url": image_url, "image_text": ""}
+                for idx, image_url in enumerate(image_urls, start=1)
+            ]
+        )
         outgoing_links = self.extract_internal_links(content_node, page_url)
         merged_image_text = "\n\n".join(
             item["image_text"] for item in image_texts if item.get("image_text")

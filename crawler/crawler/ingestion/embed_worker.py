@@ -22,11 +22,11 @@ class EmbeddingWorker:
 
         return vector.tolist()                                          # numpy배열에서 python 기본 리스트로 변환
 
-    def embed_chunks(self, chunks: list[dict]) -> list[dict]:           # chunk 여러 개를 한 번에 임베딩하는 함수
+    def embed_chunks(self, chunks: list[dict], batch_size: int = 32) -> list[dict]:           # chunk 여러 개를 한 번에 임베딩하는 함수
         embedded_chunks = []
 
         texts = [f"passage: {c['content']}" for c in chunks]            # 각 chunk의 content를 꺼내서 전부 passage: prefix를 붙임
-        vectors = self.model.encode(texts, normalize_embeddings=True)   # 임베딩 생성
+        vectors = self.model.encode(texts, normalize_embeddings=True, batch_size=batch_size)   # 임베딩 생성
 
         for chunk, vector in zip(chunks, vectors):                      # 첫번째 청크와 첫번째 벡터끼리 묶기
             embedded_chunks.append({

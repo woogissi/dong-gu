@@ -304,7 +304,8 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
             chunks.content,
             chunks.content_length,
             chunks.content_hash,
-            chunks.version,
+            document_versions.version,
+            chunks.document_version_id,
             chunks.metadata AS chunk_metadata,
             documents.title,
             documents.source_url,
@@ -316,6 +317,7 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
             to_tsvector('simple', coalesce(documents.title, '') || ' ' || coalesce(chunks.content, '')) AS search_vector
         FROM chunks
         JOIN documents ON documents.doc_id = chunks.doc_id
+        LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
     """
 
     filter_clause, filter_params = _build_db_filter_conditions(request)
@@ -335,6 +337,7 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
         content_length,
         content_hash,
         version,
+        document_version_id,
         chunk_metadata,
         title,
         source_url,
@@ -416,6 +419,7 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
                     "content_length": row["content_length"],
                     "content_hash": row["content_hash"],
                     "version": row["version"],
+                    "document_version_id": row["document_version_id"],
                 },
             )
         )
