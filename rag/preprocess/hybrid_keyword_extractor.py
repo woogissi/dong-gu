@@ -26,6 +26,7 @@ _MAX_KEYWORDS = 12
 _KIWI_CLASS = _KiwiClass
 _KIWI_CALL_COUNT = 0
 _KIWI_CACHE: OrderedDict[str, tuple[str, ...]] = OrderedDict()
+_KIWI_TOKEN_TERM_CACHE: OrderedDict[str, tuple[str, ...]] = OrderedDict()
 _STATE_LOCK = threading.RLock()
 _PARTICLE_SUFFIX_RE = re.compile(r"(은|는|이|가|을|를|에|의|로|으로|에서|부터|까지|도|만|와|과|랑|하고)$")
 _TOKEN_RE = re.compile(r"[가-힣A-Za-z0-9]+")
@@ -42,6 +43,7 @@ _CANDIDATE_STOPWORDS = {
     "경우",
 }
 _NOUN_TAG_PREFIXES = ("NNG", "NNP", "SL", "SN")
+_TOKEN_TERM_TAG_PREFIXES = (*_NOUN_TAG_PREFIXES, "VV", "VA")
 
 
 @dataclass(frozen=True)
@@ -143,9 +145,32 @@ def extract_kiwi_candidates(text: str, *, text_id: str | None = None) -> tuple[l
     return candidates, False
 
 
+def extract_kiwi_token_terms(text: str, *, text_id: str | None = None) -> tuple[list[str], bool]:
+    if not text or not _kiwi_available():
+        return [], False
+
+    cache_key = _cache_key(text, text_id)
+    with _STATE_LOCK:
+        cached = _KIWI_TOKEN_TERM_CACHE.get(cache_key)
+        if cached is not None:
+            _KIWI_TOKEN_TERM_CACHE.move_to_end(cache_key)
+            return list(cached), True
+
+    terms = _analyze_token_terms_with_kiwi(text)
+    with _STATE_LOCK:
+        cached = _KIWI_TOKEN_TERM_CACHE.get(cache_key)
+        if cached is not None:
+            _KIWI_TOKEN_TERM_CACHE.move_to_end(cache_key)
+            return list(cached), True
+        _KIWI_TOKEN_TERM_CACHE[cache_key] = tuple(terms)
+        _trim_cache()
+    return terms, False
+
+
 def clear_kiwi_cache() -> None:
     with _STATE_LOCK:
         _KIWI_CACHE.clear()
+        _KIWI_TOKEN_TERM_CACHE.clear()
     _get_kiwi.cache_clear()
     _get_max_cache_size.cache_clear()
     reset_kiwi_call_count()
@@ -153,7 +178,11 @@ def clear_kiwi_cache() -> None:
 
 def get_kiwi_cache_info() -> dict[str, int]:
     with _STATE_LOCK:
-        return {"size": len(_KIWI_CACHE), "kiwi_calls": _KIWI_CALL_COUNT}
+        return {
+            "size": len(_KIWI_CACHE),
+            "token_term_size": len(_KIWI_TOKEN_TERM_CACHE),
+            "kiwi_calls": _KIWI_CALL_COUNT,
+        }
 
 
 def reset_kiwi_call_count() -> None:
@@ -190,6 +219,26 @@ def _analyze_with_kiwi(text: str) -> list[str]:
 
     _flush_noun_run(noun_run, candidates)
     return _ordered_unique(candidates)
+
+
+def _analyze_token_terms_with_kiwi(text: str) -> list[str]:
+    global _KIWI_CALL_COUNT
+    kiwi = _get_kiwi()
+    if kiwi is None:
+        return []
+
+    with _STATE_LOCK:
+        _KIWI_CALL_COUNT += 1
+
+    terms: list[str] = []
+    for token in kiwi.tokenize(text):
+        form = _normalize_candidate(getattr(token, "form", ""))
+        tag = str(getattr(token, "tag", ""))
+        if not form or form in _CANDIDATE_STOPWORDS:
+            continue
+        if tag.startswith(_TOKEN_TERM_TAG_PREFIXES):
+            terms.append(form)
+    return _ordered_unique(terms)
 
 
 def _flush_noun_run(noun_run: list[str], candidates: list[str]) -> None:
@@ -275,6 +324,8 @@ def _trim_cache() -> None:
     max_size = _get_max_cache_size()
     while len(_KIWI_CACHE) > max_size:
         _KIWI_CACHE.popitem(last=False)
+    while len(_KIWI_TOKEN_TERM_CACHE) > max_size:
+        _KIWI_TOKEN_TERM_CACHE.popitem(last=False)
 
 
 @lru_cache(maxsize=1)

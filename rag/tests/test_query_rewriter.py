@@ -1,11 +1,37 @@
 import unittest
+from dataclasses import dataclass
 
+from rag.preprocess import hybrid_keyword_extractor as hybrid
 from rag.preprocess.query_rewriter import RewrittenQuery, rewrite_queries, rewrite_query
 from rag.pipeline.preprocessor import QueryPreprocessor
 from rag.pipeline.state import PipelineState
 
 
+@dataclass(frozen=True)
+class FakeKiwiToken:
+    form: str
+    tag: str
+
+
+class FakeKiwi:
+    def tokenize(self, text: str) -> list[FakeKiwiToken]:
+        if "확인할" in text:
+            return [
+                FakeKiwiToken("등록금", "NNG"),
+                FakeKiwiToken("확인", "VV"),
+                FakeKiwiToken("있", "VA"),
+            ]
+        return []
+
+
 class QueryRewriterTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self._previous_kiwi_class = hybrid._KIWI_CLASS
+
+    def tearDown(self) -> None:
+        hybrid._KIWI_CLASS = self._previous_kiwi_class
+        hybrid.clear_kiwi_cache()
+
     def test_leave_period_does_not_add_return_process(self) -> None:
         # 반환 예시:
         # RewrittenQuery(
@@ -51,6 +77,16 @@ class QueryRewriterTest(unittest.TestCase):
         self.assertIn("조회", result.keyword_query)
         self.assertIn("선발결과", result.keyword_query)
         self.assertIn("지급일", result.keyword_query)
+
+    def test_kiwi_verb_stem_can_drive_intent_detection(self) -> None:
+        hybrid._KIWI_CLASS = FakeKiwi
+        hybrid.clear_kiwi_cache()
+
+        result = rewrite_query("등록금 확인할 수 있나요", keywords=["등록금"])
+
+        self.assertEqual(result.intent, "확인")
+        self.assertIn("등록금", result.entities)
+        self.assertIn("납부금액", result.keyword_query)
 
     def test_academic_notice_does_not_trigger_course_expansion_by_substring(self) -> None:
         result = rewrite_query("학사공지 어디서 봐?", keywords=["학사", "학사공지", "어디"])

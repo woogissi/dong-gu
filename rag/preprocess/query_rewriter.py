@@ -11,7 +11,10 @@ from dataclasses import asdict, dataclass, field
 from typing import Iterable
 
 from rag.preprocess.domain_knowledge import ENTITY_LEXICON
-from rag.preprocess.hybrid_keyword_extractor import extract_kiwi_candidates
+from rag.preprocess.hybrid_keyword_extractor import (
+    extract_kiwi_candidates,
+    extract_kiwi_token_terms,
+)
 
 
 @dataclass(frozen=True)
@@ -43,6 +46,8 @@ _FILLERS = {
     "뭐야",
     "뭐",
     "무엇",
+    "무슨",
+    "어떤",
     "어떻게해",
     "어떻게",
     "언제야",
@@ -55,6 +60,10 @@ _FILLERS = {
     "요",
     "해",
     "주세요",
+    "알려줄래",
+    "가능해",
+    "있나요",
+    "있어",
 }
 
 _INTENT_TRIGGERS: dict[str, tuple[str, ...]] = {
@@ -114,14 +123,50 @@ _GENERIC_INTENT_EXPANSIONS: dict[str, tuple[str, ...]] = {
     "서류": ("서류", "제출서류"),
 }
 
-_CONDITIONAL_EXPANSIONS: dict[tuple[str, str], tuple[str, ...]] = {
-    ("방법", "휴학"): ("신청", "절차", "제출처", "필요서류"),
-    ("신청", "휴학"): ("신청", "접수", "제출처", "필요서류"),
-    ("기간", "휴학"): ("신청기간", "일정", "마감일"),
-    ("확인", "장학금"): ("조회", "선발결과", "지급일"),
-    ("확인", "장학"): ("조회", "선발결과", "지급일"),
-    ("확인", "등록금"): ("고지서", "조회", "납부금액"),
-    ("확인", "고지서"): ("고지서", "조회", "납부금액"),
+_ENTITY_GROUPS: dict[str, tuple[str, ...]] = {
+    "장학": ("장학금", "장학"),
+    "등록": ("등록금", "고지서"),
+}
+
+
+@dataclass(frozen=True)
+class _ExpansionRule:
+    intents: tuple[str, ...]
+    entities: tuple[str, ...] = ()
+    entity_groups: tuple[str, ...] = ()
+    expansions: tuple[str, ...] = ()
+
+
+_CONDITIONAL_EXPANSION_RULES: tuple[_ExpansionRule, ...] = (
+    _ExpansionRule(
+        intents=("방법",),
+        entities=("휴학",),
+        expansions=("신청", "절차", "제출처", "필요서류"),
+    ),
+    _ExpansionRule(
+        intents=("신청",),
+        entities=("휴학",),
+        expansions=("신청", "접수", "제출처", "필요서류"),
+    ),
+    _ExpansionRule(
+        intents=("기간",),
+        entities=("휴학",),
+        expansions=("신청기간", "일정", "마감일"),
+    ),
+    _ExpansionRule(
+        intents=("확인",),
+        entity_groups=("장학",),
+        expansions=("조회", "선발결과", "지급일"),
+    ),
+    _ExpansionRule(
+        intents=("확인",),
+        entity_groups=("등록",),
+        expansions=("고지서", "조회", "납부금액"),
+    ),
+)
+
+_EXPANSIONS_REQUIRING_SOURCE_TERM: dict[str, str] = {
+    "납부방법": "납부",
 }
 
 
@@ -191,11 +236,14 @@ class _TokenInfo:
     @classmethod
     def from_text(cls, text: str) -> "_TokenInfo":
         raw_tokens = tuple(token.lower() for token in _TOKEN_RE.findall(text))
-        normalized = tuple(_normalize_token(token) for token in raw_tokens)
+        regex_normalized = tuple(_normalize_token(token) for token in raw_tokens)
+        kiwi_terms, _ = extract_kiwi_token_terms(text)
+        normalized = tuple(_ordered_unique((*regex_normalized, *kiwi_terms)))
+        content_source = kiwi_terms or normalized
         content = tuple(
-            dict.fromkeys(
+            _ordered_unique(
                 token
-                for token in normalized
+                for token in content_source
                 if token and token not in _FILLERS and not _is_weak_token(token)
             )
         )
@@ -325,15 +373,34 @@ def _safe_keywords(keywords: list[str], token_info: _TokenInfo) -> list[str]:
 
 def _conditional_expansions(query: str, intent: str, entities: list[str]) -> list[str]:
     expansions: list[str] = []
-    for entity in entities:
-        expansions.extend(_CONDITIONAL_EXPANSIONS.get((intent, entity), ()))
+    entity_set = set(entities)
+    for rule in _CONDITIONAL_EXPANSION_RULES:
+        if intent not in rule.intents:
+            continue
+        if not _expansion_rule_matches_entities(rule, entity_set):
+            continue
+        expansions.extend(rule.expansions)
 
-    # Negative constraint: 원문에 납부 의도가 없으면 납부방법을 만들지 않는다.
+    # Negative constraint: 원문에 근거 토큰이 없으면 해당 확장을 만들지 않는다.
     token_set = _TokenInfo.from_text(query).token_set
-    if "납부" not in token_set:
-        expansions = [term for term in expansions if term != "납부방법"]
+    expansions = [
+        term
+        for term in expansions
+        if _has_required_source_term(term, token_set)
+    ]
 
-    return expansions
+    return _ordered_unique(expansions)
+
+
+def _has_required_source_term(expansion: str, token_set: set[str]) -> bool:
+    required = _EXPANSIONS_REQUIRING_SOURCE_TERM.get(expansion)
+    return required is None or required in token_set
+
+
+def _expansion_rule_matches_entities(rule: _ExpansionRule, entities: set[str]) -> bool:
+    if entities.intersection(rule.entities):
+        return True
+    return any(entities.intersection(_ENTITY_GROUPS.get(group, ())) for group in rule.entity_groups)
 
 
 def _entity_terms(entities: list[str]) -> list[str]:
@@ -369,12 +436,13 @@ def _noun_only_terms(query: str) -> list[str]:
 
 def _drop_subsumed_terms(terms: list[str]) -> list[str]:
     ordered = _ordered_unique(terms)
+    by_length = sorted(ordered, key=len, reverse=True)
     kept: list[str] = []
-    for term in ordered:
-        if any(term != other and term in other for other in ordered if len(other) > len(term)):
+    for term in by_length:
+        if any(term != other and term in other for other in kept):
             continue
         kept.append(term)
-    return kept
+    return sorted(kept, key=ordered.index)
 
 
 def _is_weak_token(token: str) -> bool:
