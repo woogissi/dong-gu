@@ -6,6 +6,7 @@ from typing import Any
 from psycopg2.extras import RealDictCursor
 
 from crawler.ingestion.pgvector_loader import PGVectorLoader
+from crawler.state.crawler_state_store import CrawlerStateStore
 
 
 CHECK_SQL = """
@@ -171,6 +172,139 @@ SELECT jsonb_build_object(
 """
 
 
+RETRY_CANDIDATE_QUERIES = {
+    "discovered_but_not_seeded": """
+        SELECT
+          NULL::text AS doc_id,
+          url,
+          source_type,
+          page_kind,
+          NULL::text AS file_path,
+          'discovery'::text AS stage,
+          'discovered_but_not_seeded'::text AS reason,
+          jsonb_build_object(
+            'dynamic_seed_id', id,
+            'confidence', confidence,
+            'pattern_reason', pattern_reason,
+            'discovered_from', discovered_from
+          ) AS context
+        FROM crawler_dynamic_seeds
+        WHERE status = 'candidate'
+        ORDER BY confidence DESC, updated_at DESC
+        LIMIT %s;
+    """,
+    "seeded_but_not_crawled": """
+        SELECT
+          doc_id,
+          url,
+          source_type,
+          page_kind,
+          NULL::text AS file_path,
+          'crawl'::text AS stage,
+          'seeded_but_not_crawled'::text AS reason,
+          jsonb_build_object('status', status) AS context
+        FROM crawler_documents
+        WHERE status = 'SEEDED'
+        ORDER BY updated_at ASC
+        LIMIT %s;
+    """,
+    "crawled_but_not_parsed": """
+        SELECT
+          doc_id,
+          url,
+          source_type,
+          page_kind,
+          artifact_paths->>'raw_json' AS file_path,
+          'parse'::text AS stage,
+          'crawled_but_not_parsed'::text AS reason,
+          jsonb_build_object('status', status, 'artifact_paths', artifact_paths) AS context
+        FROM crawler_documents
+        WHERE status = 'CRAWLED'
+        ORDER BY updated_at ASC
+        LIMIT %s;
+    """,
+    "parsed_but_not_chunked": """
+        SELECT
+          doc_id,
+          url,
+          source_type,
+          page_kind,
+          artifact_paths->>'curated_json' AS file_path,
+          'chunking'::text AS stage,
+          'parsed_but_not_chunked'::text AS reason,
+          jsonb_build_object('status', status, 'artifact_paths', artifact_paths) AS context
+        FROM crawler_documents
+        WHERE status = 'PARSED'
+        ORDER BY updated_at ASC
+        LIMIT %s;
+    """,
+    "chunked_but_not_embedded": """
+        SELECT DISTINCT ON (c.doc_id)
+          c.doc_id,
+          d.source_url AS url,
+          d.source_type,
+          d.page_kind,
+          NULL::text AS file_path,
+          'vector_ingestion'::text AS stage,
+          'chunked_but_not_embedded'::text AS reason,
+          jsonb_build_object('chunk_id', c.chunk_id) AS context
+        FROM chunks c
+        LEFT JOIN chunk_embeddings e ON c.chunk_id = e.chunk_id
+        LEFT JOIN documents d ON c.doc_id = d.doc_id
+        WHERE e.chunk_id IS NULL
+        ORDER BY c.doc_id, c.updated_at DESC
+        LIMIT %s;
+    """,
+    "attachment_missing": """
+        SELECT
+          a.doc_id,
+          coalesce(a.file_url, d.source_url) AS url,
+          d.source_type,
+          d.page_kind,
+          a.saved_path AS file_path,
+          'file_parse'::text AS stage,
+          'attachment_missing'::text AS reason,
+          jsonb_build_object(
+            'asset_id', a.id,
+            'file_name', a.file_name,
+            'file_url', a.file_url,
+            'parser_type', a.parser_type
+          ) AS context
+        FROM document_assets a
+        LEFT JOIN document_contents c
+          ON c.asset_id = a.id
+         AND c.content_type = 'attachment'
+         AND length(btrim(c.content)) > 0
+        LEFT JOIN documents d ON d.doc_id = a.doc_id
+        WHERE a.asset_type = 'attachment'
+          AND c.asset_id IS NULL
+        ORDER BY a.id DESC
+        LIMIT %s;
+    """,
+    "failed_extractor": """
+        SELECT
+          doc_id,
+          coalesce(file_url, url) AS url,
+          source_type,
+          NULL::text AS page_kind,
+          file_path,
+          stage,
+          'failed_extractor'::text AS reason,
+          jsonb_build_object(
+            'crawl_log_id', id,
+            'error_type', error_type,
+            'error_message', left(error_message, 240),
+            'context', context
+          ) AS context
+        FROM crawl_logs
+        WHERE error_type IS NOT NULL
+          AND stage IN ('static_page', 'board_list', 'board_detail', 'attachment_download', 'file_parse')
+        ORDER BY created_at DESC
+        LIMIT %s;
+    """,
+}
+
+
 def fetch_check() -> dict[str, Any]:
     loader = PGVectorLoader()
     try:
@@ -180,6 +314,33 @@ def fetch_check() -> dict[str, Any]:
             return dict(row["rag_check"])
     finally:
         loader.close()
+
+
+def create_retry_queue(limit_per_reason: int) -> dict[str, int]:
+    state_store = CrawlerStateStore()
+    inserted_counts = {reason: 0 for reason in RETRY_CANDIDATE_QUERIES}
+    try:
+        state_store.ensure_tables()
+        with state_store.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            for reason, sql in RETRY_CANDIDATE_QUERIES.items():
+                cur.execute(sql, (limit_per_reason,))
+                for row in cur.fetchall():
+                    item = dict(row)
+                    inserted = state_store.enqueue_retry(
+                        doc_id=item.get("doc_id"),
+                        url=item.get("url"),
+                        source_type=item.get("source_type"),
+                        page_kind=item.get("page_kind"),
+                        file_path=item.get("file_path"),
+                        stage=item["stage"],
+                        reason=item["reason"],
+                        context=item.get("context") or {},
+                    )
+                    if inserted:
+                        inserted_counts[reason] += 1
+        return inserted_counts
+    finally:
+        state_store.close()
 
 
 def pct(part: int, total: int) -> float:
@@ -244,7 +405,7 @@ def print_rows(rows: list[dict[str, Any]], empty_message: str) -> None:
         print(f"- {row}")
 
 
-def print_report(result: dict[str, Any]) -> None:
+def print_report(result: dict[str, Any], retry_queue_counts: dict[str, int] | None = None) -> None:
     verdict, issues = evaluate(result)
     summary = result["summary"]
     contents = result["contents"]
@@ -299,6 +460,13 @@ def print_report(result: dict[str, Any]) -> None:
     print()
     print("## 최근 crawl_logs")
     print_rows(result["crawl_log_samples"], "최근 crawl log 없음")
+    if retry_queue_counts is not None:
+        print()
+        print("## Retry Queue 생성")
+        print_rows(
+            [{"reason": reason, "inserted": count} for reason, count in retry_queue_counts.items()],
+            "생성된 retry queue 없음",
+        )
 
 
 def parse_args() -> argparse.Namespace:
@@ -310,6 +478,17 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Exit non-zero when the result is partial or abnormal.",
     )
+    parser.add_argument(
+        "--create-retry-queue",
+        action="store_true",
+        help="Create bounded crawler_retry_queue entries from detected pipeline gaps.",
+    )
+    parser.add_argument(
+        "--retry-limit-per-reason",
+        type=int,
+        default=100,
+        help="Maximum retry queue entries to inspect per reason.",
+    )
     return parser.parse_args()
 
 
@@ -317,7 +496,10 @@ def main() -> None:
     args = parse_args()
     result = fetch_check()
     verdict, _ = evaluate(result)
-    print_report(result)
+    retry_queue_counts = None
+    if args.create_retry_queue:
+        retry_queue_counts = create_retry_queue(args.retry_limit_per_reason)
+    print_report(result, retry_queue_counts=retry_queue_counts)
     if args.fail_on_partial and verdict != "정상":
         raise SystemExit(1)
 

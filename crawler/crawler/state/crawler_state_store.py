@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from decimal import Decimal
 from typing import Any
 from urllib.parse import urldefrag
 
@@ -66,14 +67,23 @@ CREATE TABLE IF NOT EXISTS crawler_retry_queue (
   id bigserial PRIMARY KEY,
   doc_id text,
   url text,
+  source_type text,
+  page_kind text,
+  file_path text,
   stage text NOT NULL,
   reason text NOT NULL,
   retry_count integer NOT NULL DEFAULT 0,
   next_retry_at timestamptz,
   status text NOT NULL DEFAULT 'pending',
+  context jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS source_type text;
+ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS page_kind text;
+ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS file_path text;
+ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS context jsonb NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE INDEX IF NOT EXISTS idx_crawler_retry_queue_status
 ON crawler_retry_queue(status);
@@ -81,6 +91,8 @@ CREATE INDEX IF NOT EXISTS idx_crawler_retry_queue_next_retry_at
 ON crawler_retry_queue(next_retry_at);
 CREATE INDEX IF NOT EXISTS idx_crawler_retry_queue_stage
 ON crawler_retry_queue(stage);
+CREATE INDEX IF NOT EXISTS idx_crawler_retry_queue_source_type
+ON crawler_retry_queue(source_type);
 
 ALTER TABLE crawler_documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE crawler_dynamic_seeds ENABLE ROW LEVEL SECURITY;
@@ -123,6 +135,18 @@ def dynamic_seed_row_to_seed(row: dict[str, Any]) -> dict[str, Any]:
         "confidence": float(row["confidence"]),
         "pattern_reason": row.get("pattern_reason"),
     }
+
+
+def json_safe(value: Any) -> Any:
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {key: json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [json_safe(item) for item in value]
+    return value
 
 
 class CrawlerStateStore:
@@ -318,5 +342,132 @@ class CrawlerStateStore:
                   updated_at = now();
                 """,
                 params,
+            )
+        self.commit()
+
+    def enqueue_retry(
+        self,
+        *,
+        stage: str,
+        reason: str,
+        doc_id: str | None = None,
+        url: str | None = None,
+        source_type: str | None = None,
+        page_kind: str | None = None,
+        file_path: str | None = None,
+        context: dict[str, Any] | None = None,
+        next_retry_at: str | None = None,
+    ) -> bool:
+        params = {
+            "doc_id": doc_id,
+            "url": url,
+            "source_type": source_type,
+            "page_kind": page_kind,
+            "file_path": file_path,
+            "stage": stage,
+            "reason": reason,
+            "next_retry_at": next_retry_at,
+            "context": Json(json_safe(context or {})),
+        }
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO crawler_retry_queue (
+                  doc_id,
+                  url,
+                  source_type,
+                  page_kind,
+                  file_path,
+                  stage,
+                  reason,
+                  next_retry_at,
+                  context,
+                  updated_at
+                )
+                SELECT
+                  %(doc_id)s,
+                  %(url)s,
+                  %(source_type)s,
+                  %(page_kind)s,
+                  %(file_path)s,
+                  %(stage)s,
+                  %(reason)s,
+                  NULLIF(%(next_retry_at)s, '')::timestamptz,
+                  %(context)s::jsonb,
+                  now()
+                WHERE NOT EXISTS (
+                  SELECT 1
+                  FROM crawler_retry_queue
+                  WHERE status = 'pending'
+                    AND stage = %(stage)s
+                    AND reason = %(reason)s
+                    AND coalesce(doc_id, '') = coalesce(%(doc_id)s, '')
+                    AND coalesce(url, '') = coalesce(%(url)s, '')
+                );
+                """,
+                params,
+            )
+            inserted = cur.rowcount > 0
+        self.commit()
+        return inserted
+
+    def list_retry_targets(
+        self,
+        *,
+        stages: list[str],
+        limit: int,
+        pending_only: bool = True,
+    ) -> list[dict[str, Any]]:
+        status_clause = "AND status = 'pending'" if pending_only else ""
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                f"""
+                SELECT
+                  id,
+                  stage,
+                  reason,
+                  source_type,
+                  page_kind,
+                  doc_id,
+                  url,
+                  file_path,
+                  retry_count,
+                  context
+                FROM crawler_retry_queue
+                WHERE stage = ANY(%s)
+                  {status_clause}
+                  AND (next_retry_at IS NULL OR next_retry_at <= now())
+                ORDER BY created_at ASC
+                LIMIT %s;
+                """,
+                (stages, limit),
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+    def mark_retry_done(self, retry_id: int) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE crawler_retry_queue
+                SET status = 'done',
+                    updated_at = now()
+                WHERE id = %s;
+                """,
+                (retry_id,),
+            )
+        self.commit()
+
+    def mark_retry_failed(self, retry_id: int, error: Exception) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE crawler_retry_queue
+                SET retry_count = retry_count + 1,
+                    status = 'pending',
+                    context = context || jsonb_build_object('last_error', %s),
+                    updated_at = now()
+                WHERE id = %s;
+                """,
+                (str(error), retry_id),
             )
         self.commit()

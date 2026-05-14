@@ -1,13 +1,16 @@
 import tempfile
 import unittest
+from decimal import Decimal
 from pathlib import Path
 
+from crawler.run.run_retry_failed_documents import RetryTarget
 from crawler.run.run_full_pipeline import merge_dynamic_board_seeds
 from crawler.run.scan_existing_artifacts import infer_artifact_state
 from crawler.state.crawler_state_store import (
     canonicalize_url,
     confidence_for_reason,
     dynamic_seed_row_to_seed,
+    json_safe,
 )
 
 
@@ -78,6 +81,29 @@ class CrawlerStateStoreTest(unittest.TestCase):
         merged = merge_dynamic_board_seeds([static_seed], [dynamic_duplicate, dynamic_new])
 
         self.assertEqual([seed["name"] for seed in merged], ["deu_notice", "dynamic_1"])
+
+    def test_json_safe_converts_decimal_values(self) -> None:
+        self.assertEqual(json_safe({"confidence": Decimal("0.85")}), {"confidence": 0.85})
+
+    def test_retry_target_accepts_queue_fields(self) -> None:
+        target = RetryTarget.from_row(
+            {
+                "id": 7,
+                "queue_id": 7,
+                "stage": "vector_ingestion",
+                "source_type": "notice",
+                "doc_id": "doc1",
+                "url": "https://www.deu.ac.kr",
+                "error_type": "chunked_but_not_embedded",
+                "error_message": None,
+                "reason": "chunked_but_not_embedded",
+                "file_path": "crawler/data/rag_ready/chunks/notice/doc1.json",
+            }
+        )
+
+        self.assertEqual(target.queue_id, 7)
+        self.assertEqual(target.reason, "chunked_but_not_embedded")
+        self.assertEqual(target.file_path, "crawler/data/rag_ready/chunks/notice/doc1.json")
 
 
 if __name__ == "__main__":
