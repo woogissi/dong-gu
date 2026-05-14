@@ -59,11 +59,12 @@ class BoardDetailExtractor(BaseExtractor):
     def extract_article_no(self, url: str) -> str | None:       # 게시글 번호 뽑기
         parsed = urlparse(url)
         qs = parse_qs(parsed.query)
-        article_no = qs.get("articleNo", [None])[0]             # ex) mode=view&articleNo=79040 -> mode=view&articleNo=79040
-        if article_no:
-            return article_no
+        for key in ("articleNo", "id", "seq", "post", "post_id", "articleId", "boardId"):
+            value = qs.get(key, [None])[0]
+            if value:
+                return value
 
-        match = re.search(r"articleNo=(\d+)", url)
+        match = re.search(r"(?:articleNo|id|seq|post|post_id|articleId|boardId)=([A-Za-z0-9_-]+)", url)
         return match.group(1) if match else None
 
     def make_doc_id(self, source_type: str, article_no: str) -> str:    # 문서 고유 ID 생성 = source_type + article_no

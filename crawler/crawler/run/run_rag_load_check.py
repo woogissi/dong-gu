@@ -326,21 +326,28 @@ def create_retry_queue(limit_per_reason: int) -> dict[str, int]:
                 cur.execute(sql, (limit_per_reason,))
                 for row in cur.fetchall():
                     item = dict(row)
+                    enqueue_args = retry_candidate_to_enqueue_args(item)
                     inserted = state_store.enqueue_retry(
-                        doc_id=item.get("doc_id"),
-                        url=item.get("url"),
-                        source_type=item.get("source_type"),
-                        page_kind=item.get("page_kind"),
-                        file_path=item.get("file_path"),
-                        stage=item["stage"],
-                        reason=item["reason"],
-                        context=item.get("context") or {},
+                        **enqueue_args,
                     )
                     if inserted:
                         inserted_counts[reason] += 1
         return inserted_counts
     finally:
         state_store.close()
+
+
+def retry_candidate_to_enqueue_args(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "doc_id": item.get("doc_id"),
+        "url": item.get("url"),
+        "source_type": item.get("source_type"),
+        "page_kind": item.get("page_kind"),
+        "file_path": item.get("file_path"),
+        "stage": item["stage"],
+        "reason": item["reason"],
+        "context": item.get("context") or {},
+    }
 
 
 def pct(part: int, total: int) -> float:

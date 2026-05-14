@@ -225,6 +225,38 @@ class StaticPageExtractor(BaseExtractor):
 
         return sorted(set(urls))        #중복검사
 
+    def extract_attachments(self, content_node, page_url: str) -> list[dict]:
+        if not content_node:
+            return []
+
+        file_exts = (
+            ".pdf", ".hwp", ".hwpx", ".doc", ".docx", ".xls", ".xlsx",
+            ".ppt", ".pptx", ".zip", ".jpg", ".jpeg", ".png"
+        )
+        attachments = []
+        for idx, a_tag in enumerate(content_node.find_all("a", href=True), start=1):
+            href = a_tag["href"].strip()
+            href_lower = href.lower()
+            link_text = self.normalize_text(a_tag.get_text(" ", strip=True))
+            is_attachment = (
+                "download" in href_lower
+                or "file" in href_lower
+                or any(href_lower.endswith(ext) for ext in file_exts)
+                or "첨부" in link_text
+                or "다운로드" in link_text
+            )
+            if not is_attachment:
+                continue
+            full_url = urljoin(page_url, href)
+            attachments.append(
+                {
+                    "attachment_index": len(attachments) + 1,
+                    "file_name": link_text or full_url.rsplit("/", 1)[-1],
+                    "file_url": full_url,
+                }
+            )
+        return attachments
+
     def extract_internal_links(self, content_node, page_url: str) -> list[str]:     # 본문 안 내부 url 수집
         if not content_node:
             return []
@@ -278,6 +310,7 @@ class StaticPageExtractor(BaseExtractor):
             ]
         )
         outgoing_links = self.extract_internal_links(content_node, page_url)
+        attachments = self.extract_attachments(content_node, page_url)
         merged_image_text = "\n\n".join(
             item["image_text"] for item in image_texts if item.get("image_text")
         ).strip()
@@ -306,7 +339,7 @@ class StaticPageExtractor(BaseExtractor):
         views=None,
         image_urls=image_urls,
         image_texts=image_texts,
-        attachments=[],
+        attachments=attachments,
         outgoing_links=outgoing_links,
         content_hash=hash,
         html=html,

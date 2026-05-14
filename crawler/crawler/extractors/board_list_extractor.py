@@ -30,12 +30,45 @@ class BoardListExtractor:
     def extract_article_no(self, url: str) -> str | None:               #게시글 번호 뽑기
         parsed = urlparse(url)                                          
         qs = parse_qs(parsed.query)                                     
-        article_no = qs.get("articleNo", [None])[0]                     #url에서 article 번호 뽑기
-        if article_no:
-            return article_no
+        for key in ("articleNo", "id", "seq", "post", "post_id", "articleId", "boardId"):
+            value = qs.get(key, [None])[0]
+            if value:
+                return value
 
-        match = re.search(r"articleNo=(\d+)", url)                      #fallback 못 찾으면 articleNo 다시 찾기
+        match = re.search(r"(?:articleNo|id|seq|post|post_id|articleId|boardId)=([A-Za-z0-9_-]+)", url)
         return match.group(1) if match else None
+
+    def extraction_strategy_for(self, full_url: str, href: str, onclick: str | None) -> str | None:
+        parsed = urlparse(full_url)
+        qs = parse_qs(parsed.query)
+        if qs.get("articleNo"):
+            return "articleNo"
+        for key in ("id", "seq", "post", "post_id", "articleId", "boardId"):
+            if qs.get(key):
+                return f"query_{key}"
+        if onclick and re.search(r"(?:view|detail)\s*\(", onclick, flags=re.IGNORECASE):
+            return "onclick_parser"
+        if re.search(r"\d", href):
+            return "regex_fallback"
+        return None
+
+    def detail_url_from_link(self, base_url: str, href: str, onclick: str | None = None) -> str:
+        if href and href.strip() and href.strip() != "#":
+            return urljoin(base_url, href)
+
+        onclick = onclick or ""
+        match = re.search(r"(?:view|detail)\s*\(([^)]*)\)", onclick, flags=re.IGNORECASE)
+        if not match:
+            return urljoin(base_url, href)
+
+        first_arg = match.group(1).split(",")[0].strip().strip("'\"")
+        if not first_arg:
+            return urljoin(base_url, href)
+
+        if re.match(r"https?://|/", first_arg):
+            return urljoin(base_url, first_arg)
+
+        return urljoin(base_url, f"?mode=view&id={first_arg}")
 
     def parse_rows(self, html: str, base_url: str) -> list[dict]:       #목록에서 각 게시글 뽑기
         soup = BeautifulSoup(html, "html.parser")
@@ -51,9 +84,11 @@ class BoardListExtractor:
                 continue
 
             href = a_tag["href"]
-            full_url = urljoin(base_url, href)
+            onclick = a_tag.get("onclick") or row.get("onclick")
+            full_url = self.detail_url_from_link(base_url, href, onclick)
+            extraction_strategy = self.extraction_strategy_for(full_url, href, onclick)
 
-            if "articleNo=" not in full_url:                            #articleNo가 있는 링크만 찾기(아니면 광고성 링크일 가능성)
+            if not extraction_strategy:
                 continue
 
             title = a_tag.get_text(" ", strip=True)                     #제목 뽑기
@@ -68,6 +103,7 @@ class BoardListExtractor:
                 "detail_url": full_url,
                 "published_at_hint": published_at,
                 "row_text": row_text,
+                "extraction_strategy": extraction_strategy,
             })
 
         # 중복 제거
@@ -75,6 +111,8 @@ class BoardListExtractor:
         for item in items:
             if item["article_no"]:
                 dedup[item["article_no"]] = item                        #같은 article_no가 있으면 마지막 받은걸로 덮어쓰기
+            else:
+                dedup[item["detail_url"]] = item
 
         return list(dedup.values())
 

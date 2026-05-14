@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from bs4 import BeautifulSoup
+
 from crawler.utils.http_client import build_retry_session
 
 
@@ -63,3 +65,15 @@ class BaseExtractor:
 class GenericExtractor(BaseExtractor):
     name = "generic"
     version = "1"
+
+    def extract_content(self, html: str) -> dict:
+        soup = BeautifulSoup(html, "html.parser")
+        for node in soup.select("script, style, nav, header, footer"):
+            node.decompose()
+        title = soup.title.get_text(" ", strip=True) if soup.title else ""
+        text = soup.get_text("\n", strip=True)
+        return {
+            "title": title,
+            "raw_text": text,
+            "extraction_strategy": "generic_fallback",
+        }

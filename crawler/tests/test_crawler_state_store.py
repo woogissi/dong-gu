@@ -3,6 +3,7 @@ import unittest
 from decimal import Decimal
 from pathlib import Path
 
+from crawler.run.run_rag_load_check import retry_candidate_to_enqueue_args
 from crawler.run.run_retry_failed_documents import RetryTarget
 from crawler.run.run_full_pipeline import merge_dynamic_board_seeds
 from crawler.run.scan_existing_artifacts import infer_artifact_state
@@ -62,6 +63,7 @@ class CrawlerStateStoreTest(unittest.TestCase):
 
             chunks.write_text("[]", encoding="utf-8")
             self.assertEqual(infer_artifact_state(raw, curated, chunks), "CHUNKED")
+            self.assertEqual(infer_artifact_state(raw, curated, chunks, embedded=True), "EMBEDDED")
 
     def test_merge_dynamic_board_seeds_keeps_static_seed_and_adds_new_urls(self) -> None:
         static_seed = {
@@ -104,6 +106,24 @@ class CrawlerStateStoreTest(unittest.TestCase):
         self.assertEqual(target.queue_id, 7)
         self.assertEqual(target.reason, "chunked_but_not_embedded")
         self.assertEqual(target.file_path, "crawler/data/rag_ready/chunks/notice/doc1.json")
+
+    def test_retry_candidate_to_enqueue_args_preserves_retry_reason(self) -> None:
+        args = retry_candidate_to_enqueue_args(
+            {
+                "doc_id": "doc1",
+                "url": "https://www.deu.ac.kr",
+                "source_type": "notice",
+                "page_kind": "board_detail",
+                "file_path": "chunks/notice/doc1.json",
+                "stage": "vector_ingestion",
+                "reason": "chunked_but_not_embedded",
+                "context": {"chunk_id": "chunk1"},
+            }
+        )
+
+        self.assertEqual(args["stage"], "vector_ingestion")
+        self.assertEqual(args["reason"], "chunked_but_not_embedded")
+        self.assertEqual(args["context"], {"chunk_id": "chunk1"})
 
 
 if __name__ == "__main__":

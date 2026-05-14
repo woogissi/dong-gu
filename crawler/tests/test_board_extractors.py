@@ -31,6 +31,32 @@ class BoardExtractorsTest(unittest.TestCase):
         self.assertEqual(result[0]["title_hint"], "학사 공지")
         self.assertEqual(result[0]["published_at_hint"], "2026-05-14")
         self.assertIn("articleNo=123", result[0]["detail_url"])
+        self.assertEqual(result[0]["extraction_strategy"], "articleNo")
+
+    def test_board_list_extracts_non_article_no_patterns(self) -> None:
+        html = """
+        <table>
+          <tr>
+            <td><a href="/board/view.do?id=abc123">id 기반 공지</a></td>
+            <td>2026-05-14</td>
+          </tr>
+          <tr>
+            <td><a href="#" onclick="detail('987')">onclick 공지</a></td>
+            <td>2026-05-13</td>
+          </tr>
+        </table>
+        """
+
+        result = BoardListExtractor().parse_rows(
+            html,
+            "https://www.deu.ac.kr/www/list.do?mode=list",
+        )
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["article_no"], "abc123")
+        self.assertEqual(result[0]["extraction_strategy"], "query_id")
+        self.assertEqual(result[1]["article_no"], "987")
+        self.assertEqual(result[1]["extraction_strategy"], "query_id")
 
     def test_board_detail_builds_raw_document_from_fixture(self) -> None:
         html = """
@@ -66,3 +92,13 @@ class BoardExtractorsTest(unittest.TestCase):
         self.assertIn("항목 | 내용", doc["table_text"])
         self.assertEqual(doc["attachments"][0]["file_name"], "첨부파일.hwp")
         self.assertIn("mode=download", doc["attachments"][0]["file_url"])
+
+    def test_board_detail_doc_id_uses_non_article_no_query_key(self) -> None:
+        doc = BoardDetailExtractor().build_raw_document(
+            source_type="notice",
+            detail_url="https://www.deu.ac.kr/board/view.do?post_id=post-77",
+            html="<html><body><main><h2>공지</h2><p>본문</p></main></body></html>",
+            title_hint="공지",
+        )
+
+        self.assertEqual(doc["doc_id"], "deu_notice_post-77")

@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
-from crawler.extractors.base import BaseExtractor
+from crawler.extractors.base import BaseExtractor, GenericExtractor
 from crawler.storage.document_store import DocumentStore
 
 
@@ -50,6 +50,21 @@ class DocumentStoreAndBaseExtractorTest(unittest.TestCase):
         self.assertEqual(metadata["final_url"], "https://www.deu.ac.kr/final")
         self.assertEqual(metadata["status_code"], 200)
         self.assertEqual(metadata["extractor_name"], "base")
+
+    def test_generic_extractor_fallback_extracts_title_and_text(self) -> None:
+        html = """
+        <html>
+          <head><title>Fallback Title</title><style>.x{}</style></head>
+          <body><nav>메뉴</nav><main><p>검색 가능한 본문</p></main></body>
+        </html>
+        """
+
+        result = GenericExtractor().extract_content(html)
+
+        self.assertEqual(result["title"], "Fallback Title")
+        self.assertIn("검색 가능한 본문", result["raw_text"])
+        self.assertNotIn("메뉴", result["raw_text"])
+        self.assertEqual(result["extraction_strategy"], "generic_fallback")
 
 
 if __name__ == "__main__":

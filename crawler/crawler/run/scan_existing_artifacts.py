@@ -16,7 +16,9 @@ def load_json(path: Path) -> dict:
     return data
 
 
-def infer_artifact_state(raw_path: Path, curated_path: Path, chunk_path: Path) -> str:
+def infer_artifact_state(raw_path: Path, curated_path: Path, chunk_path: Path, embedded: bool = False) -> str:
+    if embedded:
+        return "EMBEDDED"
     if chunk_path.exists():
         return "CHUNKED"
     if curated_path.exists():
