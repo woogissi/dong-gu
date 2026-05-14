@@ -2,6 +2,7 @@
 
 import json
 import argparse
+import os
 import time
 from pathlib import Path
 
@@ -141,6 +142,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--connect-timeout", type=float, default=5, help="HTTP connect timeout in seconds.")
     parser.add_argument("--read-timeout", type=float, default=30, help="HTTP read timeout in seconds.")
     parser.add_argument("--sleep", type=float, default=0.5, help="Delay between successful requests.")
+    parser.add_argument(
+        "--allow-insecure-ssl",
+        action="store_true",
+        help="Allow configured legacy DEU hosts to retry without SSL verification.",
+    )
     return parser.parse_args()
 
 
@@ -150,7 +156,11 @@ def main(
     enable_image_ocr: bool = False,
     timeout: tuple[float, float] = (5, 30),
     sleep_seconds: float = 0.5,
+    allow_insecure_ssl: bool = False,
 ):
+    if allow_insecure_ssl:
+        os.environ["CRAWLER_ALLOW_INSECURE_SSL"] = "1"
+
     frontier = FrontierManager(ALLOWED_HOSTS, max_depth=max_depth)
     extractor = StaticPageExtractor(
         allowed_hosts=ALLOWED_HOSTS,
@@ -226,4 +236,5 @@ if __name__ == "__main__":
         enable_image_ocr=bool(args.enable_image_ocr and not args.skip_image_ocr),
         timeout=(args.connect_timeout, args.read_timeout),
         sleep_seconds=args.sleep,
+        allow_insecure_ssl=args.allow_insecure_ssl,
     )

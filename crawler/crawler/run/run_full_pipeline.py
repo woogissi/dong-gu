@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import time
 from pathlib import Path
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -40,6 +41,7 @@ pgv_loader = None
 RUNTIME = {
     "enable_image_ocr": False,
     "timeout": (5, 30),
+    "sleep_seconds": 0.0,
 }
 
 
@@ -399,6 +401,8 @@ def run_board_pipeline(
                     processed_count += 1
 
                     print(f"[OK] saved {raw_doc['doc_id']}")
+                    if RUNTIME["sleep_seconds"] > 0:
+                        time.sleep(RUNTIME["sleep_seconds"])
 
                 except Exception as e:
                     message = f"[DETAIL ERROR] source={source_type} url={item['detail_url']} error={e}"
@@ -483,6 +487,8 @@ def run_static_pipeline(static_urls: list[dict], workers: int = 1) -> None:
     if workers <= 1:
         for item in static_urls:
             process_static_seed(item)
+            if RUNTIME["sleep_seconds"] > 0:
+                time.sleep(RUNTIME["sleep_seconds"])
         return
 
     with ThreadPoolExecutor(max_workers=workers) as executor:
@@ -518,6 +524,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--incremental", action="store_true", help="Use latest DB published_at as since-date per source.")
     parser.add_argument("--connect-timeout", type=float, default=5, help="HTTP connect timeout in seconds.")
     parser.add_argument("--read-timeout", type=float, default=30, help="HTTP read timeout in seconds.")
+    parser.add_argument("--sleep", type=float, default=0.0, help="Delay between successful requests.")
+    parser.add_argument(
+        "--allow-insecure-ssl",
+        action="store_true",
+        help="Allow configured legacy DEU hosts to retry static pages without SSL verification.",
+    )
     parser.add_argument(
         "--workers",
         type=int,
@@ -532,6 +544,9 @@ def main():
 
     RUNTIME["enable_image_ocr"] = bool(args.enable_image_ocr and not args.skip_image_ocr)
     RUNTIME["timeout"] = (args.connect_timeout, args.read_timeout)
+    RUNTIME["sleep_seconds"] = max(0.0, args.sleep)
+    if args.allow_insecure_ssl:
+        os.environ["CRAWLER_ALLOW_INSECURE_SSL"] = "1"
     os.environ["CRAWLER_SKIP_PDF_OCR"] = "0" if args.enable_pdf_ocr and not args.skip_pdf_ocr else "1"
     os.environ["CRAWLER_PDF_OCR_MAX_PAGES"] = "" if args.pdf_ocr_max_pages is None else str(args.pdf_ocr_max_pages)
     os.environ["CRAWLER_PDF_OCR_FIRST_PAGES"] = "" if args.pdf_ocr_first_pages is None else str(args.pdf_ocr_first_pages)
