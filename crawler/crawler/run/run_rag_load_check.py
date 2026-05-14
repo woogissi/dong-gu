@@ -50,7 +50,25 @@ assets_summary AS (
   SELECT
     count(*) AS total_assets,
     count(*) FILTER (WHERE asset_type = 'attachment') AS attachment_assets,
-    count(*) FILTER (WHERE asset_type = 'attachment' AND parser_type IS NOT NULL) AS parsed_attachment_assets
+    count(*) FILTER (WHERE asset_type = 'attachment' AND parser_type IS NOT NULL) AS parsed_attachment_assets,
+    count(*) FILTER (
+      WHERE asset_type = 'attachment'
+        AND parser_type = 'unsupported_legacy_office'
+    ) AS legacy_office_assets,
+    count(*) FILTER (
+      WHERE asset_type = 'attachment'
+        AND lower(coalesce(file_ext, '')) IN ('.doc', '.xls', '.ppt')
+    ) AS legacy_office_extension_assets,
+    count(*) FILTER (
+      WHERE asset_type = 'attachment'
+        AND EXISTS (
+          SELECT 1
+          FROM document_contents c
+          WHERE c.asset_id = document_assets.id
+            AND c.content_type = 'attachment'
+            AND length(btrim(c.content)) > 0
+        )
+    ) AS searchable_attachment_assets
   FROM document_assets
 )
 SELECT jsonb_build_object(
@@ -114,8 +132,19 @@ SELECT jsonb_build_object(
   'asset_samples', (
     SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb)
     FROM (
-      SELECT file_name, file_url AS url, asset_type, parser_type
-      FROM document_assets
+      SELECT
+        a.file_name,
+        a.file_url AS url,
+        a.asset_type,
+        a.parser_type,
+        EXISTS (
+          SELECT 1
+          FROM document_contents c
+          WHERE c.asset_id = a.id
+            AND c.content_type = 'attachment'
+            AND length(btrim(c.content)) > 0
+        ) AS has_searchable_text
+      FROM document_assets a
       LIMIT 5
     ) t
   ),
@@ -183,6 +212,12 @@ def evaluate(result: dict[str, Any]) -> tuple[str, list[str]]:
         issues.append("static pages not found")
     if assets["attachment_assets"] == 0:
         issues.append("attachments not found")
+    if assets["legacy_office_assets"] or assets["legacy_office_extension_assets"]:
+        issues.append(
+            "legacy Office attachments need conversion policy: "
+            f"{assets['legacy_office_extension_assets']} by extension, "
+            f"{assets['legacy_office_assets']} explicitly unsupported"
+        )
     if contents["total_contents"] == 0:
         issues.append("document_contents is empty")
     if missing_contents:
@@ -246,6 +281,9 @@ def print_report(result: dict[str, Any]) -> None:
     print("## 첨부파일 상태")
     print(f"- attachment assets: {assets['attachment_assets']}")
     print(f"- parsed attachment assets: {assets['parsed_attachment_assets']}")
+    print(f"- searchable attachment assets: {assets['searchable_attachment_assets']}")
+    print(f"- legacy Office unsupported assets: {assets['legacy_office_assets']}")
+    print(f"- legacy Office extension assets: {assets['legacy_office_extension_assets']}")
     print_rows(result["asset_samples"], "첨부파일 샘플 없음")
     print()
     print("## RAG 사용 가능성")
