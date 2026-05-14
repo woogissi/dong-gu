@@ -9,6 +9,8 @@ from urllib.parse import urlparse, unquote
 
 import requests                             # 첨부파일 다운을 위한 http 라이브러리
 
+from crawler.paths import RAW_FILE_DIR
+
 
 HEADERS = {                                 # 봇차단을 방지하기 위한 USER-Agent 채워주기 용도
     "User-Agent": (
@@ -22,13 +24,13 @@ HEADERS = {                                 # 봇차단을 방지하기 위한 U
 class AttachmentDownloader:
     def __init__(
         self,
-        base_save_dir: str = "crawler/data/raw/files",
+        base_save_dir: str | Path | None = None,
         max_file_size: int = 100 * 1024 * 1024,
         timeout: tuple[float, float] = (5, 30),
     ):
         self.session = requests.Session()                               # 요청 세션
         self.session.headers.update(HEADERS)                            # USER-agent 헤더로 적용
-        self.base_save_dir = Path(base_save_dir)                        # 저장 기본 위치를 Path 객체로 바꾼다.
+        self.base_save_dir = Path(base_save_dir) if base_save_dir is not None else RAW_FILE_DIR
         self.max_file_size = max_file_size
         self.timeout = timeout
         self.base_save_dir.mkdir(parents=True, exist_ok=True)           # 폴더가 없으면 생성한다. parents=True: 상위 폴더도 같이 생성 exist_ok=True: 이미 있어도 에러 안 냄

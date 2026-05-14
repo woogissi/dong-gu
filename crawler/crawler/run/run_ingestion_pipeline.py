@@ -5,15 +5,13 @@ from pathlib import Path
 
 from crawler.ingestion.chunker import DocumentChunker
 from crawler.storage.manifest_writer import ManifestWriter
+from crawler.paths import CHUNK_DIR, CURATED_DOC_DIR, LOG_DIR, ensure_dirs
 from crawler.utils.text_quality import document_quality_report, strip_nul_value
 
 
-CURATED_DIR = Path("crawler/data/curated/documents")
-CHUNK_DIR = Path("crawler/data/rag_ready/chunks")
-LOG_DIR = Path("crawler/data/logs")
+CURATED_DIR = CURATED_DOC_DIR
 
-for d in [CHUNK_DIR, LOG_DIR]:          # chunk 저장 폴더와 로그 폴더를 미리 만들어두는 코드
-    d.mkdir(parents=True, exist_ok=True)
+ensure_dirs(CHUNK_DIR, LOG_DIR)          # chunk 저장 폴더와 로그 폴더를 미리 만들어두는 코드
 
 manifest_writer = ManifestWriter()
 chunker = DocumentChunker(max_chars=900, overlap_chars=100)

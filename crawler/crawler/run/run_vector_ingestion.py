@@ -6,8 +6,10 @@ import os
 import traceback
 from pathlib import Path
 
-os.environ.setdefault("HF_HOME", str(Path("crawler/.hf_cache").resolve()))
-os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(Path("crawler/.hf_cache/hub").resolve()))
+from crawler.paths import CHUNK_DIR, CURATED_DOC_DIR, HF_CACHE_DIR, LOG_DIR, RAW_DOC_DIR
+
+os.environ.setdefault("HF_HOME", str(HF_CACHE_DIR.resolve()))
+os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str((HF_CACHE_DIR / "hub").resolve()))
 
 from crawler.ingestion.embed_worker import EmbeddingWorker
 from crawler.ingestion.pgvector_loader import PGVectorLoader
@@ -15,10 +17,8 @@ from crawler.storage.manifest_writer import ManifestWriter
 from crawler.utils.text_quality import document_quality_report, strip_nul_value, text_quality_report
 
 
-RAW_DIR = Path("crawler/data/raw/documents")
-CURATED_DIR = Path("crawler/data/curated/documents")
-CHUNK_DIR = Path("crawler/data/rag_ready/chunks")
-LOG_DIR = Path("crawler/data/logs")
+RAW_DIR = RAW_DOC_DIR
+CURATED_DIR = CURATED_DOC_DIR
 
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 

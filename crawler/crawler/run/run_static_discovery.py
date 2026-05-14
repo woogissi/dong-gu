@@ -15,17 +15,13 @@ from crawler.storage.manifest_writer import ManifestWriter
 from crawler.normalize.text_cleaner import TextCleaner
 from crawler.schemas.document_models import CuratedDocument
 from crawler.ingestion.document_version_manager import DocumentVersionManager
+from crawler.paths import CURATED_DOC_DIR, DATA_DIR, LOG_DIR, RAW_DOC_DIR, RAW_HTML_DIR, ensure_dirs
 
-BASE_DIR = Path("crawler/data")
-RAW_HTML_DIR = BASE_DIR / "raw" / "html"
-RAW_DOC_DIR = BASE_DIR / "raw" / "documents"
-CURATED_DOC_DIR = BASE_DIR / "curated" / "documents"
-LOG_DIR = BASE_DIR / "logs"
+BASE_DIR = DATA_DIR
 
 version_manager = DocumentVersionManager(curated_base_dir=str(CURATED_DOC_DIR))
 
-for d in [RAW_HTML_DIR, RAW_DOC_DIR, CURATED_DOC_DIR, LOG_DIR]:     # 필요한 폴더들을 미리 생성
-    d.mkdir(parents=True, exist_ok=True)
+ensure_dirs(RAW_HTML_DIR, RAW_DOC_DIR, CURATED_DOC_DIR, LOG_DIR)     # 필요한 폴더들을 미리 생성
 
 manifest_writer = ManifestWriter()
 url_classifier = URLClassifier()

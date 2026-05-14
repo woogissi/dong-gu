@@ -18,16 +18,20 @@ from crawler.storage.manifest_writer import ManifestWriter
 from crawler.schemas.document_models import CuratedDocument
 from crawler.ingestion.document_version_manager import DocumentVersionManager
 from crawler.normalize.text_cleaner import TextCleaner
+from crawler.paths import (
+    CURATED_DOC_DIR,
+    DATA_DIR,
+    LOG_DIR,
+    MANIFEST_DIR,
+    RAW_ATTACH_DIR,
+    RAW_DOC_DIR,
+    RAW_HTML_DIR,
+    ensure_dirs,
+)
 
-BASE_DIR = Path("crawler/data")
-RAW_HTML_DIR = BASE_DIR / "raw" / "html"
-RAW_DOC_DIR = BASE_DIR / "raw" / "documents"
-RAW_ATTACH_DIR = BASE_DIR / "raw" / "attachments"
-CURATED_DOC_DIR = BASE_DIR / "curated" / "documents"
-LOG_DIR = BASE_DIR / "logs"
+BASE_DIR = DATA_DIR
 
-for d in [RAW_HTML_DIR, RAW_DOC_DIR, RAW_ATTACH_DIR, CURATED_DOC_DIR, LOG_DIR]:
-    d.mkdir(parents=True, exist_ok=True)
+ensure_dirs(RAW_HTML_DIR, RAW_DOC_DIR, RAW_ATTACH_DIR, CURATED_DOC_DIR, LOG_DIR)
 
 text_cleaner = TextCleaner()
 manifest_writer = ManifestWriter()
@@ -361,7 +365,7 @@ def run_board_pipeline(
             list_result = list_extractor.extract_list(list_url, page_no, page_size=10)
             print(f"[LIST] source={source_type} page={page_no} count={list_result['count']}")
 
-            manifest_path = Path("crawler/data/manifest") / f"{source_type}_page_{page_no}.json"
+            manifest_path = MANIFEST_DIR / f"{source_type}_page_{page_no}.json"
             save_json(manifest_path, {
                 "list_url": list_result["list_url"],
                 "page_no": list_result["page_no"],
