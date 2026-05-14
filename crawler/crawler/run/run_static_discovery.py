@@ -3,6 +3,8 @@
 import json
 import time
 from pathlib import Path
+from datetime import datetime
+
 
 from crawler.utils.content_hash import build_content_hash
 from crawler.config.seeds import SEED_URLS
@@ -14,6 +16,10 @@ from crawler.storage.manifest_writer import ManifestWriter
 from crawler.normalize.text_cleaner import TextCleaner
 from crawler.schemas.document_models import CuratedDocument
 from crawler.ingestion.document_version_manager import DocumentVersionManager
+from crawler.extractors.board_list_extractor import BoardListExtractor
+from crawler.extractors.board_detail_extractor import BoardDetailExtractor
+from crawler.extractors.ipsi_notice_parser import IpsiNoticeParser
+from crawler.ingestion.pgvector_loader import PGVectorLoader
 
 BASE_DIR = Path("crawler/data")
 RAW_HTML_DIR = BASE_DIR / "raw" / "html"
@@ -30,6 +36,12 @@ manifest_writer = ManifestWriter()
 url_classifier = URLClassifier()
 text_cleaner = TextCleaner()
 
+pgv_loader = None
+
+try:
+    pgv_loader = PGVectorLoader()
+except Exception as e:
+    print(f"[DB DISABLED] DB connection failed. DB logging will be skipped. error={e}")
 
 def save_json(path: Path, data: dict | list) -> None:       # JSON 저장 함수
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -133,6 +145,191 @@ def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type�
 
     print(f"[STATIC SAVE OK] doc_id={doc_id} decision={decision} version={final_curated['version']}")
 
+def process_board_list_from_html(
+    list_url: str,
+    source_type: str,
+    html: str,
+    pages: int = 10,
+    page_size: int = 10,
+) -> None:
+    list_extractor = BoardListExtractor()
+
+    if "ipsi.deu.ac.kr" in list_url.lower():
+        detail_extractor = IpsiNoticeParser()
+    else:
+        detail_extractor = BoardDetailExtractor()
+
+    current_year_start = f"{datetime.now().year}-01-01"
+    stop_crawling = False
+    seen_doc_ids = set()
+
+    try:
+        first_items = list_extractor.parse_rows(html, list_url)
+    except Exception as e:
+        message = f"[DISCOVERED BOARD PARSE ROWS ERROR] url={list_url} error={e}"
+        log_error(message)
+        manifest_writer.write_error_record(
+            stage="discovered_board_parse_rows",
+            message=message,
+            extra={
+                "source_type": source_type,
+                "list_url": list_url,
+            },
+        )
+        pgv_loader.insert_crawl_job_error(
+            run_type="static_discovery",
+            stage="discovered_board_parse_rows",
+            error=e,
+            source_type=source_type,
+            url=list_url,
+            context={
+                "list_url": list_url,
+                "page_no": 1,
+                "mode": "html_detected_board",
+            },
+        )
+        return
+
+    page_results = [
+        {
+            "list_url": list_url,
+            "page_no": 1,
+            "page_size": page_size,
+            "count": len(first_items),
+            "items": first_items,
+            "html": html,
+        }
+    ]
+
+    for page_no in range(2, pages + 1):
+        if stop_crawling:
+            break
+
+        try:
+            list_result = list_extractor.extract_list(
+                list_url,
+                page_no=page_no,
+                page_size=page_size,
+            )
+
+            page_results.append(list_result)
+
+            if list_result["count"] == 0:
+                break
+
+        except Exception as e:
+            message = f"[DISCOVERED BOARD LIST ERROR] url={list_url} page={page_no} error={e}"
+            log_error(message)
+            manifest_writer.write_error_record(
+                stage="discovered_board_list",
+                message=message,
+                extra={
+                    "source_type": source_type,
+                    "list_url": list_url,
+                    "page_no": page_no,
+                },
+            )
+            pgv_loader.insert_crawl_job_error(
+                run_type="static_discovery",
+                stage="discovered_board_list",
+                error=e,
+                source_type=source_type,
+                url=list_url,
+                context={
+                    "list_url": list_url,
+                    "page_no": page_no,
+                    "page_size": page_size,
+                },
+            )
+            break
+
+    for list_result in page_results:
+        if stop_crawling:
+            break
+
+        if list_result["count"] == 0:
+            break
+
+        print(
+            f"[DISCOVERED BOARD LIST] "
+            f"source={source_type} page={list_result['page_no']} "
+            f"count={list_result['count']} url={list_url}"
+        )
+
+        for item in list_result["items"]:
+            try:
+                raw_doc = detail_extractor.extract_detail(
+                    source_type=source_type,
+                    detail_url=item["detail_url"],
+                    title_hint=item.get("title_hint"),
+                )
+
+                if raw_doc["doc_id"] in seen_doc_ids:
+                    continue
+
+                seen_doc_ids.add(raw_doc["doc_id"])
+
+                save_static_document(raw_doc)
+
+                manifest_writer.append_jsonl("discovered_board_items.jsonl", {
+                    "list_url": list_url,
+                    "detail_url": item.get("detail_url"),
+                    "doc_id": raw_doc.get("doc_id"),
+                    "source_type": source_type,
+                    "page_no": list_result["page_no"],
+                    "title_hint": item.get("title_hint"),
+                    "published_at_hint": item.get("published_at_hint"),
+                })
+
+                print(f"[DISCOVERED BOARD DETAIL OK] doc_id={raw_doc['doc_id']}")
+
+                published_at = item.get("published_at_hint")
+
+                if published_at and published_at < current_year_start:
+                    print(
+                        f"[DISCOVERED BOARD STOP] "
+                        f"{source_type} reached older post: "
+                        f"{published_at} < {current_year_start}"
+                    )
+                    stop_crawling = True
+                    break
+
+            except Exception as e:
+                doc_id = None
+                if item.get("article_no"):
+                    doc_id = f"deu_{source_type}_{item.get('article_no')}"
+
+                message = (
+                    f"[DISCOVERED BOARD DETAIL ERROR] "
+                    f"source={source_type} url={item.get('detail_url')} error={e}"
+                )
+                log_error(message)
+                manifest_writer.write_error_record(
+                    stage="discovered_board_detail",
+                    message=message,
+                    extra={
+                        "source_type": source_type,
+                        "list_url": list_url,
+                        "detail_url": item.get("detail_url"),
+                        "item": item,
+                    },
+                )
+                pgv_loader.insert_crawl_job_error(
+                    run_type="static_discovery",
+                    stage="discovered_board_detail",
+                    error=e,
+                    source_type=source_type,
+                    doc_id=doc_id,
+                    url=item.get("detail_url"),
+                    context={
+                        "list_url": list_url,
+                        "article_no": item.get("article_no"),
+                        "title_hint": item.get("title_hint"),
+                        "published_at_hint": item.get("published_at_hint"),
+                        "row_text": item.get("row_text"),
+                    },
+                )
+
 def main(max_pages: int = 50, max_depth: int = 2):
     frontier = FrontierManager(ALLOWED_HOSTS, max_depth=max_depth)
     extractor = StaticPageExtractor(allowed_hosts=ALLOWED_HOSTS)
@@ -140,7 +337,7 @@ def main(max_pages: int = 50, max_depth: int = 2):
     # static seed만 넣기
     for seed in SEED_URLS:
         if seed["page_kind"] in {"static_page", "seed"}:
-            frontier.add_url(seed["url"], depth=0, discovered_from="seed")
+            frontier.add_url(seed["url"], depth=0, discovered_from="seed", source_type=seed["source_type"],)
 
     crawled_count = 0
 
@@ -149,7 +346,7 @@ def main(max_pages: int = 50, max_depth: int = 2):
         if not item:
             break
 
-        url, depth, discovered_from = item
+        url, depth, discovered_from, inherited_source_type = item
         frontier.mark_visited(url)      # 방문한 곳인지
 
         try:
@@ -159,9 +356,39 @@ def main(max_pages: int = 50, max_depth: int = 2):
             if url_type != "static_page":
                 continue
 
-            source_type = url_classifier.infer_source_type(url)     # source_type을 추정
-            raw_doc = extractor.extract_static_page(source_type=source_type, page_url=url)  # 실제 페이지를 가져와서 raw 문서 dict로 만듬
-            save_static_document(raw_doc)    
+            source_type = source_type = inherited_source_type or url_classifier.infer_source_type(url)
+
+            html = extractor.fetch(url)
+
+            list_extractor = BoardListExtractor()
+
+            if list_extractor.looks_like_board_list(html, url):
+                process_board_list_from_html(
+                    list_url=url,
+                    source_type=source_type,
+                    html=html,
+                    pages=10,
+                    page_size=10,
+                )
+
+                manifest_writer.append_jsonl("discovery_edges.jsonl", {
+                    "url": url,
+                    "depth": depth,
+                    "discovered_from": discovered_from,
+                    "source_type": source_type,
+                    "detected_type": "board_list_by_html",
+                })
+
+                crawled_count += 1
+                print(f"[DISCOVERY BOARD OK] depth={depth} source={source_type} url={url}")
+                time.sleep(0.5)
+                continue
+
+            raw_doc = extractor.extract_static_page(
+                source_type=source_type,
+                page_url=url,
+            )
+            save_static_document(raw_doc)   
 
             manifest_writer.append_jsonl("discovery_edges.jsonl", {
                 "url": url,
@@ -177,7 +404,7 @@ def main(max_pages: int = 50, max_depth: int = 2):
 
                 # 정적 페이지만 계속 확장
                 if next_type == "static_page":
-                    frontier.add_url(next_url, depth=depth + 1, discovered_from=url)
+                    frontier.add_url(next_url, depth=depth + 1, discovered_from=url, source_type= source_type)
 
             crawled_count += 1
             print(f"[DISCOVERY OK] depth={depth} source={source_type} url={url}")
@@ -191,10 +418,27 @@ def main(max_pages: int = 50, max_depth: int = 2):
                 message=message,
                 extra={"url": url, "depth": depth},
             )
+            pgv_loader.insert_crawl_job_error(
+                run_type="static_discovery",
+                stage="static_page",
+                error=e,
+                source_type=source_type if "source_type" in locals() else None,
+                url=url,
+                context={
+                    "url": url,
+                    "depth": depth,
+                    "discovered_from": discovered_from,
+                    "inherited_source_type": inherited_source_type if "inherited_source_type" in locals() else None,
+                },
+            )
 
     print("[DONE] static discovery finished")
     print(frontier.stats())
 
 
 if __name__ == "__main__":
-    main(max_pages=50, max_depth=2)
+    try:
+        main(max_pages=50, max_depth=2)
+    finally:
+        if pgv_loader:
+            pgv_loader.close()

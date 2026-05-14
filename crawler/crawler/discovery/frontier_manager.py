@@ -20,7 +20,7 @@ class FrontierManager:
         host = urlparse(url).netloc.lower()     # 파싱된 url의 host부분만 추출
         return host in self.allowed_hosts       # host가 허용 도메인에 있으면 True 아니면 false
 
-    def add_url(self, url: str, depth: int, discovered_from: str | None = None) -> bool:
+    def add_url(self, url: str, depth: int, discovered_from: str | None = None, source_type: str | None = None,) -> bool:
         url = self.canonicalize_url(url)
 
         if depth > self.max_depth:  # 현재 깊이가 허용깊이보다 큰지 확인
@@ -35,7 +35,7 @@ class FrontierManager:
         if url in self.queued:
             return False
 
-        self.queue.append((url, depth, discovered_from))
+        self.queue.append((url, depth, discovered_from, source_type))
         self.queued.add(url)
         return True                 # 큐에 저장 성공시 True 반환
 

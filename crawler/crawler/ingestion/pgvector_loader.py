@@ -413,7 +413,6 @@ class PGVectorLoader:
         INSERT INTO crawl_jobs (
             run_type,
             stage,
-            status,
             source_type,
             doc_id,
             url,

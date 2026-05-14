@@ -95,3 +95,40 @@ class BoardListExtractor:
             "items": items,                     #실제 아이템 목록
             "html": html,                       #원본 HTML
         }
+
+    def looks_like_board_list(self, html: str, base_url: str) -> bool:
+        """
+        URL은 static_page처럼 보여도,
+        HTML 내부에 게시글 목록 구조가 있으면 게시판 목록으로 판단.
+        """
+        items = self.parse_rows(html, base_url)
+
+        if len(items) >= 1:
+            return True
+
+        soup = BeautifulSoup(html, "html.parser")
+
+        board_selectors = [
+            "table tbody tr a[href]",
+            ".board-list a[href]",
+            ".board_list a[href]",
+            ".bbs-list a[href]",
+            ".list-board a[href]",
+            ".board a[href]",
+        ]
+
+        for selector in board_selectors:
+            nodes = soup.select(selector)
+            for node in nodes:
+                href = node.get("href", "")
+                text = node.get_text(" ", strip=True)
+
+                if (
+                    "articleNo=" in href
+                    or "mode=view" in href
+                    or "view" in href.lower()
+                    or len(text) >= 5
+                ):
+                    return True
+
+        return False

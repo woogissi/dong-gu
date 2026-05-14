@@ -107,15 +107,21 @@ CREATE TABLE chunk_embeddings (
 
 CREATE TABLE crawl_jobs (
     id BIGSERIAL PRIMARY KEY,
-    job_name TEXT,
+    job_id UUID NOT NULL DEFAULT gen_random_uuid(),
+    run_type TEXT NOT NULL,
+    stage TEXT NOT NULL,
     source_type TEXT,
-    status TEXT DEFAULT 'pending',
-    started_at TIMESTAMP,
-    finished_at TIMESTAMP,
-    total_count INT DEFAULT 0,
-    success_count INT DEFAULT 0,
-    error_count INT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT NOW()
+    doc_id TEXT,
+    url TEXT,
+    file_url TEXT,
+    file_path TEXT,
+    error_type TEXT,
+    error_message TEXT NOT NULL,
+    traceback TEXT,
+
+    context JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE source_sync_history (
