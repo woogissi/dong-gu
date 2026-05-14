@@ -12,9 +12,16 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY ./backend/requirements.txt /app/backend/requirements.txt
+COPY ./rag/requirements.txt /app/rag/requirements.txt
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch
+RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 
-COPY . /app
+COPY ./backend /app/backend
+COPY ./rag /app/rag
+
+ENV PYTHONPATH=/app
 
 EXPOSE 8000
+
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

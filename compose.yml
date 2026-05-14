@@ -1,18 +1,40 @@
 services:
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./backend/Dockerfile
     container_name: donggu-backend
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      - ./backend:/app/backend
+      - ./rag:/app/rag
     env_file:
       - .env
+    environment:
+      PYTHONPATH: /app
+    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  rag:
+    build:
+      context: .
+      dockerfile: ./rag/Dockerfile
+    container_name: donggu-rag
+    volumes:
+      - ./rag:/app/rag
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app
+    command: tail -f /dev/null
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: donggu-cloudflared
+    command: tunnel --no-autoupdate --url http://backend:8000
     depends_on:
-      - postgres
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      - backend
+    restart: unless-stopped
 
   crawler:
     build:
@@ -23,35 +45,36 @@ services:
       - ./crawler:/app
     env_file:
       - .env
-    depends_on:
-      - postgres
+    environment:
+      - HWP5TXT_PATH=hwp5txt
     command: tail -f /dev/null
 
-  postgres:
-    image: pgvector/pgvector:pg15
-    container_name: donggu-postgres
-    restart: always
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+#   postgres:
+#     image: pgvector/pgvector:pg15
+#     container_name: donggu-postgres
+#     restart: always
+#     environment:
+#       POSTGRES_USER: ${POSTGRES_USER}
+#       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+#       POSTGRES_DB: ${POSTGRES_DB}
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
 
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: donggu-pgadmin
-    restart: always
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@example.com
-      PGADMIN_DEFAULT_PASSWORD: admin1234
-    ports:
-      - "5050:80"
-    depends_on:
-      - postgres
+#   pgadmin:
+#     image: dpage/pgadmin4
+#     container_name: donggu-pgadmin
+#     restart: always
+#     environment:
+#       PGADMIN_DEFAULT_EMAIL: admin@example.com
+#       PGADMIN_DEFAULT_PASSWORD: admin1234
+#     ports:
+#       - "5050:80"
+#     depends_on:
+#       - postgres
 
-volumes:
-  postgres_data:
+# volumes:
+#   postgres_data:
+#     command: tail -f /dev/null

@@ -1,16 +1,22 @@
 from fastapi import FastAPI
+from backend.app.api.router import api_router
 
-from app.api.routes.health import router as health_router
-from app.api.routes.search import router as search_router
-from app.api.routes.chat import router as chat_router
-from app.api.routes.kakao import router as kakao_router
+app = FastAPI(
+    title="DEU Chatbot API",
+    description="동의대학교 챗봇 백엔드 서버",
+    version="1.0.0"
+)
 
-app = FastAPI(title="DEU Chatbot API")
+app.include_router(api_router)
 
-app.include_router(health_router, prefix="/api/v1")
-app.include_router(search_router, prefix="/api/v1")
-app.include_router(chat_router, prefix="/api/v1")
-app.include_router(kakao_router, prefix="/api/v1")
+@app.on_event("startup")
+async def startup_event() -> None:
+    from backend.app.api.kakao import get_chat_pipeline
+
+    try:
+        get_chat_pipeline().initialize()
+    except Exception as exc:
+        print(f"[startup] failed to initialize chat pipeline: {exc}")
 
 @app.get("/")
 def root():
