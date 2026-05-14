@@ -103,11 +103,13 @@ def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type�
     raw_to_save = dict(raw_doc)
     raw_to_save["html_path"] = str(html_path.as_posix())
     raw_to_save.pop("html", None)
+    image_text = merge_image_texts(raw_to_save.get("image_texts", []))
 
     raw_to_save["content_hash"] = build_content_hash(
         raw_text=raw_to_save.get("raw_text"),
         table_text=raw_to_save.get("table_text"),
         attachment_text=raw_to_save.get("attachment_text"),
+        image_text=image_text,
     )
 
     # 새 curated 후보 생성

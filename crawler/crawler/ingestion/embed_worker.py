@@ -1,15 +1,14 @@
 # crawler/ingestion/embed_worker.py
 
-
+import os
 
 from typing import List                                                 # 타입 힌트용
 from sentence_transformers import SentenceTransformer                   # 임베딩 모델
 
 
 class EmbeddingWorker:
-    def __init__(self, model_name: str = "nlpai-lab/KoE5"):             # 모델명 : "nlpai-lab/KoE5"
-        self.model_name = model_name
-        self.model = SentenceTransformer(model_name)                    # 모델 로드
+    def __init__(self):                  # 모델명 : "nlpai-lab/KoE5"
+        self.model = SentenceTransformer("nlpai-lab/KoE5")               # 모델 로드
 
     def embed_text(self, text: str) -> List[float]:                     # 단일 텍스트 하나를 임베딩 벡터로 바꾸는 함수
         if not text or not text.strip():                                # 비어있거나 공백 뿐인지 검사
@@ -32,6 +31,6 @@ class EmbeddingWorker:
             embedded_chunks.append({
                 **chunk,                                                # 기본 청크의 필드를 그대로 넣어두기
                 "embedding": vector.tolist(),                           # 실제 벡터값
-                "embedding_model": self.model_name,                     # 어떤 모델인지 기입
+                "embedding_model": "nlpai-lab/KoE5",                     # 어떤 모델인지 기입
             })
         return embedded_chunks

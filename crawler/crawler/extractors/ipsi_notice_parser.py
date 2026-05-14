@@ -12,7 +12,12 @@ class IpsiNoticeParser(BoardDetailExtractor):
     title / content selector를 입학처 구조에 맞게 우선 탐색
     """
 
-    def find_title(self, soup: BeautifulSoup) -> str:   #오버라이드
+    def find_title(self, soup: BeautifulSoup, title_hint: str | None = None) -> str:   #오버라이드
+        if title_hint:
+            title = self.normalize_text(title_hint)
+            if title:
+                return title
+
         selectors = [                                   #입학처 전용 제목 찾는 selector
             ".board-view .title",
             ".view-title",
