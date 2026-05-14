@@ -9,6 +9,7 @@ from urllib.parse import urljoin, urlparse, urldefrag
 
 from crawler.schemas.document_models import StaticPageRawDocument
 from crawler.extractors.image_text_extractor import ImageTextExtractor
+from crawler.utils.http_client import build_retry_session
 from crawler.utils.text_quality import is_binary_like_text
 
 import requests
@@ -33,8 +34,7 @@ class StaticPageExtractor:
         enable_image_ocr: bool = False,
         timeout: tuple[float, float] = (5, 30),
     ):
-        self.session = requests.Session()
-        self.session.headers.update(HEADERS)
+        self.session = build_retry_session(HEADERS)
         self.allowed_hosts = allowed_hosts or set()     #허용도메인
         self.enable_image_ocr = enable_image_ocr
         self.timeout = timeout

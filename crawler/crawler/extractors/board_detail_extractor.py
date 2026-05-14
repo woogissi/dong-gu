@@ -6,11 +6,11 @@ from datetime import datetime, timezone, timedelta              # 수집시간�
 from pathlib import Path                                        # fallback시 path명을 얻기 위함
 from urllib.parse import urljoin, urlparse, parse_qs
 
-import requests
 from bs4 import BeautifulSoup                                   # html 파싱용
 
 from crawler.schemas.document_models import BoardDetailRawDocument      # JSON 구조
 from crawler.extractors.image_text_extractor import ImageTextExtractor  # 이미지 추출
+from crawler.utils.http_client import build_retry_session
 
 HEADERS = {
     "User-Agent": (
@@ -29,8 +29,7 @@ class BoardDetailExtractor:
         enable_image_ocr: bool = False,
         timeout: tuple[float, float] = (5, 30),
     ):
-        self.session = requests.Session()
-        self.session.headers.update(HEADERS)
+        self.session = build_retry_session(HEADERS)
         self.timeout = timeout
         self.enable_image_ocr = enable_image_ocr
         self.image_text_extractor = ImageTextExtractor()

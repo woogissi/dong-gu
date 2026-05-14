@@ -12,6 +12,8 @@ from crawler.parsers.image_parser import ImageParser
 
 
 class FileTextRouter:                                   # 파일 확장자를 보고 어떤 파서로 보낼지 결정하는 분기기(router)
+    LEGACY_OFFICE_EXTENSIONS = {".doc", ".xls", ".ppt"}
+
     def __init__(self):
         self.pdf_parser = PDFParser()
         self.hwpx_parser = HWPXParser()
@@ -70,6 +72,18 @@ class FileTextRouter:                                   # 파일 확장자를 �
                 "raw_xml_files": result.get("raw_xml_files", []),
             }
 
+        if ext in self.LEGACY_OFFICE_EXTENSIONS:
+            return {
+                "parser_type": "unsupported_legacy_office",
+                "attachment_text": None,
+                "page_count": None,
+                "pages": [],
+                "note": (
+                    f"unsupported legacy Office extension: {ext}; "
+                    "convert to OOXML or add a LibreOffice conversion parser"
+                ),
+            }
+
         if ext in {".jpg", ".jpeg", ".png"}:
             result = self.image_parser.extract_text(file_path)
             return {
@@ -98,8 +112,8 @@ class FileTextRouter:                                   # 파일 확장자를 �
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
 
-            with zipfile.ZipFile(file_path, 'r') as zip_ref:
-                zip_ref.extractall(tmpdir_path)
+            with zipfile.ZipFile(file_path, "r") as zip_ref:
+                self.safe_extract_zip(zip_ref, tmpdir_path)
 
             for inner_file in tmpdir_path.rglob("*"):
                 if not inner_file.is_file():
@@ -129,3 +143,11 @@ class FileTextRouter:                                   # 파일 확장자를 �
             "extracted_files": extracted_files,
             "file_count": len(extracted_files),
         }
+
+    def safe_extract_zip(self, zip_ref: zipfile.ZipFile, target_dir: Path) -> None:
+        target_root = target_dir.resolve()
+        for member in zip_ref.infolist():
+            destination = (target_dir / member.filename).resolve()
+            if not destination.is_relative_to(target_root):
+                raise ValueError(f"unsafe zip member path: {member.filename}")
+        zip_ref.extractall(target_dir)

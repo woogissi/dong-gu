@@ -3,8 +3,9 @@
 import re
 from urllib.parse import urljoin, urlparse, parse_qs        # urljoin <- 절대경로 base : https://www.deu.ac.kr/www/deu-notice.do?mode=list + href : ?mode=view&articleNo=123
 
-import requests
 from bs4 import BeautifulSoup
+
+from crawler.utils.http_client import build_retry_session
 
 
 HEADERS = {
@@ -18,8 +19,7 @@ HEADERS = {
 
 class BoardListExtractor:
     def __init__(self, timeout: tuple[float, float] = (5, 30)):
-        self.session = requests.Session()
-        self.session.headers.update(HEADERS)
+        self.session = build_retry_session(HEADERS)
         self.timeout = timeout
 
     def fetch(self, url: str, params: dict | None = None) -> str:       #html 가져오기

@@ -7,9 +7,8 @@ import re                                   # 파일 정규식(ex /\: -> _)
 from pathlib import Path                    # Path(base) / subdir / filename 형식으로 경로를 만들기 위함
 from urllib.parse import urlparse, unquote
 
-import requests                             # 첨부파일 다운을 위한 http 라이브러리
-
 from crawler.paths import RAW_FILE_DIR
+from crawler.utils.http_client import build_retry_session
 
 
 HEADERS = {                                 # 봇차단을 방지하기 위한 USER-Agent 채워주기 용도
@@ -28,8 +27,7 @@ class AttachmentDownloader:
         max_file_size: int = 100 * 1024 * 1024,
         timeout: tuple[float, float] = (5, 30),
     ):
-        self.session = requests.Session()                               # 요청 세션
-        self.session.headers.update(HEADERS)                            # USER-agent 헤더로 적용
+        self.session = build_retry_session(HEADERS)                     # 요청 세션
         self.base_save_dir = Path(base_save_dir) if base_save_dir is not None else RAW_FILE_DIR
         self.max_file_size = max_file_size
         self.timeout = timeout
