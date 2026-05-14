@@ -142,7 +142,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--connect-timeout", type=float, default=5, help="HTTP connect timeout in seconds.")
     parser.add_argument("--read-timeout", type=float, default=30, help="HTTP read timeout in seconds.")
     parser.add_argument("--sleep", type=float, default=0.5, help="Delay between successful requests.")
-    parser.add_argument(
+    parser.add_argument(#--
         "--allow-insecure-ssl",
         action="store_true",
         help="Allow configured legacy DEU hosts to retry without SSL verification.",
