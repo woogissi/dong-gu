@@ -8,13 +8,16 @@
 
 ```powershell
 docker compose run --rm crawler python -m crawler.run.run_full_pipeline
+docker compose run --rm crawler python -m crawler.run.run_full_pipeline --closed-loop-discovery
 docker compose run --rm crawler python -m crawler.run.run_rag_load_check
+docker compose run --rm crawler python -m crawler.run.run_rag_load_check --create-retry-queue
 docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents
-docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --execute
+docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --from-retry-queue --execute
+docker compose run --rm crawler python -m crawler.ops.supabase_smoke_check --ensure-tables
 docker compose run --rm crawler python -m unittest discover tests
 ```
 
-`run_retry_failed_documents`는 기본값이 dry-run이다. 실제 재처리는 `--execute`를 붙여야 수행된다.
+`run_retry_failed_documents`는 기본값이 dry-run이다. 실제 재처리는 `--execute`를 붙여야 수행된다. 운영에서는 `--from-retry-queue`를 우선 사용해 `crawler_retry_queue`의 `task_type`, `attempts`, `last_error`, `dead_letter` 상태를 남긴다.
 
 ## 주요 진입점
 
@@ -22,8 +25,9 @@ docker compose run --rm crawler python -m unittest discover tests
 | --- | --- |
 | `crawler/run/run_full_pipeline.py` | 정적 페이지와 게시판 수집을 수행하는 전체 파이프라인 진입점 |
 | `crawler/run/run_rag_load_check.py` | Supabase에 적재된 RAG 데이터가 검색 가능한 형태인지 최소 SQL로 점검 |
-| `crawler/run/run_retry_failed_documents.py` | `crawl_logs`의 실패 이력을 기준으로 정적 페이지와 벡터 적재 실패 건 재처리 |
+| `crawler/run/run_retry_failed_documents.py` | `crawler_retry_queue` 또는 `crawl_logs`의 실패 이력을 기준으로 task_type별 재처리 |
 | `crawler/run/run_static_discovery.py` | 정적 페이지를 제한 탐색하고 게시판형 URL은 후보 manifest로만 기록 |
+| `crawler/ops/supabase_smoke_check.py` | Supabase 상태 테이블 존재/RLS/쓰기 권한 smoke check |
 | `crawler/extractors/board_list_extractor.py` | 게시판 목록 페이지에서 상세 URL 후보를 추출 |
 | `crawler/extractors/board_detail_extractor.py` | 게시판 상세 페이지에서 본문, 표, 첨부 정보를 추출 |
 | `crawler/parser/file_text_router.py` | 첨부파일 확장자별 텍스트 추출 라우팅 |
@@ -60,11 +64,11 @@ Seed에는 다음 운영 정책 값을 둘 수 있다.
 | `source_group` | discovery로 파생된 URL이 상속할 상위 출처 그룹 |
 | `discover_board_candidates` | 정적 페이지 내부 게시판형 URL을 후보로 기록할지 여부 |
 
-게시판은 자동 수집하지 않는다. `run_static_discovery`에서 발견한 게시판형 URL은 `crawler/data/manifests/candidate_boards.jsonl`에 `candidate_only` 상태로 기록하고, 사람이 검토한 뒤 `crawler/config/seeds.py`에 `board_list` seed로 추가해야 실제 수집된다.
+게시판 seed는 기존 `crawler/config/seeds.py`를 계속 우선한다. 운영에서 discovery 결과까지 닫힌 루프로 연결하려면 `run_static_discovery --closed-loop-discovery`로 후보를 `crawler_dynamic_seeds`에 저장/승격하고, `run_full_pipeline --closed-loop-discovery`로 promoted seed를 함께 사용한다. 사람이 검토하는 흐름은 그대로 유지할 수 있으며, 승격 대상만 미리 보려면 `run_static_discovery --promote-discovery-results --dry-run-promotion-preview`를 사용한다.
 
 ## 첨부파일 파싱 정책
 
-첨부파일은 가능한 경우 `document_assets`에 메타데이터를 저장하고, 검색 가능한 텍스트가 있으면 `document_contents.asset_id`로 연결한다. `run_rag_load_check`는 다음 값을 구분해서 표시한다.
+첨부파일은 가능한 경우 `document_assets`에 메타데이터를 저장하고, 검색 가능한 텍스트가 있으면 `document_contents.asset_id`로 연결한다. 운영 전체 파이프라인은 정적 페이지 첨부 다운로드가 기본 활성화되어 있다. 빠른 호환성 검증에서는 `--no-download-attachments`로 끌 수 있다. `run_rag_load_check`는 다음 값을 구분해서 표시한다.
 
 | 항목 | 의미 |
 | --- | --- |
@@ -77,22 +81,55 @@ Seed에는 다음 운영 정책 값을 둘 수 있다.
 
 ## 실패 재처리
 
-최근 실패 이력은 `crawl_logs`에서 확인한다. 재처리 스크립트는 기본적으로 다음 stage만 대상으로 삼는다.
+최근 실패 이력은 `crawl_logs`에서 확인하고, 운영 재처리는 `crawler_retry_queue`를 우선한다. `run_rag_load_check --create-retry-queue`는 데이터 공백을 다음 task_type으로 넣는다.
 
-| stage | 재처리 방식 |
+| task_type | 재처리 방식 |
 | --- | --- |
-| `static_page` | 실패 로그의 URL과 source_type으로 정적 페이지를 다시 수집/저장 |
-| `vector_ingestion` | `CHUNK_DIR/{source_type}/{doc_id}.json`을 찾아 임베딩과 pgvector 적재 재시도 |
+| `static_page` | URL과 source_type으로 정적 페이지를 다시 수집/저장, 첨부 다운로드 포함 |
+| `board_list` | 게시판 목록 1페이지 단위 재수집 |
+| `board_detail` | 게시판 상세 페이지 재수집 |
+| `attachment_download` | 첨부 파일 다운로드 재시도 |
+| `file_parse` | 다운로드된 첨부 파일 텍스트 추출 재시도 |
+| `chunking` | curated JSON에서 chunk 파일 재생성 |
+| `vector_ingestion` | 로컬 chunk JSON을 우선 사용하고, 없으면 DB의 `chunks`에서 chunk 파일 복구 후 임베딩 재시도 |
 
 예시:
 
 ```powershell
 docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents
-docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --stage vector_ingestion --execute
-docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --stage static_page --allow-insecure-ssl --execute
+docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --from-retry-queue --stage vector_ingestion --execute
+docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --from-retry-queue --stage attachment_download --execute
+docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --from-retry-queue --stage static_page --allow-insecure-ssl --execute
 ```
 
-`--allow-insecure-ssl`은 SSL 인증서 문제로 실패한 정적 페이지를 재시도할 때만 사용한다.
+알 수 없는 task_type은 `failed_unknown_task_type`으로 기록된다. 실패가 반복되어 `max_attempts`를 넘으면 `dead_letter` 상태로 남겨 사람이 원인을 본다. `--allow-insecure-ssl`은 SSL 인증서 문제로 실패한 정적 페이지를 재시도할 때만 사용한다.
+
+## Supabase 상태 테이블 / RLS
+
+상태 기반 운영은 `crawler_documents`, `crawler_dynamic_seeds`, `crawler_retry_queue`를 사용한다. 마이그레이션 예시는 `crawler/supabase_migrations/20260514_crawler_state_runtime.sql`에 있으며 idempotent하게 작성되어 있다.
+
+```powershell
+docker compose run --rm crawler python -m crawler.ops.supabase_smoke_check --ensure-tables
+```
+
+smoke check는 테이블 존재 여부, RLS 활성 여부, insert/select/update/delete 권한을 검증한다. 전제는 crawler 전용 DB connection 또는 service role처럼 서버 측 비공개 연결을 쓰는 것이다. REST/Data API에서 anon/authenticated 역할로 이 테이블을 열 policy는 기본 제공하지 않는다. 공개 API 접근이 필요해질 때만 별도 policy를 검토한다.
+
+## 운영 권장 옵션
+
+| 옵션 | 권장 |
+| --- | --- |
+| `run_static_discovery --closed-loop-discovery` | discovery 후보를 dynamic seed로 승격할 때 사용 |
+| `run_full_pipeline --closed-loop-discovery` | 기존 seed와 promoted dynamic seed를 함께 수집 |
+| `run_full_pipeline --download-attachments` | 기본값. 정적 페이지 PDF/HWP 누락 방지 |
+| `run_full_pipeline --compress-raw-html` | 운영 저장소 용량 절감을 위해 권장 |
+| `run_full_pipeline --raw-json-html-metadata-only` | raw JSON 호환성이 필요한 소비자가 없는 경우에만 사용 |
+| `run_rag_load_check --create-retry-queue` | RAG 공백을 bounded retry queue로 생성 |
+
+live 네트워크 검증은 운영자가 명시적으로 실행하는 smoke 경로로만 수행한다. 기본 CI/fixture 테스트에서는 실제 네트워크를 호출하지 않는다.
+
+```powershell
+docker compose run --rm crawler python -m crawler.ops.live_fetch_smoke --url https://www.deu.ac.kr --execute-live
+```
 
 ## 테스트
 

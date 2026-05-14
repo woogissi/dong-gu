@@ -11,6 +11,7 @@ os.environ.setdefault("HF_HOME", str(HF_CACHE_DIR.resolve()))
 os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str((HF_CACHE_DIR / "hub").resolve()))
 
 from crawler.storage.manifest_writer import ManifestWriter
+from crawler.state.crawler_state_store import CrawlerStateStore
 from crawler.utils.text_quality import document_quality_report, strip_nul_value, text_quality_report
 
 
@@ -20,6 +21,31 @@ CURATED_DIR = CURATED_DOC_DIR
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 manifest_writer = ManifestWriter()
+
+
+def record_document_state_safe(doc: dict, status: str, artifact_paths: dict | None = None, error: Exception | None = None) -> None:
+    url = doc.get("source_url") or doc.get("url")
+    if not url:
+        return
+    try:
+        state_store = CrawlerStateStore()
+        try:
+            state_store.ensure_tables()
+            state_store.upsert_document_state(
+                url=url,
+                doc_id=doc.get("doc_id"),
+                status=status,
+                source_type=doc.get("source_type"),
+                page_kind=doc.get("page_kind"),
+                checksum=doc.get("content_hash"),
+                artifact_paths=artifact_paths or {},
+                error=str(error) if error else None,
+                error_stage=None if error is None else status.lower(),
+            )
+        finally:
+            state_store.close()
+    except Exception as exc:
+        log_error(f"[STATE WRITE ERROR] doc_id={doc.get('doc_id')} status={status} error={exc}")
 
 
 def load_json(path: Path) -> dict | list:
@@ -100,6 +126,14 @@ def chunk_curated_file(curated_file: Path, chunker=None) -> Path | None:
     chunks = chunker.chunk_document(doc)
     chunk_path = CHUNK_DIR / source_type / f"{doc_id}.json"
     save_json(chunk_path, chunks)
+    record_document_state_safe(
+        doc,
+        "CHUNKED",
+        artifact_paths={
+            "curated_json": curated_file.as_posix(),
+            "chunks_json": chunk_path.as_posix(),
+        },
+    )
 
     manifest_writer.append_jsonl("chunking.jsonl", {
         "doc_id": doc_id,
@@ -184,6 +218,15 @@ def vector_ingest_chunk_file(chunk_file: Path, embed_worker=None, loader=None) -
 
         embedded_chunks = embed_worker.embed_chunks(chunks)
         loader.upsert_embeddings(embedded_chunks)
+        record_document_state_safe(
+            curated_doc,
+            "EMBEDDED",
+            artifact_paths={
+                "curated_json": curated_path.as_posix(),
+                "chunks_json": chunk_file.as_posix(),
+                "raw_json": raw_path.as_posix() if raw_path.exists() else None,
+            },
+        )
 
         manifest_writer.append_jsonl("vector_ingestion.jsonl", {
             "chunk_file": chunk_file.as_posix(),
@@ -198,6 +241,10 @@ def vector_ingest_chunk_file(chunk_file: Path, embed_worker=None, loader=None) -
 
     except Exception:
         loader.conn.rollback()
+        try:
+            record_document_state_safe(curated_doc if "curated_doc" in locals() else {"doc_id": doc_id, "source_type": source_type}, "FAILED", error=Exception("vector_ingestion_failed"))
+        except Exception:
+            pass
         raise
     finally:
         if owns_loader:

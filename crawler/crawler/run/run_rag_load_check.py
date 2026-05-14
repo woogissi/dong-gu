@@ -71,6 +71,29 @@ assets_summary AS (
         )
     ) AS searchable_attachment_assets
   FROM document_assets
+),
+retry_queue_summary AS (
+  SELECT
+    coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) AS rows
+  FROM (
+    SELECT status, coalesce(task_type, stage) AS task_type, count(*) AS count
+    FROM crawler_retry_queue
+    GROUP BY status, coalesce(task_type, stage)
+    ORDER BY status, task_type
+    LIMIT 20
+  ) t
+),
+dead_letter_summary AS (
+  SELECT
+    coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) AS rows
+  FROM (
+    SELECT coalesce(task_type, stage) AS task_type, reason, count(*) AS count
+    FROM crawler_retry_queue
+    WHERE status IN ('dead_letter', 'failed_unknown_task_type')
+    GROUP BY coalesce(task_type, stage), reason
+    ORDER BY count(*) DESC
+    LIMIT 20
+  ) t
 )
 SELECT jsonb_build_object(
   'summary', (SELECT to_jsonb(summary) FROM summary),
@@ -80,6 +103,8 @@ SELECT jsonb_build_object(
   'embeddings', (SELECT to_jsonb(embeddings_summary) FROM embeddings_summary),
   'missing_embeddings', (SELECT to_jsonb(missing_embeddings) FROM missing_embeddings),
   'assets', (SELECT to_jsonb(assets_summary) FROM assets_summary),
+  'retry_queue_summary', (SELECT rows FROM retry_queue_summary),
+  'dead_letter_summary', (SELECT rows FROM dead_letter_summary),
   'source_types', (
     SELECT coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb)
     FROM (
@@ -308,6 +333,8 @@ RETRY_CANDIDATE_QUERIES = {
 def fetch_check() -> dict[str, Any]:
     loader = PGVectorLoader()
     try:
+        state_store = CrawlerStateStore(loader=loader)
+        state_store.ensure_tables()
         with loader.conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(CHECK_SQL)
             row = cur.fetchone()
@@ -345,8 +372,10 @@ def retry_candidate_to_enqueue_args(item: dict[str, Any]) -> dict[str, Any]:
         "page_kind": item.get("page_kind"),
         "file_path": item.get("file_path"),
         "stage": item["stage"],
+        "task_type": item["stage"],
         "reason": item["reason"],
         "context": item.get("context") or {},
+        "payload": item.get("context") or {},
     }
 
 
@@ -474,6 +503,12 @@ def print_report(result: dict[str, Any], retry_queue_counts: dict[str, int] | No
             [{"reason": reason, "inserted": count} for reason, count in retry_queue_counts.items()],
             "생성된 retry queue 없음",
         )
+    print()
+    print("## Retry Queue Summary")
+    print_rows(result.get("retry_queue_summary") or [], "retry queue summary 없음")
+    print()
+    print("## Dead Letter Summary")
+    print_rows(result.get("dead_letter_summary") or [], "dead-letter 없음")
 
 
 def parse_args() -> argparse.Namespace:

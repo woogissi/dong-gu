@@ -1,11 +1,11 @@
 # crawler/extractors/board_list_extractor.py
 
 import re
-from urllib.parse import urljoin, urlparse, parse_qs        # urljoin <- 절대경로 base : https://www.deu.ac.kr/www/deu-notice.do?mode=list + href : ?mode=view&articleNo=123
 
 from bs4 import BeautifulSoup
 
 from crawler.utils.http_client import build_retry_session
+from crawler.extractors.board_adapters import adapter_for_url
 
 
 HEADERS = {
@@ -28,47 +28,13 @@ class BoardListExtractor:
         return res.text
 
     def extract_article_no(self, url: str) -> str | None:               #게시글 번호 뽑기
-        parsed = urlparse(url)                                          
-        qs = parse_qs(parsed.query)                                     
-        for key in ("articleNo", "id", "seq", "post", "post_id", "articleId", "boardId"):
-            value = qs.get(key, [None])[0]
-            if value:
-                return value
-
-        match = re.search(r"(?:articleNo|id|seq|post|post_id|articleId|boardId)=([A-Za-z0-9_-]+)", url)
-        return match.group(1) if match else None
+        return adapter_for_url(url).article_no_from_url(url)
 
     def extraction_strategy_for(self, full_url: str, href: str, onclick: str | None) -> str | None:
-        parsed = urlparse(full_url)
-        qs = parse_qs(parsed.query)
-        if qs.get("articleNo"):
-            return "articleNo"
-        for key in ("id", "seq", "post", "post_id", "articleId", "boardId"):
-            if qs.get(key):
-                return f"query_{key}"
-        if onclick and re.search(r"(?:view|detail)\s*\(", onclick, flags=re.IGNORECASE):
-            return "onclick_parser"
-        if re.search(r"\d", href):
-            return "regex_fallback"
-        return None
+        return adapter_for_url(full_url).strategy_for(full_url, href, onclick)
 
     def detail_url_from_link(self, base_url: str, href: str, onclick: str | None = None) -> str:
-        if href and href.strip() and href.strip() != "#":
-            return urljoin(base_url, href)
-
-        onclick = onclick or ""
-        match = re.search(r"(?:view|detail)\s*\(([^)]*)\)", onclick, flags=re.IGNORECASE)
-        if not match:
-            return urljoin(base_url, href)
-
-        first_arg = match.group(1).split(",")[0].strip().strip("'\"")
-        if not first_arg:
-            return urljoin(base_url, href)
-
-        if re.match(r"https?://|/", first_arg):
-            return urljoin(base_url, first_arg)
-
-        return urljoin(base_url, f"?mode=view&id={first_arg}")
+        return adapter_for_url(base_url).normalize_detail_url(base_url, href, onclick).url
 
     def parse_rows(self, html: str, base_url: str) -> list[dict]:       #목록에서 각 게시글 뽑기
         soup = BeautifulSoup(html, "html.parser")

@@ -21,6 +21,12 @@ HEADERS = {                                 # 봇차단을 방지하기 위한 U
 
 
 class AttachmentDownloader:
+    SUPPORTED_EXTENSIONS = {
+        ".pdf", ".hwp", ".hwpx", ".doc", ".docx",
+        ".xls", ".xlsx", ".ppt", ".pptx",
+        ".zip", ".jpg", ".jpeg", ".png",
+    }
+
     def __init__(
         self,
         base_save_dir: str | Path | None = None,
@@ -41,11 +47,7 @@ class AttachmentDownloader:
     def guess_extension(self, file_url: str, file_name: str) -> str:
         parsed_path = urlparse(file_url).path.lower()                   # url의 path만 뽑는다.
 
-        for ext in [
-            ".pdf", ".hwp", ".hwpx", ".doc", ".docx",
-            ".xls", ".xlsx", ".ppt", ".pptx",
-            ".zip", ".jpg", ".jpeg", ".png"
-        ]:
+        for ext in sorted(self.SUPPORTED_EXTENSIONS):
             if parsed_path.endswith(ext) or file_name.lower().endswith(ext):    # url이 확장자로 끝나거나 파일명이 확장자로 끝날시 그 확장자 반환
                 return ext
 
@@ -148,6 +150,12 @@ class AttachmentDownloader:
             content_disposition=content_disposition,
             content_type=content_type,
         )
+
+        normalized_ext = ext.lower() if ext else ""
+        if normalized_ext and normalized_ext not in self.SUPPORTED_EXTENSIONS:
+            raise ValueError(f"Unsupported attachment extension: {normalized_ext} url={file_url}")
+        if content_type and content_type.split(";")[0].strip().lower() == "text/html" and normalized_ext not in {".html", ".htm"}:
+            raise ValueError(f"Attachment content-type mismatch: text/html url={file_url}")
 
         save_dir = self.base_save_dir / source_type / parent_doc_id                                 #crawler/data/raw/files / source_type / id 경로로 파일 생성
         save_dir.mkdir(parents=True, exist_ok=True)

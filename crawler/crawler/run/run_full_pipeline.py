@@ -45,6 +45,7 @@ RUNTIME = {
     "enable_image_ocr": False,
     "timeout": (5, 30),
     "sleep_seconds": 0.0,
+    "download_static_attachments": True,
 }
 
 
@@ -62,6 +63,51 @@ def record_crawl_job_error(**kwargs) -> None:
         get_pgv_loader().insert_crawl_job_error(**kwargs)
     except Exception as exc:
         log_error(f"[CRAWL JOB LOG ERROR] stage={kwargs.get('stage')} error={exc}")
+
+
+def enqueue_retry_queue_error(
+    *,
+    task_type: str,
+    reason: str,
+    doc_id: str | None = None,
+    url: str | None = None,
+    source_type: str | None = None,
+    page_kind: str | None = None,
+    file_path: str | None = None,
+    payload: dict | None = None,
+) -> None:
+    try:
+        state_store = CrawlerStateStore()
+        try:
+            state_store.ensure_tables()
+            state_store.enqueue_retry(
+                stage=task_type,
+                task_type=task_type,
+                reason=reason,
+                doc_id=doc_id,
+                url=url,
+                source_type=source_type,
+                page_kind=page_kind,
+                file_path=file_path,
+                context=payload or {},
+                payload=payload or {},
+            )
+        finally:
+            state_store.close()
+    except Exception as exc:
+        log_error(f"[RETRY QUEUE ERROR] task_type={task_type} doc_id={doc_id} url={url} error={exc}")
+
+
+def record_document_state(**kwargs) -> None:
+    try:
+        state_store = CrawlerStateStore()
+        try:
+            state_store.ensure_tables()
+            state_store.upsert_document_state(**kwargs)
+        finally:
+            state_store.close()
+    except Exception as exc:
+        log_error(f"[STATE WRITE ERROR] url={kwargs.get('url')} status={kwargs.get('status')} error={exc}")
 
 def save_json(path: Path, data: dict | list) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -218,6 +264,20 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
                         "attachment_index": att.get("attachment_index"),
                     },
                 )
+                enqueue_retry_queue_error(
+                    task_type="attachment_download",
+                    reason="download_failed",
+                    doc_id=doc_id,
+                    url=att.get("file_url") or raw_to_save.get("source_url"),
+                    source_type=source_type,
+                    page_kind=raw_to_save.get("page_kind"),
+                    payload={
+                        "file_url": att.get("file_url"),
+                        "file_name": att.get("file_name"),
+                        "attachment_index": att.get("attachment_index"),
+                        "source_url": raw_to_save.get("source_url"),
+                    },
+                )
                 continue
 
 
@@ -257,6 +317,22 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
                         "attachment_index": downloaded.get("attachment_index"),
                     },
                 )
+                enqueue_retry_queue_error(
+                    task_type="file_parse",
+                    reason="parse_failed",
+                    doc_id=doc_id,
+                    url=downloaded.get("file_url") or raw_to_save.get("source_url"),
+                    source_type=source_type,
+                    page_kind=raw_to_save.get("page_kind"),
+                    file_path=downloaded.get("saved_path"),
+                    payload={
+                        "file_url": downloaded.get("file_url"),
+                        "file_name": downloaded.get("file_name"),
+                        "file_ext": downloaded.get("file_ext"),
+                        "attachment_index": downloaded.get("attachment_index"),
+                        "saved_path": downloaded.get("saved_path"),
+                    },
+                )
                 continue
 
     raw_to_save["downloaded_attachments"] = downloaded_attachments
@@ -290,6 +366,23 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
         "version": final_curated["version"],
         "source_url": final_curated.get("source_url"),
     })
+
+    record_document_state(
+        url=raw_to_save.get("source_url"),
+        doc_id=doc_id,
+        status="PARSED",
+        final_url=raw_to_save.get("final_url"),
+        source_type=source_type,
+        page_kind=raw_to_save.get("page_kind"),
+        checksum=raw_to_save.get("content_hash"),
+        artifact_paths={
+            "raw_json": raw_path.as_posix(),
+            "curated_json": str((CURATED_DOC_DIR / source_type / f"{doc_id}.json").as_posix()),
+            "raw_html": raw_to_save.get("raw_html_path") or raw_to_save.get("html_path"),
+        },
+        extractor_name=raw_to_save.get("extractor_name"),
+        extractor_version=raw_to_save.get("extractor_version"),
+    )
 
     print(f"[SAVE OK] doc_id={doc_id} decision={decision} version={final_curated['version']}")
 
@@ -416,6 +509,21 @@ def run_board_pipeline(
                             "row_text": item.get("row_text"),
                         },
                     )
+                    enqueue_retry_queue_error(
+                        task_type="board_detail",
+                        reason="detail_fetch_or_parse_failed",
+                        doc_id=f"deu_{source_type}_{item.get('article_no')}" if item.get("article_no") else None,
+                        url=item.get("detail_url"),
+                        source_type=source_type,
+                        page_kind="board_detail",
+                        payload={
+                            "article_no": item.get("article_no"),
+                            "title_hint": item.get("title_hint"),
+                            "published_at_hint": item.get("published_at_hint"),
+                            "row_text": item.get("row_text"),
+                            "extraction_strategy": item.get("extraction_strategy"),
+                        },
+                    )
 
         except Exception as e:
             message = f"[LIST ERROR] source={source_type} page={page_no} error={e}"
@@ -437,9 +545,26 @@ def run_board_pipeline(
                     "list_url": list_url,
                 },
             )
+            enqueue_retry_queue_error(
+                task_type="board_list",
+                reason="list_fetch_or_parse_failed",
+                url=list_url,
+                source_type=source_type,
+                page_kind="board_list",
+                payload={
+                    "page_no": page_no,
+                    "page_size": 10,
+                    "list_url": list_url,
+                    "pages": 1,
+                },
+            )
 
 
-def process_static_seed(item: dict) -> None:
+def process_static_seed(
+    item: dict,
+    download_attachments: bool | None = None,
+    raise_on_error: bool = False,
+) -> None:
     extractor = StaticPageExtractor(
         allowed_hosts=ALLOWED_HOSTS,
         enable_image_ocr=RUNTIME["enable_image_ocr"],
@@ -450,7 +575,12 @@ def process_static_seed(item: dict) -> None:
             source_type=item["source_type"],
             page_url=item["url"],
         )
-        save_document_bundle(raw_doc, download_attachments=False)
+        should_download = (
+            download_attachments
+            if download_attachments is not None
+            else bool(item.get("download_attachments", RUNTIME["download_static_attachments"]))
+        )
+        save_document_bundle(raw_doc, download_attachments=should_download)
         print(f"[STATIC OK] saved {raw_doc['doc_id']}")
     except Exception as e:
         message = f"[STATIC ERROR] source={item['source_type']} url={item['url']} error={e}"
@@ -471,6 +601,16 @@ def process_static_seed(item: dict) -> None:
                 "seed_name": item.get("name"),
             },
         )
+        record_document_state(
+            url=item.get("url"),
+            status="FAILED",
+            source_type=item.get("source_type"),
+            page_kind=item.get("page_kind"),
+            error=str(e),
+            error_stage="static_page",
+        )
+        if raise_on_error:
+            raise
 
 
 def run_static_pipeline(static_urls: list[dict], workers: int = 1) -> None:
@@ -532,6 +672,11 @@ def parse_args() -> argparse.Namespace:
         help="Include promoted dynamic board seeds from Postgres state tables.",
     )
     parser.add_argument(
+        "--closed-loop-discovery",
+        action="store_true",
+        help="Enable promoted discovery seeds in the full pipeline. Alias for --use-discovered-seeds.",
+    )
+    parser.add_argument(
         "--min-discovery-confidence",
         type=float,
         default=0.8,
@@ -540,6 +685,30 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--connect-timeout", type=float, default=5, help="HTTP connect timeout in seconds.")
     parser.add_argument("--read-timeout", type=float, default=30, help="HTTP read timeout in seconds.")
     parser.add_argument("--sleep", type=float, default=0.0, help="Delay between successful requests.")#--
+    attachment_group = parser.add_mutually_exclusive_group()
+    attachment_group.add_argument(
+        "--download-attachments",
+        dest="download_attachments",
+        action="store_true",
+        default=True,
+        help="Download and parse static-page attachments. Enabled by default for operational runs.",
+    )
+    attachment_group.add_argument(
+        "--no-download-attachments",
+        dest="download_attachments",
+        action="store_false",
+        help="Skip static-page attachment download for compatibility or fast local checks.",
+    )
+    parser.add_argument(
+        "--compress-raw-html",
+        action="store_true",
+        help="Store raw HTML sidecar files as gzip while preserving raw JSON compatibility by default.",
+    )
+    parser.add_argument(
+        "--raw-json-html-metadata-only",
+        action="store_true",
+        help="Store only raw HTML path/hash/size metadata in raw JSON. Use with care; changes raw JSON shape.",
+    )
     parser.add_argument(
         "--allow-insecure-ssl",#--
         action="store_true",
@@ -560,6 +729,9 @@ def main():
     RUNTIME["enable_image_ocr"] = bool(args.enable_image_ocr and not args.skip_image_ocr)
     RUNTIME["timeout"] = (args.connect_timeout, args.read_timeout)
     RUNTIME["sleep_seconds"] = max(0.0, args.sleep)
+    RUNTIME["download_static_attachments"] = bool(args.download_attachments)
+    document_store.compress_raw_html = bool(args.compress_raw_html)
+    document_store.raw_json_html_metadata_only = bool(args.raw_json_html_metadata_only)
     if args.allow_insecure_ssl:
         os.environ["CRAWLER_ALLOW_INSECURE_SSL"] = "1"
     os.environ["CRAWLER_SKIP_PDF_OCR"] = "0" if args.enable_pdf_ocr and not args.skip_pdf_ocr else "1"
@@ -575,7 +747,14 @@ def main():
         elif seed["page_kind"] in {"seed", "static_page"}:
             static_seeds.append(seed)
 
-    if args.use_discovered_seeds:
+    use_discovered_seeds = bool(args.use_discovered_seeds or args.closed_loop_discovery)
+    if not use_discovered_seeds and os.getenv("CRAWLER_OPERATION_MODE") in {"prod", "production", "operating"}:
+        print(
+            "[WARN] operating mode without closed loop discovery: "
+            "pass --closed-loop-discovery or --use-discovered-seeds to include promoted dynamic board seeds."
+        )
+
+    if use_discovered_seeds:
         dynamic_board_seeds = load_dynamic_board_seeds(args.min_discovery_confidence)
         merged_board_seeds = merge_dynamic_board_seeds(board_seeds, dynamic_board_seeds)
         added_count = len(merged_board_seeds) - len(board_seeds)

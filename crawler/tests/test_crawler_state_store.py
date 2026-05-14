@@ -104,6 +104,7 @@ class CrawlerStateStoreTest(unittest.TestCase):
         )
 
         self.assertEqual(target.queue_id, 7)
+        self.assertEqual(target.task_type, "vector_ingestion")
         self.assertEqual(target.reason, "chunked_but_not_embedded")
         self.assertEqual(target.file_path, "crawler/data/rag_ready/chunks/notice/doc1.json")
 
@@ -122,8 +123,10 @@ class CrawlerStateStoreTest(unittest.TestCase):
         )
 
         self.assertEqual(args["stage"], "vector_ingestion")
+        self.assertEqual(args["task_type"], "vector_ingestion")
         self.assertEqual(args["reason"], "chunked_but_not_embedded")
         self.assertEqual(args["context"], {"chunk_id": "chunk1"})
+        self.assertEqual(args["payload"], {"chunk_id": "chunk1"})
 
 
 if __name__ == "__main__":

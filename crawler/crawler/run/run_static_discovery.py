@@ -137,6 +137,16 @@ def parse_args() -> argparse.Namespace:
         help="Store discovered board candidates in Postgres and promote high-confidence board_list seeds.",
     )
     parser.add_argument(
+        "--closed-loop-discovery",
+        action="store_true",
+        help="Store and promote discovery results for the full pipeline. Alias for --promote-discovery-results.",
+    )
+    parser.add_argument(
+        "--dry-run-promotion-preview",
+        action="store_true",
+        help="After discovery, print promotion candidates without changing their status.",
+    )
+    parser.add_argument(
         "--min-discovery-confidence",
         type=float,
         default=0.8,
@@ -154,9 +164,15 @@ def main(
     allow_insecure_ssl: bool = False,
     promote_discovery_results: bool = False,
     min_discovery_confidence: float = 0.8,
+    dry_run_promotion_preview: bool = False,
 ):
     if allow_insecure_ssl:
         os.environ["CRAWLER_ALLOW_INSECURE_SSL"] = "1"
+    if not promote_discovery_results and os.getenv("CRAWLER_OPERATION_MODE") in {"prod", "production", "operating"}:
+        print(
+            "[WARN] operating mode without discovery promotion: "
+            "pass --closed-loop-discovery or --promote-discovery-results to persist dynamic board seeds."
+        )
 
     frontier = FrontierManager(ALLOWED_HOSTS, max_depth=max_depth)
     extractor = StaticPageExtractor(
@@ -272,7 +288,19 @@ def main(
 
     print("[DONE] static discovery finished")
     if state_store:
-        promoted_count = state_store.promote_dynamic_seeds(min_discovery_confidence)
+        if dry_run_promotion_preview:
+            candidates = state_store.preview_dynamic_seed_promotions(min_discovery_confidence, limit=10)
+            print(f"[DYNAMIC SEEDS PREVIEW] candidates={len(candidates)} min_confidence={min_discovery_confidence}")
+            for candidate in candidates[:5]:
+                print(
+                    "[DYNAMIC SEEDS PREVIEW] "
+                    f"confidence={float(candidate['confidence']):.2f} "
+                    f"source={candidate.get('source_type')} "
+                    f"url={candidate.get('url')}"
+                )
+            promoted_count = 0
+        else:
+            promoted_count = state_store.promote_dynamic_seeds(min_discovery_confidence)
         state_store.close()
         print(f"[DYNAMIC SEEDS] promoted={promoted_count} min_confidence={min_discovery_confidence}")
     print(frontier.stats())
@@ -287,6 +315,7 @@ if __name__ == "__main__":
         timeout=(args.connect_timeout, args.read_timeout),
         sleep_seconds=args.sleep,
         allow_insecure_ssl=args.allow_insecure_ssl,
-        promote_discovery_results=args.promote_discovery_results,
+        promote_discovery_results=bool(args.promote_discovery_results or args.closed_loop_discovery),
         min_discovery_confidence=args.min_discovery_confidence,
+        dry_run_promotion_preview=args.dry_run_promotion_preview,
     )

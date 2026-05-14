@@ -56,7 +56,22 @@ class BoardExtractorsTest(unittest.TestCase):
         self.assertEqual(result[0]["article_no"], "abc123")
         self.assertEqual(result[0]["extraction_strategy"], "query_id")
         self.assertEqual(result[1]["article_no"], "987")
-        self.assertEqual(result[1]["extraction_strategy"], "query_id")
+        self.assertEqual(result[1]["extraction_strategy"], "articleNo")
+
+    def test_deu_board_adapter_normalizes_onclick_detail_url(self) -> None:
+        html = """
+        <table>
+          <tr><td><a href="#" onclick="jf_view('menu', '456')">동의대 패턴</a></td></tr>
+        </table>
+        """
+
+        result = BoardListExtractor().parse_rows(
+            html,
+            "https://www.deu.ac.kr/www/deu-notice.do?mode=list",
+        )
+
+        self.assertEqual(result[0]["article_no"], "456")
+        self.assertIn("articleNo=456", result[0]["detail_url"])
 
     def test_board_detail_builds_raw_document_from_fixture(self) -> None:
         html = """

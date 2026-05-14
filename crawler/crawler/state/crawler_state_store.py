@@ -71,11 +71,19 @@ CREATE TABLE IF NOT EXISTS crawler_retry_queue (
   page_kind text,
   file_path text,
   stage text NOT NULL,
+  task_type text,
   reason text NOT NULL,
   retry_count integer NOT NULL DEFAULT 0,
+  attempts integer NOT NULL DEFAULT 0,
+  max_attempts integer NOT NULL DEFAULT 3,
   next_retry_at timestamptz,
   status text NOT NULL DEFAULT 'pending',
   context jsonb NOT NULL DEFAULT '{}'::jsonb,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  last_error text,
+  last_attempt_at timestamptz,
+  resolved_at timestamptz,
+  dead_lettered_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -84,6 +92,19 @@ ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS source_type text;
 ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS page_kind text;
 ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS file_path text;
 ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS context jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS task_type text;
+ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0;
+ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS max_attempts integer NOT NULL DEFAULT 3;
+ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS payload jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS last_error text;
+ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS last_attempt_at timestamptz;
+ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS resolved_at timestamptz;
+ALTER TABLE crawler_retry_queue ADD COLUMN IF NOT EXISTS dead_lettered_at timestamptz;
+UPDATE crawler_retry_queue
+SET task_type = COALESCE(task_type, stage),
+    attempts = GREATEST(attempts, retry_count)
+WHERE task_type IS NULL
+   OR attempts < retry_count;
 
 CREATE INDEX IF NOT EXISTS idx_crawler_retry_queue_status
 ON crawler_retry_queue(status);
@@ -91,6 +112,8 @@ CREATE INDEX IF NOT EXISTS idx_crawler_retry_queue_next_retry_at
 ON crawler_retry_queue(next_retry_at);
 CREATE INDEX IF NOT EXISTS idx_crawler_retry_queue_stage
 ON crawler_retry_queue(stage);
+CREATE INDEX IF NOT EXISTS idx_crawler_retry_queue_task_type
+ON crawler_retry_queue(task_type);
 CREATE INDEX IF NOT EXISTS idx_crawler_retry_queue_source_type
 ON crawler_retry_queue(source_type);
 
@@ -245,6 +268,22 @@ class CrawlerStateStore:
         self.commit()
         return count
 
+    def preview_dynamic_seed_promotions(self, min_confidence: float = 0.8, limit: int = 20) -> list[dict[str, Any]]:
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT *
+                FROM crawler_dynamic_seeds
+                WHERE status = 'candidate'
+                  AND confidence >= %s
+                  AND page_kind = 'board_list'
+                ORDER BY confidence DESC, updated_at DESC
+                LIMIT %s;
+                """,
+                (min_confidence, limit),
+            )
+            return [dict(row) for row in cur.fetchall()]
+
     def list_promoted_dynamic_seeds(self, min_confidence: float = 0.8) -> list[dict[str, Any]]:
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -350,14 +389,18 @@ class CrawlerStateStore:
         *,
         stage: str,
         reason: str,
+        task_type: str | None = None,
         doc_id: str | None = None,
         url: str | None = None,
         source_type: str | None = None,
         page_kind: str | None = None,
         file_path: str | None = None,
         context: dict[str, Any] | None = None,
+        payload: dict[str, Any] | None = None,
+        max_attempts: int = 3,
         next_retry_at: str | None = None,
     ) -> bool:
+        effective_task_type = task_type or stage
         params = {
             "doc_id": doc_id,
             "url": url,
@@ -365,9 +408,12 @@ class CrawlerStateStore:
             "page_kind": page_kind,
             "file_path": file_path,
             "stage": stage,
+            "task_type": effective_task_type,
             "reason": reason,
             "next_retry_at": next_retry_at,
             "context": Json(json_safe(context or {})),
+            "payload": Json(json_safe(payload or context or {})),
+            "max_attempts": max(1, int(max_attempts)),
         }
         with self.conn.cursor() as cur:
             cur.execute(
@@ -379,9 +425,12 @@ class CrawlerStateStore:
                   page_kind,
                   file_path,
                   stage,
+                  task_type,
                   reason,
                   next_retry_at,
                   context,
+                  payload,
+                  max_attempts,
                   updated_at
                 )
                 SELECT
@@ -391,15 +440,19 @@ class CrawlerStateStore:
                   %(page_kind)s,
                   %(file_path)s,
                   %(stage)s,
+                  %(task_type)s,
                   %(reason)s,
                   NULLIF(%(next_retry_at)s, '')::timestamptz,
                   %(context)s::jsonb,
+                  %(payload)s::jsonb,
+                  %(max_attempts)s,
                   now()
                 WHERE NOT EXISTS (
                   SELECT 1
                   FROM crawler_retry_queue
                   WHERE status = 'pending'
                     AND stage = %(stage)s
+                    AND coalesce(task_type, stage) = %(task_type)s
                     AND reason = %(reason)s
                     AND coalesce(doc_id, '') = coalesce(%(doc_id)s, '')
                     AND coalesce(url, '') = coalesce(%(url)s, '')
@@ -425,6 +478,7 @@ class CrawlerStateStore:
                 SELECT
                   id,
                   stage,
+                  COALESCE(task_type, stage) AS task_type,
                   reason,
                   source_type,
                   page_kind,
@@ -432,9 +486,13 @@ class CrawlerStateStore:
                   url,
                   file_path,
                   retry_count,
-                  context
+                  attempts,
+                  max_attempts,
+                  last_error,
+                  context,
+                  payload
                 FROM crawler_retry_queue
-                WHERE stage = ANY(%s)
+                WHERE COALESCE(task_type, stage) = ANY(%s)
                   {status_clause}
                   AND (next_retry_at IS NULL OR next_retry_at <= now())
                 ORDER BY created_at ASC
@@ -449,7 +507,8 @@ class CrawlerStateStore:
             cur.execute(
                 """
                 UPDATE crawler_retry_queue
-                SET status = 'done',
+                SET status = 'succeeded',
+                    resolved_at = now(),
                     updated_at = now()
                 WHERE id = %s;
                 """,
@@ -462,12 +521,37 @@ class CrawlerStateStore:
             cur.execute(
                 """
                 UPDATE crawler_retry_queue
-                SET retry_count = retry_count + 1,
-                    status = 'pending',
+                SET attempts = attempts + 1,
+                    retry_count = retry_count + 1,
+                    status = CASE
+                      WHEN attempts + 1 >= max_attempts THEN 'dead_letter'
+                      ELSE 'pending'
+                    END,
+                    last_error = %s,
+                    last_attempt_at = now(),
+                    dead_lettered_at = CASE
+                      WHEN attempts + 1 >= max_attempts THEN now()
+                      ELSE dead_lettered_at
+                    END,
                     context = context || jsonb_build_object('last_error', %s),
                     updated_at = now()
                 WHERE id = %s;
                 """,
-                (str(error), retry_id),
+                (str(error), str(error), retry_id),
+            )
+        self.commit()
+
+    def mark_unknown_task_type(self, retry_id: int, task_type: str) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE crawler_retry_queue
+                SET status = 'failed_unknown_task_type',
+                    last_error = %s,
+                    last_attempt_at = now(),
+                    updated_at = now()
+                WHERE id = %s;
+                """,
+                (f"unknown task_type: {task_type}", retry_id),
             )
         self.commit()
