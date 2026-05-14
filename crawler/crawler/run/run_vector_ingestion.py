@@ -12,7 +12,7 @@ os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(Path("crawler/.hf_cache/hub")
 from crawler.ingestion.embed_worker import EmbeddingWorker
 from crawler.ingestion.pgvector_loader import PGVectorLoader
 from crawler.storage.manifest_writer import ManifestWriter
-from crawler.utils.text_quality import document_quality_report, text_quality_report
+from crawler.utils.text_quality import document_quality_report, strip_nul_value, text_quality_report
 
 
 RAW_DIR = Path("crawler/data/raw/documents")
@@ -27,7 +27,7 @@ manifest_writer = ManifestWriter()
 
 def load_json(path: Path) -> dict | list:
     with open(path, "r", encoding="utf-8") as file:
-        return json.load(file)
+        return strip_nul_value(json.load(file))
 
 
 def log_error(message: str) -> None:

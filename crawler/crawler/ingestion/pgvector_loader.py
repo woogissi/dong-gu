@@ -8,6 +8,8 @@ from typing import Any
 import psycopg2
 from psycopg2.extras import Json
 
+from crawler.utils.text_quality import strip_nul_value
+
 
 class PGVectorLoader:
     def __init__(self, autocommit_writes: bool = True):
@@ -30,15 +32,7 @@ class PGVectorLoader:
 
     @classmethod
     def _strip_nul(cls, value: Any) -> Any:
-        if isinstance(value, str):
-            return value.replace("\x00", "")
-        if isinstance(value, dict):
-            return {cls._strip_nul(key): cls._strip_nul(item) for key, item in value.items()}
-        if isinstance(value, list):
-            return [cls._strip_nul(item) for item in value]
-        if isinstance(value, tuple):
-            return tuple(cls._strip_nul(item) for item in value)
-        return value
+        return strip_nul_value(value)
 
     def _json(self, value: Any) -> Json:
         return Json(self._strip_nul(value))

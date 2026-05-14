@@ -5,8 +5,7 @@ from pathlib import Path
 
 from crawler.ingestion.chunker import DocumentChunker
 from crawler.storage.manifest_writer import ManifestWriter
-from crawler.ingestion.pgvector_loader import PGVectorLoader
-from crawler.utils.text_quality import document_quality_report
+from crawler.utils.text_quality import document_quality_report, strip_nul_value
 
 
 CURATED_DIR = Path("crawler/data/curated/documents")
@@ -18,12 +17,21 @@ for d in [CHUNK_DIR, LOG_DIR]:          # chunk 저장 폴더와 로그 폴더�
 
 manifest_writer = ManifestWriter()
 chunker = DocumentChunker(max_chars=900, overlap_chars=100)
-pgv_loader = PGVectorLoader()
+pgv_loader = None
+
+
+def get_pgv_loader():
+    global pgv_loader
+    if pgv_loader is None:
+        from crawler.ingestion.pgvector_loader import PGVectorLoader
+
+        pgv_loader = PGVectorLoader()
+    return pgv_loader
 
 
 def load_json(path: Path) -> dict:          # curated 문서 파일 하나를 dict로 읽어온다
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        return strip_nul_value(json.load(f))
 
 
 def save_json(path: Path, data: dict | list) -> None:       # chunk 리스트를 JSON으로 저장
@@ -35,6 +43,31 @@ def log_error(message: str) -> None:        # 에러를 콘솔과 로그 파일�
     print(message)
     with open(LOG_DIR / "ingestion_errors.log", "a", encoding="utf-8") as f:
         f.write(message + "\n")
+
+
+def record_ingestion_error_to_db(
+    error: Exception,
+    path: Path,
+    source_type: str | None,
+    doc_id: str | None,
+) -> None:
+    try:
+        get_pgv_loader().insert_crawl_job_error(
+            run_type="ingestion_pipeline",
+            stage="chunking",
+            error=error,
+            source_type=source_type,
+            doc_id=doc_id,
+            file_path=path.as_posix(),
+            context={
+                "curated_file": path.as_posix(),
+            },
+        )
+    except Exception as logging_error:
+        log_error(
+            "[INGEST ERROR LOGGING FAILED] "
+            f"file={path.as_posix()} error={logging_error}"
+        )
 
 
 def collect_curated_documents() -> list[Path]:      # chunking 대상이 될 curated 문서 파일들을 전부 모으는 함수
@@ -62,6 +95,8 @@ def run_ingestion():                # 전체 ingestion 파이프라인 함수
     print(f"[INFO] curated documents found: {len(doc_paths)}")
 
     for path in doc_paths:
+        source_type = None
+        doc_id = None
         try:
             doc = load_json(path)
             source_type = doc.get("source_type", "unknown")
@@ -125,17 +160,7 @@ def run_ingestion():                # 전체 ingestion 파이프라인 함수
                 message=message,
                 extra={"file_path": path.as_posix()},
             )
-            pgv_loader.insert_crawl_job_error(
-                run_type="ingestion_pipeline",
-                stage="chunking",
-                error=e,
-                source_type=source_type if "source_type" in locals() else None,
-                doc_id=doc_id if "doc_id" in locals() else None,
-                file_path=path.as_posix(),
-                context={
-                    "curated_file": path.as_posix(),
-                },
-            )
+            record_ingestion_error_to_db(e, path, source_type, doc_id)
 
 
 if __name__ == "__main__":

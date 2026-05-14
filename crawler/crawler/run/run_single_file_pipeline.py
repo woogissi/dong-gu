@@ -9,7 +9,7 @@ os.environ.setdefault("HF_HOME", str(Path("crawler/.hf_cache").resolve()))
 os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(Path("crawler/.hf_cache/hub").resolve()))
 
 from crawler.storage.manifest_writer import ManifestWriter
-from crawler.utils.text_quality import document_quality_report, text_quality_report
+from crawler.utils.text_quality import document_quality_report, strip_nul_value, text_quality_report
 
 
 RAW_DIR = Path("crawler/data/raw/documents")
@@ -24,7 +24,7 @@ manifest_writer = ManifestWriter()
 
 def load_json(path: Path) -> dict | list:
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        return strip_nul_value(json.load(f))
 
 
 def save_json(path: Path, data: dict | list) -> None:
