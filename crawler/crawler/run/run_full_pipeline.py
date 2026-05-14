@@ -20,6 +20,7 @@ from crawler.storage.document_store import DocumentStore
 from crawler.schemas.document_models import CuratedDocument
 from crawler.ingestion.document_version_manager import DocumentVersionManager
 from crawler.normalize.text_cleaner import TextCleaner
+from crawler.state.crawler_state_store import CrawlerStateStore
 from crawler.paths import (
     CURATED_DOC_DIR,
     DATA_DIR,
@@ -486,6 +487,20 @@ def run_static_pipeline(static_urls: list[dict], workers: int = 1) -> None:
             future.result()
 
 
+def load_dynamic_board_seeds(min_confidence: float) -> list[dict]:
+    state_store = CrawlerStateStore()
+    try:
+        state_store.ensure_tables()
+        return state_store.list_promoted_dynamic_seeds(min_confidence)
+    finally:
+        state_store.close()
+
+
+def merge_dynamic_board_seeds(board_seeds: list[dict], dynamic_board_seeds: list[dict]) -> list[dict]:
+    existing_urls = {seed["url"] for seed in board_seeds}
+    return [*board_seeds, *[seed for seed in dynamic_board_seeds if seed["url"] not in existing_urls]]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run DEU crawling pipeline.")
     parser.add_argument(
@@ -511,6 +526,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--since-date", help="Only process board posts on or after YYYY-MM-DD.")
     parser.add_argument("--max-detail-count", type=int, default=None, help="Maximum board detail pages per board seed.")
     parser.add_argument("--incremental", action="store_true", help="Use latest DB published_at as since-date per source.")
+    parser.add_argument(
+        "--use-discovered-seeds",
+        action="store_true",
+        help="Include promoted dynamic board seeds from Postgres state tables.",
+    )
+    parser.add_argument(
+        "--min-discovery-confidence",
+        type=float,
+        default=0.8,
+        help="Minimum confidence for dynamic board seeds when --use-discovered-seeds is set.",
+    )
     parser.add_argument("--connect-timeout", type=float, default=5, help="HTTP connect timeout in seconds.")
     parser.add_argument("--read-timeout", type=float, default=30, help="HTTP read timeout in seconds.")
     parser.add_argument("--sleep", type=float, default=0.0, help="Delay between successful requests.")#--
@@ -548,6 +574,17 @@ def main():
             board_seeds.append(seed)
         elif seed["page_kind"] in {"seed", "static_page"}:
             static_seeds.append(seed)
+
+    if args.use_discovered_seeds:
+        dynamic_board_seeds = load_dynamic_board_seeds(args.min_discovery_confidence)
+        merged_board_seeds = merge_dynamic_board_seeds(board_seeds, dynamic_board_seeds)
+        added_count = len(merged_board_seeds) - len(board_seeds)
+        board_seeds = merged_board_seeds
+        print(
+            "[DYNAMIC SEEDS] "
+            f"loaded={len(dynamic_board_seeds)} added={added_count} "
+            f"min_confidence={args.min_discovery_confidence}"
+        )
 
     if args.static_seed_names:
         selected_names = set(args.static_seed_names)

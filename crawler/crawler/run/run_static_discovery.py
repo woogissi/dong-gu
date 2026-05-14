@@ -13,6 +13,7 @@ from crawler.discovery.frontier_manager import FrontierManager
 from crawler.extractors.static_page_extractor import StaticPageExtractor
 from crawler.storage.document_store import DocumentStore
 from crawler.storage.manifest_writer import ManifestWriter
+from crawler.state.crawler_state_store import CrawlerStateStore
 from crawler.normalize.text_cleaner import TextCleaner
 from crawler.schemas.document_models import CuratedDocument
 from crawler.ingestion.document_version_manager import DocumentVersionManager
@@ -130,6 +131,17 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Allow configured legacy DEU hosts to retry without SSL verification.",
     )
+    parser.add_argument(
+        "--promote-discovery-results",
+        action="store_true",
+        help="Store discovered board candidates in Postgres and promote high-confidence board_list seeds.",
+    )
+    parser.add_argument(
+        "--min-discovery-confidence",
+        type=float,
+        default=0.8,
+        help="Minimum confidence for promoted dynamic board seeds.",
+    )
     return parser.parse_args()
 
 
@@ -140,6 +152,8 @@ def main(
     timeout: tuple[float, float] = (5, 30),
     sleep_seconds: float = 0.5,
     allow_insecure_ssl: bool = False,
+    promote_discovery_results: bool = False,
+    min_discovery_confidence: float = 0.8,
 ):
     if allow_insecure_ssl:
         os.environ["CRAWLER_ALLOW_INSECURE_SSL"] = "1"
@@ -155,6 +169,10 @@ def main(
     source_group_by_url = {}
     discover_candidates_by_url = {}
     candidate_urls = set()
+    state_store = None
+    if promote_discovery_results:
+        state_store = CrawlerStateStore()
+        state_store.ensure_tables()
 
     # static seed만 넣기
     for seed in iter_enabled_seeds():
@@ -195,6 +213,8 @@ def main(
                 if discover_board_candidates and candidate and url not in candidate_urls:
                     candidate_urls.add(url)
                     manifest_writer.append_jsonl("candidate_boards.jsonl", candidate)
+                    if state_store:
+                        state_store.upsert_dynamic_seed(candidate)
                 continue
 
             raw_doc = extractor.extract_static_page(source_type=source_type, page_url=url)  # 실제 페이지를 가져와서 raw 문서 dict로 만듬
@@ -222,6 +242,8 @@ def main(
                 if discover_board_candidates and candidate and next_url not in candidate_urls:
                     candidate_urls.add(next_url)
                     manifest_writer.append_jsonl("candidate_boards.jsonl", candidate)
+                    if state_store:
+                        state_store.upsert_dynamic_seed(candidate)
 
                 # 정적 페이지만 계속 확장
                 if next_type == "static_page":
@@ -249,6 +271,10 @@ def main(
             )
 
     print("[DONE] static discovery finished")
+    if state_store:
+        promoted_count = state_store.promote_dynamic_seeds(min_discovery_confidence)
+        state_store.close()
+        print(f"[DYNAMIC SEEDS] promoted={promoted_count} min_confidence={min_discovery_confidence}")
     print(frontier.stats())
 
 
@@ -261,4 +287,6 @@ if __name__ == "__main__":
         timeout=(args.connect_timeout, args.read_timeout),
         sleep_seconds=args.sleep,
         allow_insecure_ssl=args.allow_insecure_ssl,
+        promote_discovery_results=args.promote_discovery_results,
+        min_discovery_confidence=args.min_discovery_confidence,
     )
