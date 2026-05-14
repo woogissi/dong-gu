@@ -23,6 +23,7 @@ docker compose run --rm crawler python -m unittest discover tests
 | `crawler/run/run_full_pipeline.py` | 정적 페이지와 게시판 수집을 수행하는 전체 파이프라인 진입점 |
 | `crawler/run/run_rag_load_check.py` | Supabase에 적재된 RAG 데이터가 검색 가능한 형태인지 최소 SQL로 점검 |
 | `crawler/run/run_retry_failed_documents.py` | `crawl_logs`의 실패 이력을 기준으로 정적 페이지와 벡터 적재 실패 건 재처리 |
+| `crawler/run/run_static_discovery.py` | 정적 페이지를 제한 탐색하고 게시판형 URL은 후보 manifest로만 기록 |
 | `crawler/extractors/board_list_extractor.py` | 게시판 목록 페이지에서 상세 URL 후보를 추출 |
 | `crawler/extractors/board_detail_extractor.py` | 게시판 상세 페이지에서 본문, 표, 첨부 정보를 추출 |
 | `crawler/parser/file_text_router.py` | 첨부파일 확장자별 텍스트 추출 라우팅 |
@@ -49,6 +50,17 @@ docker compose run --rm crawler python -m unittest discover tests
 | `attachment` | 첨부파일 자체의 텍스트 추출 결과를 저장하는 경우 |
 
 새 소스 추가 시 `source_type`은 DB 조회와 재처리 단위가 되므로 짧고 안정적인 영문 식별자를 사용한다. `page_kind`는 처리 단계의 성격을 드러내는 값으로 유지한다.
+
+Seed에는 다음 운영 정책 값을 둘 수 있다.
+
+| 필드 | 의미 |
+| --- | --- |
+| `crawl_enabled` | `False`이면 실행 대상에서 제외 |
+| `priority` | 수집 우선순위. 공식 핵심 데이터는 `P0` |
+| `source_group` | discovery로 파생된 URL이 상속할 상위 출처 그룹 |
+| `discover_board_candidates` | 정적 페이지 내부 게시판형 URL을 후보로 기록할지 여부 |
+
+게시판은 자동 수집하지 않는다. `run_static_discovery`에서 발견한 게시판형 URL은 `crawler/data/manifests/candidate_boards.jsonl`에 `candidate_only` 상태로 기록하고, 사람이 검토한 뒤 `crawler/config/seeds.py`에 `board_list` seed로 추가해야 실제 수집된다.
 
 ## 첨부파일 파싱 정책
 

@@ -1,29 +1,57 @@
 # crawler/config/seeds.py
 
+DEFAULT_SEED_POLICY = {
+    "crawl_enabled": True,
+    "priority": "P1",
+    "source_group": None,
+    "discover_board_candidates": False,
+}
+
+
+def normalize_seed(seed: dict) -> dict:
+    normalized = {**DEFAULT_SEED_POLICY, **seed}
+    normalized["source_group"] = normalized.get("source_group") or normalized.get("source_type")
+
+    if "discover_board_candidates" not in seed:
+        normalized["discover_board_candidates"] = normalized.get("page_kind") in {"seed", "static_page"}
+
+    return normalized
+
+
+def iter_enabled_seeds(page_kind: str | None = None) -> list[dict]:
+    seeds = [normalize_seed(seed) for seed in SEED_URLS]
+    if page_kind is not None:
+        seeds = [seed for seed in seeds if seed.get("page_kind") == page_kind]
+    return [seed for seed in seeds if seed.get("crawl_enabled", True)]
+
 SEED_URLS = [       # 해당 크롤러는 밑의 주소의 정보를 크롤링함
     {
         "name": "deu_home",
         "url": "https://www.deu.ac.kr/www/index.do",
         "source_type": "homepage",
         "page_kind": "static_page",
+        "priority": "P0",
     },
     {
         "name": "deu_notice_list",
         "url": "https://www.deu.ac.kr/www/deu-notice.do?mode=list",
         "source_type": "notice",
         "page_kind": "board_list",
+        "priority": "P0",
     },
     {
         "name": "deu_gra_notice_list",
         "url": "https://www.deu.ac.kr/www/gra-notice.do?mode=list",
         "source_type": "academic_notice",
         "page_kind": "board_list",
+        "priority": "P0",
     },
     {
         "name": "deu_ipsi_home",
         "url": "https://ipsi.deu.ac.kr/main.do",
         "source_type": "admission",
         "page_kind": "static_page",
+        "priority": "P0",
     },
     {
         "name": "deu_ipsi_susi_guide",

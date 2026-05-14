@@ -7,8 +7,9 @@ import time
 from pathlib import Path
 
 from crawler.utils.content_hash import build_content_hash
-from crawler.config.seeds import SEED_URLS
+from crawler.config.seeds import iter_enabled_seeds
 from crawler.config.domains import ALLOWED_HOSTS
+from crawler.discovery.board_candidate_policy import build_board_candidate_record
 from crawler.discovery.url_classifier import URLClassifier
 from crawler.discovery.frontier_manager import FrontierManager
 from crawler.extractors.static_page_extractor import StaticPageExtractor
@@ -168,10 +169,19 @@ def main(
         timeout=timeout,
     )
 
+    source_type_by_url = {}
+    source_group_by_url = {}
+    discover_candidates_by_url = {}
+    candidate_urls = set()
+
     # static seed만 넣기
-    for seed in SEED_URLS:
+    for seed in iter_enabled_seeds():
         if seed["page_kind"] in {"static_page", "seed"}:
-            frontier.add_url(seed["url"], depth=0, discovered_from="seed")
+            if frontier.add_url(seed["url"], depth=0, discovered_from="seed"):
+                canonical_url = frontier.canonicalize_url(seed["url"])
+                source_type_by_url[canonical_url] = seed["source_type"]
+                source_group_by_url[canonical_url] = seed.get("source_group")
+                discover_candidates_by_url[canonical_url] = seed.get("discover_board_candidates", False)
 
     crawled_count = 0
 
@@ -185,12 +195,26 @@ def main(
 
         try:
             url_type = url_classifier.classify(url)     # 정적페이지인지 다시 확인
+            canonical_url = frontier.canonicalize_url(url)
+            source_type = source_type_by_url.get(canonical_url) or url_classifier.infer_source_type(url)
+            source_group = source_group_by_url.get(canonical_url) or source_type
+            discover_board_candidates = discover_candidates_by_url.get(canonical_url, False)
 
             # 현재 static discovery는 정적 페이지만 대상으로 삼음
             if url_type != "static_page":
+                candidate = build_board_candidate_record(
+                    url=url,
+                    page_kind=url_type,
+                    discovered_from=discovered_from or "unknown",
+                    source_type=source_type,
+                    source_group=source_group,
+                    depth=depth,
+                )
+                if discover_board_candidates and candidate and url not in candidate_urls:
+                    candidate_urls.add(url)
+                    manifest_writer.append_jsonl("candidate_boards.jsonl", candidate)
                 continue
 
-            source_type = url_classifier.infer_source_type(url)     # source_type을 추정
             raw_doc = extractor.extract_static_page(source_type=source_type, page_url=url)  # 실제 페이지를 가져와서 raw 문서 dict로 만듬
             save_static_document(raw_doc)    
 
@@ -205,10 +229,28 @@ def main(
             # 내부 링크 확장
             for next_url in raw_doc.get("outgoing_links", []):
                 next_type = url_classifier.classify(next_url)
+                candidate = build_board_candidate_record(
+                    url=next_url,
+                    page_kind=next_type,
+                    discovered_from=url,
+                    source_type=source_type,
+                    source_group=source_group,
+                    depth=depth + 1,
+                )
+                if discover_board_candidates and candidate and next_url not in candidate_urls:
+                    candidate_urls.add(next_url)
+                    manifest_writer.append_jsonl("candidate_boards.jsonl", candidate)
 
                 # 정적 페이지만 계속 확장
                 if next_type == "static_page":
-                    frontier.add_url(next_url, depth=depth + 1, discovered_from=url)
+                    if frontier.add_url(next_url, depth=depth + 1, discovered_from=url):
+                        next_canonical_url = frontier.canonicalize_url(next_url)
+                        inferred_source_type = url_classifier.infer_source_type(next_url)
+                        source_type_by_url[next_canonical_url] = (
+                            inferred_source_type if inferred_source_type != "webpage" else source_type
+                        )
+                        source_group_by_url[next_canonical_url] = source_group
+                        discover_candidates_by_url[next_canonical_url] = discover_board_candidates
 
             crawled_count += 1
             print(f"[DISCOVERY OK] depth={depth} source={source_type} url={url}")

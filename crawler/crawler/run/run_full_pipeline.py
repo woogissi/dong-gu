@@ -9,7 +9,7 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from crawler.utils.content_hash import build_content_hash
-from crawler.config.seeds import SEED_URLS
+from crawler.config.seeds import iter_enabled_seeds
 from crawler.config.domains import ALLOWED_HOSTS
 from crawler.extractors.board_list_extractor import BoardListExtractor
 from crawler.extractors.board_detail_extractor import BoardDetailExtractor
@@ -554,7 +554,7 @@ def main():
     board_seeds = []
     static_seeds = []
 
-    for seed in SEED_URLS:
+    for seed in iter_enabled_seeds():
         if seed["page_kind"] == "board_list":
             board_seeds.append(seed)
         elif seed["page_kind"] in {"seed", "static_page"}:
