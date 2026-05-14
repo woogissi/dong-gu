@@ -9,8 +9,8 @@ from urllib.parse import urljoin, urlparse, parse_qs
 from bs4 import BeautifulSoup                                   # html 파싱용
 
 from crawler.schemas.document_models import BoardDetailRawDocument      # JSON 구조
+from crawler.extractors.base import BaseExtractor
 from crawler.extractors.image_text_extractor import ImageTextExtractor  # 이미지 추출
-from crawler.utils.http_client import build_retry_session
 
 HEADERS = {
     "User-Agent": (
@@ -23,14 +23,16 @@ HEADERS = {
 KST = timezone(timedelta(hours=9))                              # 한국 시간대 객체
 
 
-class BoardDetailExtractor:
+class BoardDetailExtractor(BaseExtractor):
+    name = "board_detail"
+    version = "1"
+
     def __init__(
         self,
         enable_image_ocr: bool = False,
         timeout: tuple[float, float] = (5, 30),
     ):
-        self.session = build_retry_session(HEADERS)
-        self.timeout = timeout
+        super().__init__(headers=HEADERS, timeout=timeout)
         self.enable_image_ocr = enable_image_ocr
         self.image_text_extractor = ImageTextExtractor()
 
@@ -68,9 +70,7 @@ class BoardDetailExtractor:
         return f"deu_{source_type}_{article_no}"
 
     def fetch(self, url: str) -> str:                           # 상세 페이지 html을 그대로 가져옴
-        res = self.session.get(url, timeout=self.timeout)
-        res.raise_for_status()
-        return res.text
+        return self.fetch_result(url).raw_html
 
     def clean_title(self, title: str) -> str:
         title = self.normalize_text(title)
@@ -384,5 +384,7 @@ class BoardDetailExtractor:
         return raw_doc.model_dump()
 
     def extract_detail(self, source_type: str, detail_url: str, title_hint: str | None = None) -> dict:
-        html = self.fetch(detail_url)
-        return self.build_raw_document(source_type, detail_url, html, title_hint=title_hint)
+        fetch_result = self.fetch_result(detail_url)
+        raw_doc = self.build_raw_document(source_type, detail_url, fetch_result.raw_html, title_hint=title_hint)
+        raw_doc["metadata"]["fetch"] = self.fetch_metadata(fetch_result)
+        return raw_doc

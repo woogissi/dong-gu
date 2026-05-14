@@ -16,6 +16,7 @@ from crawler.extractors.board_detail_extractor import BoardDetailExtractor
 from crawler.extractors.ipsi_notice_parser import IpsiNoticeParser
 from crawler.extractors.static_page_extractor import StaticPageExtractor
 from crawler.storage.manifest_writer import ManifestWriter
+from crawler.storage.document_store import DocumentStore
 from crawler.schemas.document_models import CuratedDocument
 from crawler.ingestion.document_version_manager import DocumentVersionManager
 from crawler.normalize.text_cleaner import TextCleaner
@@ -36,6 +37,7 @@ ensure_dirs(RAW_HTML_DIR, RAW_DOC_DIR, RAW_ATTACH_DIR, CURATED_DOC_DIR, LOG_DIR)
 
 text_cleaner = TextCleaner()
 manifest_writer = ManifestWriter()
+document_store = DocumentStore()
 version_manager = DocumentVersionManager(curated_base_dir=str(CURATED_DOC_DIR))
 pgv_loader = None
 RUNTIME = {
@@ -67,11 +69,6 @@ def save_json(path: Path, data: dict | list) -> None:
 def load_json(path: Path) -> dict | list:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
-
-
-def save_text(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
 
 
 def log_error(message: str) -> None:
@@ -163,15 +160,7 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
     source_type = raw_doc["source_type"]
     doc_id = raw_doc["doc_id"]
 
-    html_path = RAW_HTML_DIR / source_type / f"{doc_id}.html"
-    raw_path = RAW_DOC_DIR / source_type / f"{doc_id}.json"
-    curated_path = CURATED_DOC_DIR / source_type / f"{doc_id}.json"
-
-    save_text(html_path, raw_doc["html"])
-
-    raw_to_save = dict(raw_doc)
-    raw_to_save["html_path"] = str(html_path.as_posix())
-    raw_to_save.pop("html", None)
+    raw_to_save, raw_path, _html_path = document_store.prepare_raw_document(raw_doc)
 
     existing_raw = existing_raw_document(source_type, doc_id)
     existing_curated = version_manager.load_existing_document(source_type, doc_id)
@@ -289,8 +278,8 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
 
     raw_to_save["version"] = final_curated["version"]
 
-    save_json(raw_path, raw_to_save)
-    save_json(curated_path, final_curated)
+    document_store.save_json(raw_path, raw_to_save)
+    document_store.save_curated_document(source_type, doc_id, final_curated)
 
     manifest_writer.write_document_record(raw_to_save)
     manifest_writer.append_jsonl("document_versioning.jsonl", {

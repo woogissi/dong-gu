@@ -8,8 +8,8 @@ from datetime import datetime, timezone, timedelta
 from urllib.parse import urljoin, urlparse, urldefrag
 
 from crawler.schemas.document_models import StaticPageRawDocument
+from crawler.extractors.base import BaseExtractor, FetchResult
 from crawler.extractors.image_text_extractor import ImageTextExtractor
-from crawler.utils.http_client import build_retry_session
 from crawler.utils.text_quality import is_binary_like_text
 
 import requests
@@ -27,17 +27,19 @@ HEADERS = {
 KST = timezone(timedelta(hours=9))
 
 
-class StaticPageExtractor:
+class StaticPageExtractor(BaseExtractor):
+    name = "static_page"
+    version = "1"
+
     def __init__(
         self,
         allowed_hosts: set[str] | None = None,
         enable_image_ocr: bool = False,
         timeout: tuple[float, float] = (5, 30),
     ):
-        self.session = build_retry_session(HEADERS)
+        super().__init__(headers=HEADERS, timeout=timeout)
         self.allowed_hosts = allowed_hosts or set()     #허용도메인
         self.enable_image_ocr = enable_image_ocr
-        self.timeout = timeout
         self.image_text_extractor = ImageTextExtractor()
 
     def now_kst_iso(self) -> str:                       #현재 시각을 한국 시간 ISO 문자열로 반환
@@ -85,18 +87,33 @@ class StaticPageExtractor:
             raise ValueError(f"binary-like static response: url={url} content_type={content_type or 'unknown'}")
         return text
 
-    def fetch(self, url: str) -> str:                       #정적 페이지 HTML을 실제로 가져오는 함수
+    def fetch_result(self, url: str) -> FetchResult:
         try:
             res = self.session.get(url, timeout=self.timeout)
             res.raise_for_status()
-            return self._response_text(res, url)
+            return FetchResult(
+                url=url,
+                final_url=res.url,
+                status_code=res.status_code,
+                headers=dict(res.headers),
+                raw_html=self._response_text(res, url),
+            )
         except requests.exceptions.SSLError:
             insecure_ssl_hosts = ("lib.deu.ac.kr", "has.deu.ac.kr")
             if any(host in url for host in insecure_ssl_hosts) and os.getenv("CRAWLER_ALLOW_INSECURE_SSL") == "1":
                 res = self.session.get(url, timeout=self.timeout, verify=False)       # 도서관 사이트 SSLhandshake failure 해결
                 res.raise_for_status()
-                return self._response_text(res, url)
+                return FetchResult(
+                    url=url,
+                    final_url=res.url,
+                    status_code=res.status_code,
+                    headers=dict(res.headers),
+                    raw_html=self._response_text(res, url),
+                )
             raise
+
+    def fetch(self, url: str) -> str:                       #정적 페이지 HTML을 실제로 가져오는 함수
+        return self.fetch_result(url).raw_html
 
     def make_doc_id(self, url: str) -> str:
         return f"static_{self.sha1_text(url)[:16]}"         #정적페이지는 articleNo가 없기 때문에 해시로 id생성
@@ -243,7 +260,8 @@ class StaticPageExtractor:
         return None, None
 
     def extract_static_page(self, source_type: str, page_url: str) -> dict:         # 외부에서 호출하는 정적 페이지 추출 메인 함수
-        html = self.fetch(page_url)
+        fetch_result = self.fetch_result(page_url)
+        html = fetch_result.raw_html
         soup = BeautifulSoup(html, "html.parser")
 
         title = self.find_title(soup)       # 제목
@@ -292,5 +310,6 @@ class StaticPageExtractor:
         outgoing_links=outgoing_links,
         content_hash=hash,
         html=html,
+        metadata={"fetch": self.fetch_metadata(fetch_result)},
     )
         return raw_doc.model_dump()

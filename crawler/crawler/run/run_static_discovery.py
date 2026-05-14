@@ -1,10 +1,8 @@
 # crawler/run/run_static_discovery.py
 
-import json
 import argparse
 import os
 import time
-from pathlib import Path
 
 from crawler.utils.content_hash import build_content_hash
 from crawler.config.seeds import iter_enabled_seeds
@@ -13,6 +11,7 @@ from crawler.discovery.board_candidate_policy import build_board_candidate_recor
 from crawler.discovery.url_classifier import URLClassifier
 from crawler.discovery.frontier_manager import FrontierManager
 from crawler.extractors.static_page_extractor import StaticPageExtractor
+from crawler.storage.document_store import DocumentStore
 from crawler.storage.manifest_writer import ManifestWriter
 from crawler.normalize.text_cleaner import TextCleaner
 from crawler.schemas.document_models import CuratedDocument
@@ -26,18 +25,9 @@ version_manager = DocumentVersionManager(curated_base_dir=str(CURATED_DOC_DIR))
 ensure_dirs(RAW_HTML_DIR, RAW_DOC_DIR, CURATED_DOC_DIR, LOG_DIR)     # 필요한 폴더들을 미리 생성
 
 manifest_writer = ManifestWriter()
+document_store = DocumentStore()
 url_classifier = URLClassifier()
 text_cleaner = TextCleaner()
-
-
-def save_json(path: Path, data: dict | list) -> None:       # JSON 저장 함수
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def save_text(path: Path, text: str) -> None:               # html 원문 저장용 텍스트 파일 저장 함수
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
 
 
 def log_error(message: str) -> None:
@@ -92,15 +82,7 @@ def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type�
     source_type = raw_doc["source_type"]
     doc_id = raw_doc["doc_id"]
 
-    html_path = RAW_HTML_DIR / source_type / f"{doc_id}.html"
-    raw_path = RAW_DOC_DIR / source_type / f"{doc_id}.json"
-    curated_path = CURATED_DOC_DIR / source_type / f"{doc_id}.json"
-
-    save_text(html_path, raw_doc["html"])       # 원문 저장
-
-    raw_to_save = dict(raw_doc)
-    raw_to_save["html_path"] = str(html_path.as_posix())
-    raw_to_save.pop("html", None)
+    raw_to_save, raw_path, _html_path = document_store.prepare_raw_document(raw_doc)
     image_text = merge_image_texts(raw_to_save.get("image_texts", []))
 
     raw_to_save["content_hash"] = build_content_hash(
@@ -121,8 +103,8 @@ def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type�
 
     raw_to_save["version"] = final_curated["version"]
 
-    save_json(raw_path, raw_to_save)            # raw 저장
-    save_json(curated_path, final_curated)        # curated 저장
+    document_store.save_json(raw_path, raw_to_save)            # raw 저장
+    document_store.save_curated_document(source_type, doc_id, final_curated)        # curated 저장
     manifest_writer.write_document_record(raw_to_save)      # manifest 기록
     manifest_writer.append_jsonl("document_versioning.jsonl", {
         "doc_id": doc_id,
