@@ -11,7 +11,7 @@ from psycopg2.extras import Json
 
 class PGVectorLoader:
     def __init__(self, autocommit_writes: bool = True):
-        database_url = os.getenv("DATABASE_URL")
+        database_url = self._database_url()
 
         if database_url:
             self.conn = psycopg2.connect(database_url)
@@ -27,6 +27,16 @@ class PGVectorLoader:
         self.conn.autocommit = False
         self._column_cache: dict[tuple[str, str], bool] = {}
         self.autocommit_writes = autocommit_writes
+
+    def _database_url(self) -> str:
+        database_url = (
+            os.getenv("CRAWLER_DATABASE_URL")
+            or os.getenv("DATABASE_URL")
+            or ""
+        ).strip()
+        if database_url.startswith("postgresql+psycopg2://"):
+            return database_url.replace("postgresql+psycopg2://", "postgresql://", 1)
+        return database_url
 
     @classmethod
     def _strip_nul(cls, value: Any) -> Any:
