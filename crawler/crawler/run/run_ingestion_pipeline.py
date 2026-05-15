@@ -6,6 +6,7 @@ from pathlib import Path
 from crawler.ingestion.chunker import DocumentChunker
 from crawler.storage.manifest_writer import ManifestWriter
 from crawler.ingestion.pgvector_loader import PGVectorLoader
+from crawler.utils.text_quality import document_quality_report
 
 
 CURATED_DIR = Path("crawler/data/curated/documents")
@@ -86,6 +87,21 @@ def run_ingestion():                # 전체 ingestion 파이프라인 함수
                 })
 
                 print(f"[INGEST SKIP] {doc_id} → 본문/첨부/이미지 없음")
+                continue
+
+            quality = document_quality_report(doc)
+            if quality["is_binary_like"]:
+                manifest_writer.append_jsonl("chunking.jsonl", {
+                    "doc_id": doc_id,
+                    "source_type": source_type,
+                    "version": doc.get("version"),
+                    "chunk_count": 0,
+                    "source_url": doc.get("source_url"),
+                    "status": "skipped",
+                    "reason": "binary_like_text",
+                    "quality": quality,
+                })
+                print(f"[INGEST SKIP] {doc_id} binary_like_text fields={quality['bad_fields']}")
                 continue
 
             chunks = chunker.chunk_document(doc)  # list로 청크 결과 받기

@@ -10,6 +10,26 @@ from typing import Any
 from rag.schemas.retrieved_doc import RetrievedDoc
 
 _TOKEN_PATTERN = re.compile(r"[가-힣A-Za-z0-9]+")
+_WEAK_RELEVANCE_TOKENS = {
+    "",
+    "deu",
+    "\uac00\ub2a5",
+    "\uac1c\uc218",
+    "\uae30\uac04",
+    "\ubc29\ubc95",
+    "\ubc88\ud638",
+    "\uc54c\ub824\uc918",
+    "\uc5b4\ub5bb\uac8c",
+    "\uc624\ub298",
+    "\uc704\uce58",
+    "\uc774\ub984",
+    "\uc77c\uc815",
+    "\uc815\ubcf4",
+    "\uc885\ub958",
+    "\uc2dc\uc810",
+    "\uc5b8\uc81c",
+    "\uc5f0\ub77d\ucc98",
+}
 
 
 def rerank_documents(
@@ -69,6 +89,9 @@ def _score_doc(
     title_match = _coverage_score(keyword_tokens, title_tokens) * 1.8
     content_match = _coverage_score(keyword_tokens, content_tokens) * 1.0
     exact_query_match = 0.8 if query.strip() and query.strip().lower() in full_text else 0.0
+    strong_term_match = _strong_term_match_score(keyword_tokens, full_text)
+    missing_strong_terms = _missing_strong_terms_penalty(keyword_tokens, full_text)
+    attachment_noise = _attachment_noise_penalty(doc, strong_term_match, title_match)
     category_match = _category_match_score(doc, category, filters)
     recency = _recency_score(doc.metadata.get("published_at"))
 
@@ -77,6 +100,9 @@ def _score_doc(
         "title_match": round(title_match, 6),
         "content_match": round(content_match, 6),
         "exact_query_match": round(exact_query_match, 6),
+        "strong_term_match": round(strong_term_match, 6),
+        "missing_strong_terms": round(missing_strong_terms, 6),
+        "attachment_noise": round(attachment_noise, 6),
         "category_match": round(category_match, 6),
         "recency": round(recency, 6),
     }
@@ -93,6 +119,42 @@ def _coverage_score(expected_tokens: list[str], actual_tokens: set[str]) -> floa
         return 0.0
     matched = sum(1 for token in expected_tokens if token in actual_tokens)
     return matched / len(expected_tokens)
+
+
+def _strong_tokens(tokens: list[str]) -> list[str]:
+    return [
+        token
+        for token in tokens
+        if len(token) >= 2 and token not in _WEAK_RELEVANCE_TOKENS
+    ]
+
+
+def _strong_term_match_score(tokens: list[str], full_text: str) -> float:
+    strong_tokens = _strong_tokens(tokens)
+    if not strong_tokens:
+        return 0.0
+    matched = sum(1 for token in strong_tokens if token in full_text)
+    return min(matched / len(strong_tokens), 1.0) * 1.2
+
+
+def _missing_strong_terms_penalty(tokens: list[str], full_text: str) -> float:
+    strong_tokens = _strong_tokens(tokens)
+    if not strong_tokens:
+        return 0.0
+    return 0.0 if any(token in full_text for token in strong_tokens) else -2.0
+
+
+def _attachment_noise_penalty(
+    doc: RetrievedDoc,
+    strong_term_match: float,
+    title_match: float,
+) -> float:
+    section_type = _normalize_value(doc.metadata.get("section_type"))
+    if section_type != "attachment":
+        return 0.0
+    if strong_term_match > 0 or title_match > 0:
+        return 0.0
+    return -0.5
 
 
 def _category_match_score(

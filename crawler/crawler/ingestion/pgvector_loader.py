@@ -1,9 +1,8 @@
-# crawler/ingestion/pgvector_loader.py
-
 from __future__ import annotations
 
-import json
+import math
 import os
+import traceback as tb
 from typing import Any
 import traceback as tb
 import psycopg2
@@ -11,9 +10,9 @@ from psycopg2.extras import Json
 
 
 class PGVectorLoader:
-    def __init__(self):
-        database_url = os.getenv("DATABASE_URL")
-        
+    def __init__(self, autocommit_writes: bool = True):
+        database_url = self._database_url()
+
         if database_url:
             self.conn = psycopg2.connect(database_url)
         else:
@@ -24,26 +23,52 @@ class PGVectorLoader:
                 user=os.getenv("POSTGRES_USER", "chatbot"),
                 password=os.getenv("POSTGRES_PASSWORD", "chatbot"),
             )
-        
-        self.conn.autocommit = False                                # 자동 커밋 해제
-        self._column_cache: dict[tuple[str, str], bool] = {}
 
-    def close(self) ->  None:                                                # DB 연결 종료
+        self.conn.autocommit = False
+        self._column_cache: dict[tuple[str, str], bool] = {}
+        self.autocommit_writes = autocommit_writes
+
+    def _database_url(self) -> str:
+        database_url = (
+            os.getenv("CRAWLER_DATABASE_URL")
+            or os.getenv("DATABASE_URL")
+            or ""
+        ).strip()
+        if database_url.startswith("postgresql+psycopg2://"):
+            return database_url.replace("postgresql+psycopg2://", "postgresql://", 1)
+        return database_url
+
+    @classmethod
+    def _strip_nul(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return value.replace("\x00", "")
+        if isinstance(value, dict):
+            return {cls._strip_nul(key): cls._strip_nul(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [cls._strip_nul(item) for item in value]
+        if isinstance(value, tuple):
+            return tuple(cls._strip_nul(item) for item in value)
+        return value
+
+    def _json(self, value: Any) -> Json:
+        return Json(self._strip_nul(value))
+
+    def close(self) -> None:
         self.conn.close()
 
+    def commit(self) -> None:
+        self.conn.commit()
+
+    def rollback(self) -> None:
+        self.conn.rollback()
+
+    def _commit_if_needed(self) -> None:
+        if self.autocommit_writes:
+            self.conn.commit()
+
     def ensure_tables(self) -> None:
-        """
-        이미 SQL로 테이블을 만들어둔 경우에도 안전하게 실행 가능.
-        단, 실제 테이블 생성은 네가 작성한 전체 SQL 기준으로 하는 것을 권장.
-        """
         with self.conn.cursor() as cur:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-            cur.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;")
-            cur.execute("ALTER TABLE chunks ADD COLUMN IF NOT EXISTS section_index INT;")
-            cur.execute("ALTER TABLE chunks ADD COLUMN IF NOT EXISTS section_type TEXT;")
-            cur.execute("ALTER TABLE chunks ADD COLUMN IF NOT EXISTS section_title TEXT;")
-            cur.execute("ALTER TABLE chunks ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;")
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_chunks_section_type ON chunks(section_type);")
         self.conn.commit()
         self._column_cache.clear()
 
@@ -61,7 +86,8 @@ class PGVectorLoader:
                 SELECT EXISTS (
                     SELECT 1
                     FROM information_schema.columns
-                    WHERE table_name = %s
+                    WHERE table_schema = 'public'
+                      AND table_name = %s
                       AND column_name = %s
                 );
                 """,
@@ -72,13 +98,8 @@ class PGVectorLoader:
         self._column_cache[key] = exists
         return exists
 
-    def upsert_document(self, doc: dict) -> None:
-        has_metadata = self.has_column("documents", "metadata")
-        metadata_insert_column = "metadata," if has_metadata else ""
-        metadata_insert_value = "%(metadata)s," if has_metadata else ""
-        metadata_update = "metadata = EXCLUDED.metadata," if has_metadata else ""
-
-        sql = f"""
+    def upsert_document(self, doc: dict[str, Any]) -> None:
+        sql = """
         INSERT INTO documents (
             doc_id,
             source_type,
@@ -88,15 +109,9 @@ class PGVectorLoader:
             source_url,
             published_at,
             updated_at,
-            raw_text,
-            clean_text,
-            table_text,
-            attachment_text,
-            image_text,
-            version,
             content_hash,
             collected_at,
-            {metadata_insert_column}
+            metadata,
             db_updated_at
         )
         VALUES (
@@ -106,18 +121,12 @@ class PGVectorLoader:
             %(department)s,
             %(title)s,
             %(source_url)s,
-            NULLIF(%(published_at)s, '')::timestamp,
-            NULLIF(%(updated_at)s, '')::timestamp,
-            %(raw_text)s,
-            %(clean_text)s,
-            %(table_text)s,
-            %(attachment_text)s,
-            %(image_text)s,
-            %(version)s,
+            NULLIF(%(published_at)s, '')::timestamptz,
+            NULLIF(%(updated_at)s, '')::timestamptz,
             %(content_hash)s,
-            NULLIF(%(collected_at)s, '')::timestamp,
-            {metadata_insert_value}
-            NOW()
+            NULLIF(%(collected_at)s, '')::timestamptz,
+            %(metadata)s,
+            now()
         )
         ON CONFLICT (doc_id) DO UPDATE SET
             source_type = EXCLUDED.source_type,
@@ -127,44 +136,31 @@ class PGVectorLoader:
             source_url = EXCLUDED.source_url,
             published_at = EXCLUDED.published_at,
             updated_at = EXCLUDED.updated_at,
-            raw_text = EXCLUDED.raw_text,
-            clean_text = EXCLUDED.clean_text,
-            table_text = EXCLUDED.table_text,
-            attachment_text = EXCLUDED.attachment_text,
-            image_text = EXCLUDED.image_text,
-            version = EXCLUDED.version,
             content_hash = EXCLUDED.content_hash,
             collected_at = EXCLUDED.collected_at,
-            {metadata_update}
-            db_updated_at = NOW();
+            metadata = EXCLUDED.metadata,
+            db_updated_at = now();
         """
 
         params = {
-            "doc_id": doc.get("doc_id"),
-            "source_type": doc.get("source_type"),
-            "page_kind": doc.get("page_kind"),
-            "department": doc.get("department"),
-            "title": doc.get("title") or "",
-            "source_url": doc.get("source_url"),
-            "published_at": doc.get("published_at"),
-            "updated_at": doc.get("updated_at"),
-            "raw_text": doc.get("raw_text"),
-            "clean_text": doc.get("normalize") or doc.get("clean_text"),
-            "table_text": doc.get("table_text"),
-            "attachment_text": doc.get("attachment_text"),
-            "image_text": doc.get("image_text"),
-            "version": doc.get("version", 1),
-            "content_hash": doc.get("content_hash"),
-            "collected_at": doc.get("collected_at"),
+            "doc_id": self._strip_nul(doc.get("doc_id")),
+            "source_type": self._strip_nul(doc.get("source_type")),
+            "page_kind": self._strip_nul(doc.get("page_kind")),
+            "department": self._strip_nul(doc.get("department")),
+            "title": self._strip_nul(doc.get("title") or ""),
+            "source_url": self._strip_nul(doc.get("source_url")),
+            "published_at": self._strip_nul(doc.get("published_at")),
+            "updated_at": self._strip_nul(doc.get("updated_at")),
+            "content_hash": self._strip_nul(doc.get("content_hash")),
+            "collected_at": self._strip_nul(doc.get("collected_at")),
+            "metadata": self._json(doc.get("metadata", {})),
         }
-        if has_metadata:
-            params["metadata"] = Json(doc.get("metadata", {}))
 
         with self.conn.cursor() as cur:
             cur.execute(sql, params)
-        self.conn.commit()
+        self._commit_if_needed()
 
-    def insert_document_version(self, doc: dict, change_type: str) -> None:
+    def insert_document_version(self, doc: dict[str, Any], change_type: str | None) -> int:
         sql = """
         INSERT INTO document_versions (
             doc_id,
@@ -174,7 +170,11 @@ class PGVectorLoader:
             snapshot
         )
         VALUES (%s, %s, %s, %s, %s)
-        ON CONFLICT (doc_id, version) DO NOTHING;
+        ON CONFLICT (doc_id, version) DO UPDATE SET
+            content_hash = EXCLUDED.content_hash,
+            change_type = EXCLUDED.change_type,
+            snapshot = EXCLUDED.snapshot
+        RETURNING id;
         """
 
         with self.conn.cursor() as cur:
@@ -182,55 +182,122 @@ class PGVectorLoader:
                 sql,
                 (
                     doc["doc_id"],
-                    doc.get("version", 1),
-                    doc.get("content_hash"),
-                    change_type,
-                    Json(doc),
+                    int(doc.get("version", 1)),
+                    self._strip_nul(doc.get("content_hash")),
+                    self._strip_nul(self._normalize_change_type(change_type)),
+                    self._json(doc),
                 ),
             )
-        self.conn.commit()
+            version_id = int(cur.fetchone()[0])
 
-    def upsert_assets(self, doc: dict) -> None:
-        """
-        document_assets 테이블에 이미지 / 첨부파일 메타데이터 저장.
-        documents가 먼저 저장되어 있어야 FK 오류가 안 남.
-        """
+        self._commit_if_needed()
+        return version_id
+
+    def get_document_version_id(self, doc_id: str, version: int) -> int | None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id
+                FROM document_versions
+                WHERE doc_id = %s AND version = %s;
+                """,
+                (doc_id, int(version)),
+            )
+            row = cur.fetchone()
+        return int(row[0]) if row else None
+
+    def upsert_document_contents(self, doc: dict[str, Any], document_version_id: int | None) -> None:
         rows = []
+        for content_type, content in (
+            ("raw", doc.get("raw_text")),
+            ("clean", doc.get("normalize") or doc.get("clean_text")),
+            ("table", doc.get("table_text")),
+            ("html", doc.get("html")),
+        ):
+            if content and str(content).strip():
+                rows.append(
+                    {
+                        "doc_id": doc["doc_id"],
+                        "document_version_id": document_version_id,
+                        "content_type": content_type,
+                        "content": self._strip_nul(content),
+                        "metadata": self._json({}),
+                    }
+                )
 
-        for item in doc.get("downloaded_attachments", []) or []:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                DELETE FROM document_contents
+                WHERE doc_id = %s
+                  AND (document_version_id = %s OR (%s IS NULL AND document_version_id IS NULL))
+                  AND content_type IN ('raw', 'clean', 'table', 'html');
+                """,
+                (doc["doc_id"], document_version_id, document_version_id),
+            )
+            for row in rows:
+                cur.execute(
+                    """
+                    INSERT INTO document_contents (
+                        doc_id,
+                        document_version_id,
+                        content_type,
+                        content,
+                        language,
+                        metadata
+                    )
+                    VALUES (
+                        %(doc_id)s,
+                        %(document_version_id)s,
+                        %(content_type)s,
+                        %(content)s,
+                        'ko',
+                        %(metadata)s
+                    );
+                    """,
+                    self._strip_nul(row),
+                )
+
+        self._commit_if_needed()
+
+    def upsert_assets(self, doc: dict[str, Any], document_version_id: int | None = None) -> None:
+        rows: list[dict[str, Any]] = []
+
+        for fallback_index, item in enumerate(doc.get("downloaded_attachments", []) or []):
             rows.append(
                 {
                     "doc_id": doc["doc_id"],
                     "asset_type": "attachment",
-                    "asset_index": item.get("attachment_index"),
+                    "asset_index": self._index_value(item.get("attachment_index"), fallback=fallback_index),
                     "file_name": item.get("file_name"),
                     "file_url": item.get("file_url"),
                     "file_ext": item.get("file_ext"),
                     "saved_path": item.get("saved_path"),
                     "file_size": item.get("file_size"),
+                    "content_type": item.get("content_type"),
                     "parser_type": item.get("parser_type"),
                     "extracted_text": item.get("attachment_text"),
                     "page_count": item.get("page_count"),
                     "metadata": {
                         "note": item.get("note"),
-                        "content_type": item.get("content_type"),
                         "raw_xml_files": item.get("raw_xml_files", []),
                         "pages": item.get("pages", []),
                     },
                 }
             )
 
-        for item in doc.get("image_texts", []) or []:
+        for fallback_index, item in enumerate(doc.get("image_texts", []) or []):
             rows.append(
                 {
                     "doc_id": doc["doc_id"],
                     "asset_type": "image",
-                    "asset_index": item.get("image_index"),
+                    "asset_index": self._index_value(item.get("image_index"), fallback=fallback_index),
                     "file_name": None,
                     "file_url": item.get("image_url"),
                     "file_ext": None,
                     "saved_path": None,
                     "file_size": None,
+                    "content_type": None,
                     "parser_type": "image_ocr",
                     "extracted_text": item.get("image_text"),
                     "page_count": None,
@@ -238,162 +305,206 @@ class PGVectorLoader:
                 }
             )
 
-        if not rows:
-            return
-
-        delete_sql = "DELETE FROM document_assets WHERE doc_id = %s;"
-
-        insert_sql = """
-        INSERT INTO document_assets (
-            doc_id,
-            asset_type,
-            asset_index,
-            file_name,
-            file_url,
-            file_ext,
-            saved_path,
-            file_size,
-            parser_type,
-            extracted_text,
-            page_count,
-            metadata
-        )
-        VALUES (
-            %(doc_id)s,
-            %(asset_type)s,
-            %(asset_index)s,
-            %(file_name)s,
-            %(file_url)s,
-            %(file_ext)s,
-            %(saved_path)s,
-            %(file_size)s,
-            %(parser_type)s,
-            %(extracted_text)s,
-            %(page_count)s,
-            %(metadata)s
-        );
-        """
-
         with self.conn.cursor() as cur:
-            cur.execute(delete_sql, (doc["doc_id"],))
+            cur.execute(
+                """
+                DELETE FROM document_contents
+                WHERE doc_id = %s
+                  AND content_type IN ('attachment', 'image')
+                  AND (document_version_id = %s OR (%s IS NULL AND document_version_id IS NULL));
+                """,
+                (doc["doc_id"], document_version_id, document_version_id),
+            )
+            cur.execute("DELETE FROM document_assets WHERE doc_id = %s;", (doc["doc_id"],))
+
             for row in rows:
-                row["metadata"] = Json(row["metadata"])
-                cur.execute(insert_sql, row)
+                cur.execute(
+                    """
+                    INSERT INTO document_assets (
+                        doc_id,
+                        asset_type,
+                        asset_index,
+                        file_name,
+                        file_url,
+                        file_ext,
+                        saved_path,
+                        file_size,
+                        content_type,
+                        parser_type,
+                        page_count,
+                        metadata
+                    )
+                    VALUES (
+                        %(doc_id)s,
+                        %(asset_type)s,
+                        %(asset_index)s,
+                        %(file_name)s,
+                        %(file_url)s,
+                        %(file_ext)s,
+                        %(saved_path)s,
+                        %(file_size)s,
+                        %(content_type)s,
+                        %(parser_type)s,
+                        %(page_count)s,
+                        %(metadata)s
+                    )
+                    RETURNING id;
+                    """,
+                    {**self._strip_nul(row), "metadata": self._json(row["metadata"])},
+                )
+                asset_id = int(cur.fetchone()[0])
+                extracted_text = row.get("extracted_text")
+                if extracted_text and str(extracted_text).strip():
+                    cur.execute(
+                        """
+                        INSERT INTO document_contents (
+                            doc_id,
+                            asset_id,
+                            document_version_id,
+                            content_type,
+                            content,
+                            parser_type,
+                            language,
+                            metadata
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, 'ko', %s);
+                        """,
+                        (
+                            row["doc_id"],
+                            asset_id,
+                            document_version_id,
+                            row["asset_type"],
+                            self._strip_nul(extracted_text),
+                            self._strip_nul(row.get("parser_type")),
+                            self._json({}),
+                        ),
+                    )
 
-        self.conn.commit()
+        self._commit_if_needed()
 
-    def upsert_chunks(self, chunks: list[dict], version: int) -> None:
+    def upsert_chunks(self, chunks: list[dict[str, Any]], version: int) -> None:
         if not chunks:
             return
 
-        optional_columns = [
-            ("section_index", "section_index"),
-            ("section_type", "section_type"),
-            ("section_title", "section_title"),
-            ("metadata", "metadata"),
-        ]
-        available_columns = [
-            (param_name, column_name)
-            for param_name, column_name in optional_columns
-            if self.has_column("chunks", column_name)
-        ]
-        insert_columns = "".join(f"            {column_name},\n" for _, column_name in available_columns)
-        insert_values = "".join(f"            %({param_name})s,\n" for param_name, _ in available_columns)
-        update_values = "".join(
-            f"            {column_name} = EXCLUDED.{column_name},\n"
-            for _, column_name in available_columns
-        )
-
-        sql = f"""
-        INSERT INTO chunks (
-            chunk_id,
-            doc_id,
-            chunk_index,
-{insert_columns}\
-            content,
-            content_length,
-            content_hash,
-            version,
-            updated_at
-        )
-        VALUES (
-            %(chunk_id)s,
-            %(doc_id)s,
-            %(chunk_index)s,
-{insert_values}\
-            %(content)s,
-            %(content_length)s,
-            %(content_hash)s,
-            %(version)s,
-            NOW()
-        )
-        ON CONFLICT (chunk_id) DO UPDATE SET
-            doc_id = EXCLUDED.doc_id,
-            chunk_index = EXCLUDED.chunk_index,
-{update_values}\
-            content = EXCLUDED.content,
-            content_length = EXCLUDED.content_length,
-            content_hash = EXCLUDED.content_hash,
-            version = EXCLUDED.version,
-            updated_at = NOW();
-        """
-
+        doc_id = chunks[0]["doc_id"]
+        document_version_id = self.get_document_version_id(doc_id, version)
         rows = []
+
         for chunk in chunks:
-            row = {
-                "chunk_id": chunk["chunk_id"],
-                "doc_id": chunk["doc_id"],
-                "chunk_index": chunk["chunk_index"],
-                "content": chunk["content"],
-                "content_length": chunk.get("content_length"),
-                "content_hash": chunk.get("content_hash"),
-                "version": version,
-            }
-            for param_name, _ in available_columns:
-                if param_name == "metadata":
-                    row[param_name] = Json(chunk.get("metadata", {}))
-                else:
-                    row[param_name] = chunk.get(param_name)
-            rows.append(row)
-
-        with self.conn.cursor() as cur:
-            doc_id = chunks[0]["doc_id"]
-            chunk_ids = [chunk["chunk_id"] for chunk in chunks]
-            cur.execute(
-                "DELETE FROM chunks WHERE doc_id = %s AND NOT (chunk_id = ANY(%s));",
-                (doc_id, chunk_ids),
+            chunk_index = int(chunk["chunk_index"])
+            chunk_id = self._versioned_chunk_id(chunk["doc_id"], version, chunk_index)
+            chunk["chunk_id"] = chunk_id
+            chunk["document_version_id"] = document_version_id
+            rows.append(
+                {
+                    "chunk_id": chunk_id,
+                    "doc_id": chunk["doc_id"],
+                    "document_version_id": document_version_id,
+                    "chunk_index": chunk_index,
+                    "section_index": chunk.get("section_index"),
+                    "section_type": self._normalize_section_type(chunk.get("section_type")),
+                    "section_title": chunk.get("section_title"),
+                    "content": self._strip_nul(chunk["content"]),
+                    "content_length": chunk.get("content_length"),
+                    "content_hash": self._strip_nul(chunk.get("content_hash")),
+                    "chunking_strategy": self._strip_nul(chunk.get("chunking_strategy")),
+                    "metadata": self._json(chunk.get("metadata", {})),
+                }
             )
-            for row in rows:
-                cur.execute(sql, row)
 
-        self.conn.commit()
+        chunk_ids = [row["chunk_id"] for row in rows]
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                DELETE FROM chunks
+                WHERE doc_id = %s
+                  AND (document_version_id = %s OR (%s IS NULL AND document_version_id IS NULL))
+                  AND NOT (chunk_id = ANY(%s));
+                """,
+                (doc_id, document_version_id, document_version_id, chunk_ids),
+            )
+            cur.executemany(
+                """
+                INSERT INTO chunks (
+                    chunk_id,
+                    doc_id,
+                    document_version_id,
+                    chunk_index,
+                    section_index,
+                    section_type,
+                    section_title,
+                    content,
+                    content_length,
+                    content_hash,
+                    chunking_strategy,
+                    metadata,
+                    updated_at
+                )
+                VALUES (
+                    %(chunk_id)s,
+                    %(doc_id)s,
+                    %(document_version_id)s,
+                    %(chunk_index)s,
+                    %(section_index)s,
+                    %(section_type)s,
+                    %(section_title)s,
+                    %(content)s,
+                    %(content_length)s,
+                    %(content_hash)s,
+                    %(chunking_strategy)s,
+                    %(metadata)s,
+                    now()
+                )
+                ON CONFLICT (chunk_id) DO UPDATE SET
+                    doc_id = EXCLUDED.doc_id,
+                    document_version_id = EXCLUDED.document_version_id,
+                    chunk_index = EXCLUDED.chunk_index,
+                    section_index = EXCLUDED.section_index,
+                    section_type = EXCLUDED.section_type,
+                    section_title = EXCLUDED.section_title,
+                    content = EXCLUDED.content,
+                    content_length = EXCLUDED.content_length,
+                    content_hash = EXCLUDED.content_hash,
+                    chunking_strategy = EXCLUDED.chunking_strategy,
+                    metadata = EXCLUDED.metadata,
+                    updated_at = now();
+                """,
+                rows,
+            )
 
-    def upsert_embeddings(self, embedded_chunks: list[dict]) -> None:
-        sql = """
-        INSERT INTO chunk_embeddings (
-            chunk_id,
-            embedding,
-            updated_at
-        )
-        VALUES (%s, %s::vector, NOW())
-        ON CONFLICT (chunk_id) DO UPDATE SET
-            embedding = EXCLUDED.embedding,
-            updated_at = NOW();
-        """
+        self._commit_if_needed()
 
+    def upsert_embeddings(self, embedded_chunks: list[dict[str, Any]]) -> None:
         rows = [
             (
                 item["chunk_id"],
                 self._to_pg_vector(item["embedding"]),
+                item.get("embedding_model") or item.get("model_name") or "unknown",
             )
             for item in embedded_chunks
+            if item.get("embedding")
         ]
+        if not rows:
+            return
 
         with self.conn.cursor() as cur:
-            cur.executemany(sql, rows)
+            cur.executemany(
+                """
+                INSERT INTO chunk_embeddings (
+                    chunk_id,
+                    embedding,
+                    model_name,
+                    updated_at
+                )
+                VALUES (%s, %s::vector, %s, now())
+                ON CONFLICT (chunk_id, model_name) DO UPDATE SET
+                    embedding = EXCLUDED.embedding,
+                    updated_at = now();
+                """,
+                rows,
+            )
 
-        self.conn.commit()
-
+        self._commit_if_needed()
 
     def insert_crawl_job_error(
         self,
@@ -407,61 +518,62 @@ class PGVectorLoader:
         file_path: str | None = None,
         context: dict | None = None,
     ) -> None:
-
-        error_type = error.__class__.__name__ if error else None
-        error_message = str(error) if error else None
-        traceback_text = tb.format_exc() if error else None
-
-        sql = """
-        INSERT INTO public.crawl_jobs (
-            run_type,
-            stage,
-            source_type,
-            doc_id,
-            url,
-            file_url,
-            file_path,
-            error_type,
-            error_message,
-            traceback,
-            context
-        )
-        VALUES (
-            %s,
-            %s,
-            %s,
-            %s,
-            %s,
-            %s,
-            %s,
-            %s,
-            %s,
-            %s,
-            %s
-        );
-        """
-
-        try:
-            with self.conn.cursor() as cur:
-                cur.execute(
-                    sql,
-                    (
-                        run_type,
-                        stage,
-                        source_type,
-                        doc_id,
-                        url,
-                        file_url,
-                        file_path,
-                        error_type,
-                        error_message,
-                        traceback_text,
-                        Json(context or {}),
-                    ),
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO crawl_logs (
+                    run_type,
+                    stage,
+                    source_type,
+                    doc_id,
+                    url,
+                    file_url,
+                    file_path,
+                    error_type,
+                    error_message,
+                    traceback,
+                    context
                 )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                """,
+                (
+                    self._normalize_run_type(run_type),
+                    stage,
+                    source_type,
+                    doc_id,
+                    url,
+                    file_url,
+                    file_path,
+                    error.__class__.__name__,
+                    self._strip_nul(str(error)),
+                    self._strip_nul(tb.format_exc()),
+                    self._json(context or {}),
+                ),
+            )
 
-            self.conn.commit()
+        self._commit_if_needed()
 
-        except Exception:
-            self.conn.rollback()
-            raise
+    def _normalize_change_type(self, change_type: str | None) -> str:
+        if change_type in ("created", "new"):
+            return "created"
+        if change_type in ("updated", "update"):
+            return "updated"
+        if change_type == "deleted":
+            return "deleted"
+        return "updated"
+
+    def _normalize_run_type(self, run_type: str | None) -> str:
+        return run_type if run_type in {"scheduled", "manual", "retry", "backfill"} else "manual"
+
+    def _normalize_section_type(self, section_type: Any) -> str:
+        return section_type if section_type in {"title", "body", "table", "attachment", "image", "html"} else "other"
+
+    def _versioned_chunk_id(self, doc_id: str, version: int, chunk_index: int) -> str:
+        return f"{doc_id}_v{int(version):03d}_chunk_{int(chunk_index):03d}"
+
+    def _index_value(self, value: Any, fallback: int = 0) -> int:
+        try:
+            parsed = int(value)
+            return parsed if math.isfinite(parsed) else fallback
+        except (TypeError, ValueError):
+            return fallback

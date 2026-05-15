@@ -20,6 +20,7 @@ class PipelineState:
     normalized_query: str = ""
     rewritten_query: str = ""
     rewritten_queries: list[str] = field(default_factory=list)
+    query_bundle: dict[str, Any] = field(default_factory=dict)
     keywords: list[str] = field(default_factory=list)
     entities: dict[str, Any] = field(default_factory=dict)
     filters: dict[str, list[str]] = field(default_factory=dict)
@@ -53,6 +54,7 @@ class PipelineState:
             "normalized_query": self.normalized_query,
             "rewritten_query": self.rewritten_query,
             "rewritten_queries": self.rewritten_queries,
+            "query_bundle": self.query_bundle,
             "keywords": self.keywords,
             "entities": self.entities,
             "filters": self.filters,

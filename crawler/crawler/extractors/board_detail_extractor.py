@@ -24,9 +24,15 @@ KST = timezone(timedelta(hours=9))                              # 한국 시간�
 
 
 class BoardDetailExtractor:
-    def __init__(self):
+    def __init__(
+        self,
+        enable_image_ocr: bool = False,
+        timeout: tuple[float, float] = (5, 30),
+    ):
         self.session = requests.Session()
         self.session.headers.update(HEADERS)
+        self.timeout = timeout
+        self.enable_image_ocr = enable_image_ocr
         self.image_text_extractor = ImageTextExtractor()
 
     def now_kst_iso(self) -> str:
@@ -63,7 +69,7 @@ class BoardDetailExtractor:
         return f"deu_{source_type}_{article_no}"
 
     def fetch(self, url: str) -> str:                           # 상세 페이지 html을 그대로 가져옴
-        res = self.session.get(url, timeout=60)
+        res = self.session.get(url, timeout=self.timeout)
         res.raise_for_status()
         return res.text
 
@@ -328,7 +334,14 @@ class BoardDetailExtractor:
 
         table_text = self.extract_table_text(content_node)                  # 표텍스트
         image_urls = self.extract_image_urls(content_node, detail_url)      # 이미지 url
-        image_texts = self.image_text_extractor.extract_many(image_urls)
+        image_texts = (
+            self.image_text_extractor.extract_many(image_urls)
+            if self.enable_image_ocr
+            else [
+                {"image_index": idx, "image_url": image_url, "image_text": ""}
+                for idx, image_url in enumerate(image_urls, start=1)
+            ]
+        )
         attachments = self.extract_attachments(soup, detail_url)            # 첨부파일
 
         merged_image_text = "\n\n".join(
