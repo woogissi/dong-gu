@@ -22,11 +22,10 @@ from crawler.ingestion.pgvector_loader import PGVectorLoader
 BASE_DIR = Path("crawler/data")
 RAW_HTML_DIR = BASE_DIR / "raw" / "html"
 RAW_DOC_DIR = BASE_DIR / "raw" / "documents"
-RAW_ATTACH_DIR = BASE_DIR / "raw" / "attachments"
 CURATED_DOC_DIR = BASE_DIR / "curated" / "documents"
 LOG_DIR = BASE_DIR / "logs"
 
-for d in [RAW_HTML_DIR, RAW_DOC_DIR, RAW_ATTACH_DIR, CURATED_DOC_DIR, LOG_DIR]:
+for d in [RAW_HTML_DIR, RAW_DOC_DIR, CURATED_DOC_DIR, LOG_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
 text_cleaner = TextCleaner()
@@ -228,21 +227,6 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
 
     print(f"[SAVE OK] doc_id={doc_id} decision={decision} version={final_curated['version']}")
 
-    for att in raw_to_save["attachments"]:              # 첨부 메타를 별도 attachment 문서로도 저장
-        att_doc = {
-            "doc_id": f"{doc_id}_att_{att['attachment_index']:03d}",
-            "parent_doc_id": doc_id,
-            "source_type": "attachment",
-            "page_kind": "attachment",
-            "title": att["file_name"],
-            "source_url": att["file_url"],
-            "file_name": att["file_name"],
-            "attachment_index": att["attachment_index"],
-        }
-        att_path = RAW_ATTACH_DIR / source_type / f"{att_doc['doc_id']}.json"
-        save_json(att_path, att_doc)
-        manifest_writer.write_attachment_record(doc_id, att_doc)
-
 
 def run_board_pipeline(source_type: str, list_url: str, pages: int = 50, parser_type: str = "default") -> None:      # 게시판형 seed를 처리하는 실행 함수
     list_extractor = BoardListExtractor()
@@ -349,7 +333,7 @@ def run_static_pipeline(static_urls: list[dict]) -> None:           # 정적 페
                 source_type=item["source_type"],
                 page_url=item["url"],
             )
-            save_document_bundle(raw_doc, download_attachments=False)           # 현재 정적 페이지는 첨부파일을 다운하지 않음
+            save_document_bundle(raw_doc, download_attachments=True)
             print(f"[STATIC OK] saved {raw_doc['doc_id']}")
         except Exception as e:
             message = f"[STATIC ERROR] source={item['source_type']} url={item['url']} error={e}"

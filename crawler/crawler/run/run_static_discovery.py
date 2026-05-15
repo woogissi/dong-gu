@@ -20,6 +20,8 @@ from crawler.extractors.board_list_extractor import BoardListExtractor
 from crawler.extractors.board_detail_extractor import BoardDetailExtractor
 from crawler.extractors.ipsi_notice_parser import IpsiNoticeParser
 from crawler.ingestion.pgvector_loader import PGVectorLoader
+from crawler.extractors.attachment_downloader import AttachmentDownloader
+from crawler.parsers.file_text_router import FileTextRouter
 
 BASE_DIR = Path("crawler/data")
 RAW_HTML_DIR = BASE_DIR / "raw" / "html"
@@ -101,17 +103,77 @@ def build_curated_document(raw_doc: dict, version: int) -> dict:      # raw 정�
     return curated_doc.model_dump()
 
 
-def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type과 doc_id를 이용해 저장 경로 계산 함수
-    source_type = raw_doc["source_type"]
-    doc_id = raw_doc["doc_id"]
+def save_static_document(raw_doc: dict) -> None:
+    # 문서의 source_type과 doc_id를 이용해 저장 경로 계산
+    raw_to_save = dict(raw_doc)
+
+    source_type = raw_to_save["source_type"]
+    doc_id = raw_to_save["doc_id"]
 
     html_path = RAW_HTML_DIR / source_type / f"{doc_id}.html"
     raw_path = RAW_DOC_DIR / source_type / f"{doc_id}.json"
     curated_path = CURATED_DOC_DIR / source_type / f"{doc_id}.json"
 
-    save_text(html_path, raw_doc["html"])       # 원문 저장
+    downloaded_attachments = []
 
-    raw_to_save = dict(raw_doc)
+    # 첨부파일 다운로드 및 파싱
+    if raw_to_save.get("attachments"):
+        downloader = AttachmentDownloader()
+        file_router = FileTextRouter()
+
+        for att in raw_to_save["attachments"]:
+            try:
+                downloaded = downloader.download(source_type, doc_id, att)
+                parse_result = file_router.extract_text(downloaded["saved_path"])
+
+                downloaded["parser_type"] = parse_result.get("parser_type")
+                downloaded["attachment_text"] = parse_result.get("attachment_text")
+                downloaded["page_count"] = parse_result.get("page_count")
+                downloaded["pages"] = parse_result.get("pages")
+                downloaded["note"] = parse_result.get("note")
+                downloaded["raw_xml_files"] = parse_result.get("raw_xml_files", [])
+
+                downloaded_attachments.append(downloaded)
+                manifest_writer.write_file_parse_record(doc_id, downloaded, parse_result)
+
+            except Exception as e:
+                message = (
+                    f"[STATIC ATTACHMENT ERROR] "
+                    f"doc_id={doc_id} file_url={att.get('file_url')} error={e}"
+                )
+                log_error(message)
+
+                manifest_writer.write_error_record(
+                    stage="static_attachment",
+                    message=message,
+                    extra={
+                        "doc_id": doc_id,
+                        "source_type": source_type,
+                        "file_url": att.get("file_url"),
+                    },
+                )
+
+                pgv_loader.insert_crawl_job_error(
+                    run_type="static_discovery",
+                    stage="static_attachment",
+                    error=e,
+                    source_type=source_type,
+                    doc_id=doc_id,
+                    url=raw_to_save.get("source_url"),
+                    file_url=att.get("file_url"),
+                    context={
+                        "file_name": att.get("file_name"),
+                        "attachment_index": att.get("attachment_index"),
+                    },
+                )
+                continue
+
+    raw_to_save["downloaded_attachments"] = downloaded_attachments
+    raw_to_save["attachment_text"] = merge_attachment_texts(downloaded_attachments)
+
+    # HTML 원문 저장
+    save_text(html_path, raw_to_save.get("html", ""))
+
     raw_to_save["html_path"] = str(html_path.as_posix())
     raw_to_save.pop("html", None)
 
@@ -121,10 +183,10 @@ def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type�
         attachment_text=raw_to_save.get("attachment_text"),
     )
 
-    # 새 curated 후보 생성
+    # curated 후보 생성
     candidate_curated = build_curated_document(raw_to_save, version=1)
 
-    # 저장 전에 기존 curated와 비교
+    # 기존 curated와 비교 후 버전 적용
     version_result = version_manager.apply_version(source_type, dict(candidate_curated))
     final_curated = version_result["document"]
     decision = version_result["decision"]
@@ -132,18 +194,40 @@ def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type�
 
     raw_to_save["version"] = final_curated["version"]
 
-    save_json(raw_path, raw_to_save)            # raw 저장
-    save_json(curated_path, final_curated)        # curated 저장
-    manifest_writer.write_document_record(raw_to_save)      # manifest 기록
-    manifest_writer.append_jsonl("document_versioning.jsonl", {
-        "doc_id": doc_id,
-        "source_type": source_type,
-        "decision": decision,
-        "version": final_curated["version"],
-        "source_url": final_curated.get("source_url"),
-    })
+    # 저장
+    save_json(raw_path, raw_to_save)
+    save_json(curated_path, final_curated)
 
-    print(f"[STATIC SAVE OK] doc_id={doc_id} decision={decision} version={final_curated['version']}")
+    # manifest 기록
+    manifest_writer.write_document_record(raw_to_save)
+    manifest_writer.append_jsonl(
+        "document_versioning.jsonl",
+        {
+            "doc_id": doc_id,
+            "source_type": source_type,
+            "decision": decision,
+            "version": final_curated["version"],
+            "source_url": final_curated.get("source_url"),
+        },
+    )
+
+    print(
+        f"[STATIC SAVE OK] doc_id={doc_id} "
+        f"decision={decision} version={final_curated['version']}"
+    )
+
+def merge_attachment_texts(downloaded_attachments: list[dict]) -> str | None:
+    texts = []
+
+    for item in downloaded_attachments:
+        attachment_text = item.get("attachment_text")
+        file_name = item.get("file_name")
+
+        if attachment_text:
+            texts.append(f"[ATTACHMENT: {file_name}]\n{attachment_text}")
+
+    merged = "\n\n".join(texts).strip()
+    return merged if merged else None
 
 def process_board_list_from_html(
     list_url: str,

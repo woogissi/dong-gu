@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from typing import Any
-
+import traceback as tb
 import psycopg2
 from psycopg2.extras import Json
 
@@ -397,9 +397,9 @@ class PGVectorLoader:
 
     def insert_crawl_job_error(
         self,
-        run_type: str,
-        stage: str,
-        error: Exception,
+        run_type: str = "manual",
+        stage: str | None = None,
+        error: Exception | None = None,
         source_type: str | None = None,
         doc_id: str | None = None,
         url: str | None = None,
@@ -407,10 +407,13 @@ class PGVectorLoader:
         file_path: str | None = None,
         context: dict | None = None,
     ) -> None:
-        import traceback as tb
+
+        error_type = error.__class__.__name__ if error else None
+        error_message = str(error) if error else None
+        traceback_text = tb.format_exc() if error else None
 
         sql = """
-        INSERT INTO crawl_jobs (
+        INSERT INTO public.crawl_jobs (
             run_type,
             stage,
             source_type,
@@ -424,28 +427,41 @@ class PGVectorLoader:
             context
         )
         VALUES (
-            %s, %s, 'failed',
-            %s, %s, %s, %s, %s,
-            %s, %s, %s, %s
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s
         );
         """
 
-        with self.conn.cursor() as cur:
-            cur.execute(
-                sql,
-                (
-                    run_type,
-                    stage,
-                    source_type,
-                    doc_id,
-                    url,
-                    file_url,
-                    file_path,
-                    error.__class__.__name__,
-                    str(error),
-                    tb.format_exc(),
-                    Json(context or {}),
-                ),
-            )
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute(
+                    sql,
+                    (
+                        run_type,
+                        stage,
+                        source_type,
+                        doc_id,
+                        url,
+                        file_url,
+                        file_path,
+                        error_type,
+                        error_message,
+                        traceback_text,
+                        Json(context or {}),
+                    ),
+                )
 
-        self.conn.commit()
+            self.conn.commit()
+
+        except Exception:
+            self.conn.rollback()
+            raise

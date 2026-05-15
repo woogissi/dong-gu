@@ -27,10 +27,28 @@ class AttachmentDownloader:
         self.max_file_size = max_file_size
         self.base_save_dir.mkdir(parents=True, exist_ok=True)           # 폴더가 없으면 생성한다. parents=True: 상위 폴더도 같이 생성 exist_ok=True: 이미 있어도 에러 안 냄
 
-    def sanitize_filename(self, text: str, max_len: int = 150) -> str:  # 파일명으로 저장안되는 문자들 _로 변환
+    def sanitize_filename(self, text: str, max_bytes: int = 150) -> str:  # 파일명으로 저장안되는 문자들 _로 변환
         text = re.sub(r"[\\/:*?\"<>|]+", "_", text)
         text = re.sub(r"\s+", "_", text).strip("_")
-        return text[:max_len] if len(text) > max_len else text          # 파일명 길 시 150자까지만 저장
+        if not text:
+            return ""
+
+        encoded = text.encode("utf-8")
+
+        if len(encoded) <= max_bytes:
+            return text
+
+        result = ""
+        current_bytes = 0
+
+        for ch in text:
+            ch_len = len(ch.encode("utf-8"))
+            if current_bytes + ch_len > max_bytes:
+                break
+            result += ch
+            current_bytes += ch_len
+
+        return result.strip("_")         # 파일명 길 시 150자까지만 저장
 
     def guess_extension(self, file_url: str, file_name: str) -> str:
         parsed_path = urlparse(file_url).path.lower()                   # url의 path만 뽑는다.
@@ -114,8 +132,16 @@ class AttachmentDownloader:
 
         final_ext = current_ext or cd_ext or url_ext or type_ext
 
-        if not current_ext and final_ext:
-            file_name = file_name + final_ext
+        if final_ext and not final_ext.startswith("."):
+            final_ext = "." + final_ext
+
+        stem = Path(file_name).stem if Path(file_name).suffix else file_name
+        stem = self.sanitize_filename(stem, max_bytes=150)      # 파일명 최대 150
+
+        if final_ext:
+            file_name = stem + final_ext
+        else:
+            file_name = stem
 
         return file_name, final_ext
 

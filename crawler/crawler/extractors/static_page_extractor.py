@@ -3,6 +3,8 @@
 import re
 import hashlib
 import os
+from pathlib import Path
+
 from crawler.utils.content_hash import build_content_hash
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urljoin, urlparse, urldefrag
@@ -230,6 +232,7 @@ class StaticPageExtractor:
         table_text = self.extract_table_text(content_node)
         image_urls = self.extract_image_urls(content_node, page_url)
         image_texts = self.image_text_extractor.extract_many(image_urls)
+        attachments = self.extract_attachments(content_node, page_url)
         outgoing_links = self.extract_internal_links(content_node, page_url)
         merged_image_text = "\n\n".join(
             item["image_text"] for item in image_texts if item.get("image_text")
@@ -259,9 +262,82 @@ class StaticPageExtractor:
         views=None,
         image_urls=image_urls,
         image_texts=image_texts,
-        attachments=[],
+        attachments=attachments,
         outgoing_links=outgoing_links,
         content_hash=hash,
         html=html,
     )
         return raw_doc.model_dump()
+
+    def extract_attachments(self, content_node, page_url: str) -> list[dict]:
+        if not content_node:
+            return []
+
+        results = []
+        file_exts = (
+            ".pdf", ".hwp", ".hwpx", ".doc", ".docx", ".xls", ".xlsx",
+            ".ppt", ".pptx", ".zip", ".jpg", ".jpeg", ".png"
+        )
+
+        idx = 1
+
+        for a in content_node.find_all("a", href=True):
+            href = a["href"].strip()
+
+            if href.startswith(("javascript:", "mailto:", "tel:")):
+                continue
+
+            full_url = urljoin(page_url, href)
+            parsed = urlparse(full_url)
+            query = parsed.query.lower()
+            path = parsed.path.lower()
+
+            # 게시판 상세/목록 페이지는 첨부파일이 아니므로 제외
+            if "mod=view" in query or "mode=view" in query or "articleno=" in query:
+                continue
+
+            if "mode=list" in query or "article.offset" in query:
+                continue
+
+            link_text = self.normalize_text(a.get_text(" ", strip=True))
+            href_lower = href.lower()
+
+            has_file_ext = any(path.endswith(ext) for ext in file_exts)
+
+            is_attachment = (
+                has_file_ext
+                or "mode=download" in query
+                or "download" in href_lower
+                or "filedown" in href_lower
+                or "file_down" in href_lower
+                or "atchfile" in href_lower
+                or "첨부" in link_text
+                or "다운로드" in link_text
+            )
+
+            if not is_attachment:
+                continue
+
+            file_name = link_text if link_text else Path(parsed.path).name
+
+            url_ext = Path(parsed.path).suffix
+            if not Path(file_name).suffix and url_ext in file_exts:
+                file_name = file_name + url_ext
+
+            results.append({
+                "attachment_index": idx,
+                "file_name": file_name,
+                "file_url": full_url,
+            })
+            idx += 1
+
+        unique = []
+        seen = set()
+
+        for item in results:
+            key = (item["file_name"], item["file_url"])
+            if key not in seen:
+                seen.add(key)
+                unique.append(item)
+
+        return unique
