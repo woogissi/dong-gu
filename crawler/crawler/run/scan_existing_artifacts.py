@@ -94,9 +94,14 @@ def sync_existing_artifacts(limit: int | None = None, dry_run: bool = False) -> 
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Sync existing crawler artifacts into Postgres state tables.")
-    parser.add_argument("--dry-run", action="store_true", help="Print inferred states without writing to Postgres.")
-    parser.add_argument("--limit", type=int, default=None, help="Maximum raw documents to inspect.")
+    parser = argparse.ArgumentParser(
+        description="기존 크롤러 산출물을 Postgres 상태 테이블에 동기화합니다.",
+        add_help=False,
+    )
+    parser.add_argument("-h", "--help", action="help", help="도움말을 보여주고 종료합니다.")
+    parser._optionals.title = "옵션"
+    parser.add_argument("--dry-run", action="store_true", help="Postgres에 쓰지 않고 추론된 상태만 출력합니다.")
+    parser.add_argument("--limit", type=int, default=None, help="확인할 raw 문서 최대 개수입니다.")
     return parser.parse_args()
 
 

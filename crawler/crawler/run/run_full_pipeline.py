@@ -5,11 +5,12 @@ import json
 import os
 import time
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from crawler.utils.content_hash import build_content_hash
-from crawler.config.seeds import iter_enabled_seeds
+from crawler.config.seeds import iter_enabled_seeds, iter_seed_catalog
 from crawler.config.domains import ALLOWED_HOSTS
 from crawler.extractors.board_list_extractor import BoardListExtractor
 from crawler.extractors.board_detail_extractor import BoardDetailExtractor
@@ -20,7 +21,7 @@ from crawler.storage.document_store import DocumentStore
 from crawler.schemas.document_models import CuratedDocument
 from crawler.ingestion.document_version_manager import DocumentVersionManager
 from crawler.normalize.text_cleaner import TextCleaner
-from crawler.state.crawler_state_store import CrawlerStateStore
+from crawler.state.crawler_state_store import CrawlerStateStore, canonicalize_url
 from crawler.paths import (
     CURATED_DOC_DIR,
     DATA_DIR,
@@ -46,6 +47,13 @@ RUNTIME = {
     "timeout": (5, 30),
     "sleep_seconds": 0.0,
     "download_static_attachments": True,
+    "force_static_recrawl": False,
+}
+
+BOARD_LIST_PAGING_QUERY_KEYS = {
+    "mode",
+    "articleLimit",
+    "article.offset",
 }
 
 
@@ -382,6 +390,8 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
         },
         extractor_name=raw_to_save.get("extractor_name"),
         extractor_version=raw_to_save.get("extractor_version"),
+        fetch_status="FETCHED",
+        parse_status="PARSED",
     )
 
     print(f"[SAVE OK] doc_id={doc_id} decision={decision} version={final_curated['version']}")
@@ -417,6 +427,38 @@ def get_latest_published_at(source_type: str) -> str | None:
         return None
 
 
+def date_days_ago(days: int, now: datetime | None = None) -> str:
+    base = now or datetime.now()
+    return (base.date() - timedelta(days=days)).isoformat()
+
+
+def resolve_since_date(
+    explicit_since_date: str | None,
+    latest_published_at: str | None,
+    lookback_days: int | None,
+    now: datetime | None = None,
+) -> str | None:
+    candidates = [explicit_since_date, latest_published_at]
+    if lookback_days and lookback_days > 0:
+        candidates.append(date_days_ago(lookback_days, now=now))
+    return max(filter(None, candidates), default=None)
+
+
+def canonical_board_list_seed_key(url: str) -> str:
+    parsed = urlsplit(url.strip())
+    query_items = [
+        (key, value)
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+        if key not in BOARD_LIST_PAGING_QUERY_KEYS
+    ]
+    query = urlencode(sorted(query_items), doseq=True)
+    return urlunsplit((parsed.scheme.lower(), parsed.netloc.lower(), parsed.path, query, ""))
+
+
+def normalize_board_list_seed_url(url: str) -> str:
+    return canonical_board_list_seed_key(url)
+
+
 def run_board_pipeline(
     source_type: str,
     list_url: str,
@@ -424,24 +466,16 @@ def run_board_pipeline(
     parser_type: str = "default",
     since_date: str | None = None,
     max_detail_count: int | None = None,
+    seen_doc_ids: set[str] | None = None,
+    detail_workers: int = 1,
 ) -> None:
     list_extractor = BoardListExtractor(timeout=RUNTIME["timeout"])
-
-    if parser_type == "ipsi":
-        detail_extractor = IpsiNoticeParser(
-            enable_image_ocr=RUNTIME["enable_image_ocr"],
-            timeout=RUNTIME["timeout"],
-        )
-    else:
-        detail_extractor = BoardDetailExtractor(
-            enable_image_ocr=RUNTIME["enable_image_ocr"],
-            timeout=RUNTIME["timeout"],
-        )
 
     stop_crawling = False
     processed_count = 0
 
-    seen_doc_ids = set()
+    seen_doc_ids = seen_doc_ids if seen_doc_ids is not None else set()
+    detail_workers = max(1, detail_workers)
 
     for page_no in range(1, pages + 1):
         if stop_crawling:
@@ -458,72 +492,43 @@ def run_board_pipeline(
                 "items": list_result["items"],
             })
 
+            page_items = []
             for item in list_result["items"]:
-                try:
-                    published_at = item.get("published_at_hint")
-                    if since_date and published_at and published_at < since_date:
-                        print(f"[STOP] {source_type} reached older post: {published_at} < {since_date}")
-                        stop_crawling = True
-                        break
-                    if max_detail_count is not None and processed_count >= max_detail_count:
-                        print(f"[STOP] {source_type} reached max_detail_count={max_detail_count}")
-                        stop_crawling = True
-                        break
-
-                    raw_doc = detail_extractor.extract_detail(
-                        source_type,
-                        item["detail_url"],
-                        title_hint=item.get("title_hint"),
-                    )
-
-                    if raw_doc["doc_id"] in seen_doc_ids:
+                published_at = item.get("published_at_hint")
+                if since_date and published_at and published_at < since_date:
+                    print(f"[STOP] {source_type} reached older post: {published_at} < {since_date}")
+                    stop_crawling = True
+                    break
+                if max_detail_count is not None and processed_count + len(page_items) >= max_detail_count:
+                    print(f"[STOP] {source_type} reached max_detail_count={max_detail_count}")
+                    stop_crawling = True
+                    break
+                if item.get("article_no"):
+                    candidate_doc_id = f"deu_{source_type}_{item['article_no']}"
+                    if candidate_doc_id in seen_doc_ids:
+                        print(f"[DUP SKIP] doc_id={candidate_doc_id} source={source_type}")
                         continue
+                    seen_doc_ids.add(candidate_doc_id)
+                page_items.append(item)
 
-                    seen_doc_ids.add(raw_doc["doc_id"])
-                    save_document_bundle(raw_doc, download_attachments=True)
-                    processed_count += 1
+            raw_docs = fetch_board_detail_documents(
+                source_type=source_type,
+                parser_type=parser_type,
+                items=page_items,
+                workers=detail_workers,
+            )
 
-                    print(f"[OK] saved {raw_doc['doc_id']}")
-                    if RUNTIME["sleep_seconds"] > 0:
-                        time.sleep(RUNTIME["sleep_seconds"])
+            for raw_doc in raw_docs:
+                if raw_doc["doc_id"] in seen_doc_ids and not raw_doc.get("doc_id", "").startswith(f"deu_{source_type}_"):
+                    continue
 
-                except Exception as e:
-                    message = f"[DETAIL ERROR] source={source_type} url={item['detail_url']} error={e}"
-                    log_error(message)
-                    manifest_writer.write_error_record(
-                        stage="board_detail",
-                        message=message,
-                        extra={"source_type": source_type, "url": item["detail_url"]},
-                    )
-                    record_crawl_job_error(
-                        run_type="full_pipeline",
-                        stage="board_detail",
-                        error=e,
-                        source_type=source_type,
-                        doc_id=f"deu_{source_type}_{item.get('article_no')}" if item.get("article_no") else None,
-                        url=item.get("detail_url"),
-                        context={
-                            "article_no": item.get("article_no"),
-                            "title_hint": item.get("title_hint"),
-                            "published_at_hint": item.get("published_at_hint"),
-                            "row_text": item.get("row_text"),
-                        },
-                    )
-                    enqueue_retry_queue_error(
-                        task_type="board_detail",
-                        reason="detail_fetch_or_parse_failed",
-                        doc_id=f"deu_{source_type}_{item.get('article_no')}" if item.get("article_no") else None,
-                        url=item.get("detail_url"),
-                        source_type=source_type,
-                        page_kind="board_detail",
-                        payload={
-                            "article_no": item.get("article_no"),
-                            "title_hint": item.get("title_hint"),
-                            "published_at_hint": item.get("published_at_hint"),
-                            "row_text": item.get("row_text"),
-                            "extraction_strategy": item.get("extraction_strategy"),
-                        },
-                    )
+                seen_doc_ids.add(raw_doc["doc_id"])
+                save_document_bundle(raw_doc, download_attachments=True)
+                processed_count += 1
+
+                print(f"[OK] saved {raw_doc['doc_id']}")
+                if RUNTIME["sleep_seconds"] > 0:
+                    time.sleep(RUNTIME["sleep_seconds"])
 
         except Exception as e:
             message = f"[LIST ERROR] source={source_type} page={page_no} error={e}"
@@ -558,6 +563,102 @@ def run_board_pipeline(
                     "pages": 1,
                 },
             )
+
+
+def build_board_detail_extractor(parser_type: str):
+    if parser_type == "ipsi":
+        return IpsiNoticeParser(
+            enable_image_ocr=RUNTIME["enable_image_ocr"],
+            timeout=RUNTIME["timeout"],
+        )
+    return BoardDetailExtractor(
+        enable_image_ocr=RUNTIME["enable_image_ocr"],
+        timeout=RUNTIME["timeout"],
+    )
+
+
+def extract_board_detail_document(source_type: str, parser_type: str, item: dict) -> dict:
+    extractor = build_board_detail_extractor(parser_type)
+    return extractor.extract_detail(
+        source_type,
+        item["detail_url"],
+        title_hint=item.get("title_hint"),
+    )
+
+
+def record_board_detail_error(source_type: str, item: dict, error: Exception) -> None:
+    message = f"[DETAIL ERROR] source={source_type} url={item['detail_url']} error={error}"
+    log_error(message)
+    manifest_writer.write_error_record(
+        stage="board_detail",
+        message=message,
+        extra={"source_type": source_type, "url": item["detail_url"]},
+    )
+    record_crawl_job_error(
+        run_type="full_pipeline",
+        stage="board_detail",
+        error=error,
+        source_type=source_type,
+        doc_id=f"deu_{source_type}_{item.get('article_no')}" if item.get("article_no") else None,
+        url=item.get("detail_url"),
+        context={
+            "article_no": item.get("article_no"),
+            "title_hint": item.get("title_hint"),
+            "published_at_hint": item.get("published_at_hint"),
+            "row_text": item.get("row_text"),
+        },
+    )
+    enqueue_retry_queue_error(
+        task_type="board_detail",
+        reason="detail_fetch_or_parse_failed",
+        doc_id=f"deu_{source_type}_{item.get('article_no')}" if item.get("article_no") else None,
+        url=item.get("detail_url"),
+        source_type=source_type,
+        page_kind="board_detail",
+        payload={
+            "article_no": item.get("article_no"),
+            "title_hint": item.get("title_hint"),
+            "published_at_hint": item.get("published_at_hint"),
+            "row_text": item.get("row_text"),
+            "extraction_strategy": item.get("extraction_strategy"),
+        },
+    )
+
+
+def fetch_board_detail_documents(
+    *,
+    source_type: str,
+    parser_type: str,
+    items: list[dict],
+    workers: int,
+) -> list[dict]:
+    if not items:
+        return []
+
+    if workers <= 1:
+        raw_docs = []
+        for item in items:
+            try:
+                raw_docs.append(extract_board_detail_document(source_type, parser_type, item))
+            except Exception as exc:
+                record_board_detail_error(source_type, item, exc)
+        return raw_docs
+
+    raw_docs_by_index: dict[int, dict] = {}
+    max_workers = min(workers, len(items))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(extract_board_detail_document, source_type, parser_type, item): (idx, item)
+            for idx, item in enumerate(items)
+        }
+        for future in as_completed(futures):
+            idx, item = futures[future]
+            try:
+                raw_docs_by_index[idx] = future.result()
+            except Exception as exc:
+                record_board_detail_error(source_type, item, exc)
+
+    return [raw_docs_by_index[idx] for idx in sorted(raw_docs_by_index)]
 
 
 def process_static_seed(
@@ -608,6 +709,8 @@ def process_static_seed(
             page_kind=item.get("page_kind"),
             error=str(e),
             error_stage="static_page",
+            fetch_status="FAILED",
+            parse_status="FAILED",
         )
         if raise_on_error:
             raise
@@ -622,9 +725,26 @@ def run_static_pipeline(static_urls: list[dict], workers: int = 1) -> None:
         return
 
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = [executor.submit(process_static_seed, item) for item in static_urls]
+        futures = {executor.submit(process_static_seed, item): item for item in static_urls}
         for future in as_completed(futures):
-            future.result()
+            item = futures[future]
+            try:
+                future.result()
+            except Exception as e:
+                message = f"[STATIC WORKER ERROR] source={item.get('source_type')} url={item.get('url')} error={e}"
+                log_error(message)
+                record_crawl_job_error(
+                    run_type="full_pipeline",
+                    stage="static_page",
+                    error=e,
+                    source_type=item.get("source_type"),
+                    url=item.get("url"),
+                    context={
+                        "page_kind": item.get("page_kind"),
+                        "seed_name": item.get("name"),
+                        "worker_error": True,
+                    },
+                )
 
 
 def load_dynamic_board_seeds(min_confidence: float) -> list[dict]:
@@ -636,89 +756,206 @@ def load_dynamic_board_seeds(min_confidence: float) -> list[dict]:
         state_store.close()
 
 
+def load_promoted_static_seeds(include_already_parsed: bool = False) -> list[dict]:
+    state_store = CrawlerStateStore()
+    try:
+        state_store.ensure_tables()
+        return state_store.list_promoted_static_seeds(include_already_parsed=include_already_parsed)
+    finally:
+        state_store.close()
+
+
+def filter_static_seeds_for_recrawl(static_seeds: list[dict], force_recrawl: bool = False) -> list[dict]:
+    if force_recrawl or not static_seeds:
+        return static_seeds
+
+    state_store = CrawlerStateStore()
+    try:
+        state_store.ensure_tables()
+        states = state_store.get_document_states_by_urls([seed["url"] for seed in static_seeds])
+    finally:
+        state_store.close()
+
+    filtered = []
+    skipped = 0
+    for seed in static_seeds:
+        state = states.get(canonicalize_url(seed["url"]))
+        if state and state.get("parse_status") == "PARSED":
+            skipped += 1
+            print(
+                "[STATIC SKIP] "
+                f"reason=already_parsed seed={seed.get('name')} "
+                f"url={seed.get('url')} status={state.get('status')} "
+                f"updated_at={state.get('updated_at')}"
+            )
+            continue
+        filtered.append(seed)
+
+    if skipped:
+        print(f"[STATIC SKIP SUMMARY] already_parsed={skipped} remaining={len(filtered)}")
+    return filtered
+
+
+def select_static_seeds_by_names(seed_names: set[str]) -> list[dict]:
+    static_seed_catalog = [
+        seed
+        for seed in iter_seed_catalog()
+        if seed["page_kind"] in {"seed", "static_page"}
+    ]
+    selected = [seed for seed in static_seed_catalog if seed.get("name") in seed_names]
+    missing_names = sorted(seed_names - {seed.get("name") for seed in selected})
+    if missing_names:
+        raise ValueError(f"unknown static seed names: {', '.join(missing_names)}")
+    return selected
+
+
+def select_board_seeds_by_names(seed_names: set[str]) -> list[dict]:
+    board_seed_catalog = [
+        seed
+        for seed in iter_seed_catalog()
+        if seed["page_kind"] == "board_list"
+    ]
+    selected = [seed for seed in board_seed_catalog if seed.get("name") in seed_names]
+    missing_names = sorted(seed_names - {seed.get("name") for seed in selected})
+    if missing_names:
+        raise ValueError(f"unknown board seed names: {', '.join(missing_names)}")
+    return selected
+
+
 def merge_dynamic_board_seeds(board_seeds: list[dict], dynamic_board_seeds: list[dict]) -> list[dict]:
-    existing_urls = {seed["url"] for seed in board_seeds}
-    return [*board_seeds, *[seed for seed in dynamic_board_seeds if seed["url"] not in existing_urls]]
+    existing_keys = {canonical_board_list_seed_key(seed["url"]) for seed in board_seeds}
+    merged = list(board_seeds)
+
+    for seed in dynamic_board_seeds:
+        key = canonical_board_list_seed_key(seed["url"])
+        if key in existing_keys:
+            continue
+        normalized_seed = {**seed, "url": normalize_board_list_seed_url(seed["url"])}
+        merged.append(normalized_seed)
+        existing_keys.add(key)
+
+    return merged
+
+
+def merge_static_seeds(static_seeds: list[dict], dynamic_static_seeds: list[dict]) -> list[dict]:
+    existing_keys = {seed["url"].strip() for seed in static_seeds}
+    merged = list(static_seeds)
+
+    for seed in dynamic_static_seeds:
+        key = seed["url"].strip()
+        if key in existing_keys:
+            continue
+        merged.append(seed)
+        existing_keys.add(key)
+
+    return merged
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run DEU crawling pipeline.")
+    parser = argparse.ArgumentParser(
+        description="동의대학교 크롤링 전체 파이프라인을 실행합니다.",
+        add_help=False,
+    )
+    parser.add_argument("-h", "--help", action="help", help="도움말을 보여주고 종료합니다.")
+    parser._optionals.title = "옵션"
     parser.add_argument(
         "--static-seed-names",
         nargs="+",
-        help="Run only the named static seeds from crawler.config.seeds.",
+        help="crawler.config.seeds에 정의된 정적 seed 중 지정한 이름만 실행합니다.",
+    )
+    parser.add_argument(
+        "--board-seed-names",
+        nargs="+",
+        help="crawler.config.seeds에 정의된 게시판 seed 중 지정한 이름만 실행합니다.",
     )
     parser.add_argument(
         "--enable-image-ocr",
         action="store_true",
-        help="Enable image OCR. Disabled by default for faster crawls.",
+        help="이미지 OCR을 켭니다. 빠른 수집을 위해 기본값은 꺼짐입니다.",
     )
     parser.add_argument(
         "--skip-image-ocr",
         action="store_true",
-        help="Deprecated compatibility flag. Image OCR is skipped by default.",
+        help="호환성용 옵션입니다. 이미지 OCR은 기본적으로 건너뜁니다.",
     )
-    parser.add_argument("--skip-pdf-ocr", action="store_true", help="Disable PDF OCR fallback.")
-    parser.add_argument("--enable-pdf-ocr", action="store_true", help="Enable PDF OCR fallback.")
-    parser.add_argument("--pdf-ocr-max-pages", type=int, default=5, help="Maximum PDF pages to OCR.")
-    parser.add_argument("--pdf-ocr-first-pages", type=int, default=None, help="Only OCR the first N PDF pages.")
-    parser.add_argument("--pages", type=int, default=10, help="Maximum board list pages per board seed.")
-    parser.add_argument("--since-date", help="Only process board posts on or after YYYY-MM-DD.")
-    parser.add_argument("--max-detail-count", type=int, default=None, help="Maximum board detail pages per board seed.")
-    parser.add_argument("--incremental", action="store_true", help="Use latest DB published_at as since-date per source.")
+    parser.add_argument("--skip-pdf-ocr", action="store_true", help="PDF OCR fallback을 끕니다.")
+    parser.add_argument("--enable-pdf-ocr", action="store_true", help="PDF OCR fallback을 켭니다.")
+    parser.add_argument("--pdf-ocr-max-pages", type=int, default=5, help="OCR 처리할 PDF 최대 페이지 수입니다.")
+    parser.add_argument("--pdf-ocr-first-pages", type=int, default=None, help="PDF 앞쪽 N페이지만 OCR 처리합니다.")
+    parser.add_argument("--pages", type=int, default=10, help="게시판 seed별로 수집할 목록 페이지 최대 개수입니다.")
+    parser.add_argument("--since-date", help="YYYY-MM-DD 이후 게시글만 처리합니다.")
+    parser.add_argument(
+        "--board-lookback-days",
+        type=int,
+        default=180,
+        help="게시판 수집 기본 조회 기간(일)입니다. 0이면 이 안전 제한을 끕니다.",
+    )
+    parser.add_argument("--max-detail-count", type=int, default=None, help="게시판 seed별로 수집할 상세 페이지 최대 개수입니다.")
+    parser.add_argument("--incremental", action="store_true", help="소스별 DB의 최신 published_at을 since-date로 사용합니다.")
     parser.add_argument(
         "--use-discovered-seeds",
         action="store_true",
-        help="Include promoted dynamic board seeds from Postgres state tables.",
+        help="Postgres 상태 테이블에서 승격된 동적 게시판 seed를 포함합니다.",
     )
     parser.add_argument(
         "--closed-loop-discovery",
         action="store_true",
-        help="Enable promoted discovery seeds in the full pipeline. Alias for --use-discovered-seeds.",
+        help="전체 파이프라인에서 승격된 discovery seed를 사용합니다. --use-discovered-seeds와 같습니다.",
     )
     parser.add_argument(
         "--min-discovery-confidence",
         type=float,
         default=0.8,
-        help="Minimum confidence for dynamic board seeds when --use-discovered-seeds is set.",
+        help="동적 게시판 seed를 사용할 때 필요한 최소 confidence입니다.",
     )
-    parser.add_argument("--connect-timeout", type=float, default=5, help="HTTP connect timeout in seconds.")
-    parser.add_argument("--read-timeout", type=float, default=30, help="HTTP read timeout in seconds.")
-    parser.add_argument("--sleep", type=float, default=0.0, help="Delay between successful requests.")#--
+    parser.add_argument("--connect-timeout", type=float, default=5, help="HTTP 연결 timeout(초)입니다.")
+    parser.add_argument("--read-timeout", type=float, default=30, help="HTTP 읽기 timeout(초)입니다.")
+    parser.add_argument("--sleep", type=float, default=0.0, help="성공한 요청 사이에 대기할 시간(초)입니다.")#--
     attachment_group = parser.add_mutually_exclusive_group()
     attachment_group.add_argument(
         "--download-attachments",
         dest="download_attachments",
         action="store_true",
         default=True,
-        help="Download and parse static-page attachments. Enabled by default for operational runs.",
+        help="정적 페이지 첨부파일을 다운로드하고 파싱합니다. 운영 실행에서는 기본값으로 켜져 있습니다.",
     )
     attachment_group.add_argument(
         "--no-download-attachments",
         dest="download_attachments",
         action="store_false",
-        help="Skip static-page attachment download for compatibility or fast local checks.",
+        help="호환성 확인이나 빠른 로컬 점검을 위해 정적 페이지 첨부 다운로드를 건너뜁니다.",
     )
     parser.add_argument(
         "--compress-raw-html",
         action="store_true",
-        help="Store raw HTML sidecar files as gzip while preserving raw JSON compatibility by default.",
+        help="raw JSON 호환성은 유지하면서 raw HTML 사이드카 파일을 gzip으로 저장합니다.",
     )
     parser.add_argument(
         "--raw-json-html-metadata-only",
         action="store_true",
-        help="Store only raw HTML path/hash/size metadata in raw JSON. Use with care; changes raw JSON shape.",
+        help="raw JSON에는 HTML 경로/해시/크기 메타데이터만 저장합니다. JSON 구조가 바뀌므로 주의해서 사용하세요.",
+    )
+    parser.add_argument(
+        "--force-static-recrawl",
+        action="store_true",
+        help="crawler_documents에서 이미 PARSED로 기록된 정적 페이지도 다시 수집합니다.",
     )
     parser.add_argument(
         "--allow-insecure-ssl",#--
         action="store_true",
-        help="Allow configured legacy DEU hosts to retry static pages without SSL verification.",
+        help="설정된 구형 DEU 호스트에 한해 SSL 검증 없이 정적 페이지 재시도를 허용합니다.",
     )
     parser.add_argument(
         "--workers",
         type=int,
         default=1,
-        help="Static page worker count. Keep low for polite crawling.",
+        help="정적 페이지 worker 개수입니다. 대상 서버 배려를 위해 낮게 유지하세요.",
+    )
+    parser.add_argument(
+        "--detail-workers",
+        type=int,
+        default=1,
+        help="게시판 상세 fetch worker 개수입니다. fetch/parse만 병렬 처리하고 저장은 순차 처리합니다.",
     )
     return parser.parse_args()
 
@@ -730,6 +967,7 @@ def main():
     RUNTIME["timeout"] = (args.connect_timeout, args.read_timeout)
     RUNTIME["sleep_seconds"] = max(0.0, args.sleep)
     RUNTIME["download_static_attachments"] = bool(args.download_attachments)
+    RUNTIME["force_static_recrawl"] = bool(args.force_static_recrawl)
     document_store.compress_raw_html = bool(args.compress_raw_html)
     document_store.raw_json_html_metadata_only = bool(args.raw_json_html_metadata_only)
     if args.allow_insecure_ssl:
@@ -759,28 +997,53 @@ def main():
         merged_board_seeds = merge_dynamic_board_seeds(board_seeds, dynamic_board_seeds)
         added_count = len(merged_board_seeds) - len(board_seeds)
         board_seeds = merged_board_seeds
+        dynamic_static_seeds = load_promoted_static_seeds(
+            include_already_parsed=RUNTIME["force_static_recrawl"]
+        )
+        merged_static_seeds = merge_static_seeds(static_seeds, dynamic_static_seeds)
+        added_static_count = len(merged_static_seeds) - len(static_seeds)
+        static_seeds = merged_static_seeds
         print(
             "[DYNAMIC SEEDS] "
             f"loaded={len(dynamic_board_seeds)} added={added_count} "
+            f"static_loaded={len(dynamic_static_seeds)} static_added={added_static_count} "
             f"min_confidence={args.min_discovery_confidence}"
         )
 
     if args.static_seed_names:
-        selected_names = set(args.static_seed_names)
-        static_seeds = [seed for seed in static_seeds if seed.get("name") in selected_names]
-        missing_names = sorted(selected_names - {seed.get("name") for seed in static_seeds})
-        if missing_names:
-            raise ValueError(f"unknown static seed names: {', '.join(missing_names)}")
+        static_seeds = select_static_seeds_by_names(set(args.static_seed_names))
+        static_seeds = filter_static_seeds_for_recrawl(
+            static_seeds,
+            force_recrawl=RUNTIME["force_static_recrawl"],
+        )
         run_static_pipeline(static_seeds, workers=args.workers)
         return
 
+    if args.board_seed_names:
+        board_seeds = select_board_seeds_by_names(set(args.board_seed_names))
+        static_seeds = []
+
+    processed_board_doc_ids: set[str] = set()
+    detail_workers = min(max(1, args.detail_workers), 5)
+    if args.detail_workers != detail_workers:
+        print(f"[DETAIL WORKERS] clamped requested={args.detail_workers} using={detail_workers}")
+    board_lookback_days = max(0, args.board_lookback_days)
+    if board_lookback_days:
+        print(f"[BOARD LOOKBACK] days={board_lookback_days} since_floor={date_days_ago(board_lookback_days)}")
+
     for seed in board_seeds:
         parser_type = "ipsi" if "ipsi" in seed["url"] else "default"
-        since_date = args.since_date
+        latest = get_latest_published_at(seed["source_type"]) if args.incremental else None
+        since_date = resolve_since_date(
+            explicit_since_date=args.since_date,
+            latest_published_at=latest,
+            lookback_days=board_lookback_days,
+        )
         if args.incremental:
-            latest = get_latest_published_at(seed["source_type"])
-            since_date = max(filter(None, [since_date, latest]), default=None)
-            print(f"[INCREMENTAL] source={seed['source_type']} since_date={since_date}")
+            print(
+                f"[INCREMENTAL] source={seed['source_type']} "
+                f"latest={latest} since_date={since_date}"
+            )
         run_board_pipeline(
             source_type=seed["source_type"],
             list_url=seed["url"],
@@ -788,8 +1051,14 @@ def main():
             parser_type=parser_type,
             since_date=since_date,
             max_detail_count=args.max_detail_count,
+            seen_doc_ids=processed_board_doc_ids,
+            detail_workers=detail_workers,
         )
 
+    static_seeds = filter_static_seeds_for_recrawl(
+        static_seeds,
+        force_recrawl=RUNTIME["force_static_recrawl"],
+    )
     run_static_pipeline(static_seeds, workers=args.workers)
 
 

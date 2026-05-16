@@ -253,23 +253,26 @@ def vector_ingest_chunk_file(chunk_file: Path, embed_worker=None, loader=None) -
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run chunking and/or vector ingestion for one selected JSON file."
+        description="선택한 JSON 파일 하나 이상에 대해 chunking 또는 vector ingestion을 실행합니다.",
+        add_help=False,
     )
+    parser.add_argument("-h", "--help", action="help", help="도움말을 보여주고 종료합니다.")
+    parser._optionals.title = "옵션"
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
         "--curated-file",
         nargs="+",
-        help="Path to one curated document JSON. Creates crawler/data/rag_ready/chunks/<source_type>/<doc_id>.json.",
+        help="curated 문서 JSON 경로입니다. crawler/data/rag_ready/chunks/<source_type>/<doc_id>.json을 생성합니다.",
     )
     group.add_argument(
         "--chunk-file",
         nargs="+",
-        help="Path to one chunk JSON. Runs only vector ingestion for that chunk file.",
+        help="chunk JSON 경로입니다. 해당 chunk 파일에 대해서만 vector ingestion을 실행합니다.",
     )
     parser.add_argument(
         "--skip-vector",
         action="store_true",
-        help="Only create chunks when --curated-file is used.",
+        help="--curated-file 사용 시 chunk 생성만 하고 vector ingestion은 건너뜁니다.",
     )
     return parser.parse_args()
 

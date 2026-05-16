@@ -41,6 +41,12 @@ embeddings_summary AS (
   SELECT count(*) AS total_embeddings
   FROM chunk_embeddings
 ),
+indexed_state_summary AS (
+  SELECT
+    count(*) FILTER (WHERE vector_status = 'INDEXED' OR status = 'INDEXED') AS indexed_docs,
+    count(*) FILTER (WHERE status IN ('PARSED', 'CHUNKED') AND COALESCE(vector_status, '') <> 'INDEXED') AS not_indexed_docs
+  FROM crawler_documents
+),
 missing_embeddings AS (
   SELECT count(*) AS missing_count
   FROM chunks c
@@ -101,6 +107,7 @@ SELECT jsonb_build_object(
   'missing_contents', (SELECT to_jsonb(missing_contents) FROM missing_contents),
   'chunks', (SELECT to_jsonb(chunks_summary) FROM chunks_summary),
   'embeddings', (SELECT to_jsonb(embeddings_summary) FROM embeddings_summary),
+  'indexed_state', (SELECT to_jsonb(indexed_state_summary) FROM indexed_state_summary),
   'missing_embeddings', (SELECT to_jsonb(missing_embeddings) FROM missing_embeddings),
   'assets', (SELECT to_jsonb(assets_summary) FROM assets_summary),
   'retry_queue_summary', (SELECT rows FROM retry_queue_summary),
@@ -260,6 +267,7 @@ RETRY_CANDIDATE_QUERIES = {
           jsonb_build_object('status', status, 'artifact_paths', artifact_paths) AS context
         FROM crawler_documents
         WHERE status = 'PARSED'
+          AND COALESCE(chunk_status, '') <> 'CHUNKED'
         ORDER BY updated_at ASC
         LIMIT %s;
     """,
@@ -388,6 +396,7 @@ def evaluate(result: dict[str, Any]) -> tuple[str, list[str]]:
     contents = result["contents"]
     chunks = result["chunks"]
     embeddings = result["embeddings"]
+    indexed_state = result.get("indexed_state") or {"indexed_docs": 0, "not_indexed_docs": 0}
     assets = result["assets"]
     missing_contents = result["missing_contents"]["missing_count"]
     missing_embeddings = result["missing_embeddings"]["missing_count"]
@@ -423,6 +432,8 @@ def evaluate(result: dict[str, Any]) -> tuple[str, list[str]]:
         issues.append("chunks is empty")
     if missing_embedding_ratio >= 0.2:
         issues.append(f"embedding missing ratio above 20%: {pct(missing_embeddings, total_chunks)}%")
+    if total_chunks and not indexed_state["indexed_docs"]:
+        issues.append("crawler_documents has no INDEXED documents")
     if len(recent_errors) >= 3:
         issues.append(f"recent crawl log errors: {len(recent_errors)}/5")
 
@@ -447,6 +458,7 @@ def print_report(result: dict[str, Any], retry_queue_counts: dict[str, int] | No
     contents = result["contents"]
     chunks = result["chunks"]
     embeddings = result["embeddings"]
+    indexed_state = result.get("indexed_state") or {"indexed_docs": 0, "not_indexed_docs": 0}
     assets = result["assets"]
     missing_embeddings = result["missing_embeddings"]["missing_count"]
 
@@ -464,6 +476,8 @@ def print_report(result: dict[str, Any], retry_queue_counts: dict[str, int] | No
     print(f"- contents: {contents['total_contents']}")
     print(f"- chunks: {total_chunks}")
     print(f"- embeddings: {embeddings['total_embeddings']}")
+    print(f"- INDEXED documents: {indexed_state['indexed_docs']}")
+    print(f"- parsed/chunked but not indexed: {indexed_state['not_indexed_docs']}")
     print(f"- 첨부파일 수: {assets['attachment_assets']}")
     print(f"- deu 비율: {deu_docs}/{total_docs} ({pct(deu_docs, total_docs)}%)")
     print(f"- embedding 누락: {missing_embeddings}/{total_chunks} ({pct(missing_embeddings, total_chunks)}%)")
@@ -513,23 +527,26 @@ def print_report(result: dict[str, Any], retry_queue_counts: dict[str, int] | No
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run a bounded RAG load check for the DEU crawler tables."
+        description="동의대학교 크롤러 테이블의 RAG 적재 상태를 제한된 범위에서 점검합니다.",
+        add_help=False,
     )
+    parser.add_argument("-h", "--help", action="help", help="도움말을 보여주고 종료합니다.")
+    parser._optionals.title = "옵션"
     parser.add_argument(
         "--fail-on-partial",
         action="store_true",
-        help="Exit non-zero when the result is partial or abnormal.",
+        help="점검 결과가 부분 완료 또는 비정상이면 0이 아닌 종료 코드로 끝냅니다.",
     )
     parser.add_argument(
         "--create-retry-queue",
         action="store_true",
-        help="Create bounded crawler_retry_queue entries from detected pipeline gaps.",
+        help="감지된 파이프라인 누락 항목으로 제한된 crawler_retry_queue 항목을 생성합니다.",
     )
     parser.add_argument(
         "--retry-limit-per-reason",
         type=int,
         default=100,
-        help="Maximum retry queue entries to inspect per reason.",
+        help="사유별로 확인할 retry queue 항목 최대 개수입니다.",
     )
     return parser.parse_args()
 

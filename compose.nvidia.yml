@@ -1,13 +1,4 @@
 services:
-  backend:
-    build:
-      args:
-        PYTORCH_INDEX_URL: https://download.pytorch.org/whl/cu128
-    environment:
-      NVIDIA_VISIBLE_DEVICES: all
-      NVIDIA_DRIVER_CAPABILITIES: compute,utility
-    gpus: all
-
   rag:
     build:
       args:

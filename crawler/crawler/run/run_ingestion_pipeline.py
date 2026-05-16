@@ -6,6 +6,7 @@ from pathlib import Path
 from crawler.ingestion.chunker import DocumentChunker
 from crawler.storage.manifest_writer import ManifestWriter
 from crawler.paths import CHUNK_DIR, CURATED_DOC_DIR, LOG_DIR, ensure_dirs
+from crawler.state.crawler_state_store import CrawlerStateStore
 from crawler.utils.text_quality import document_quality_report, strip_nul_value
 
 
@@ -68,6 +69,29 @@ def record_ingestion_error_to_db(
         )
 
 
+def record_chunk_state(doc: dict, status: str, chunk_path: Path | None = None, error: Exception | None = None) -> None:
+    try:
+        state_store = CrawlerStateStore()
+        try:
+            state_store.ensure_tables()
+            state_store.upsert_document_state(
+                url=doc.get("source_url"),
+                doc_id=doc.get("doc_id"),
+                status=status,
+                source_type=doc.get("source_type"),
+                page_kind=doc.get("page_kind"),
+                checksum=doc.get("content_hash"),
+                artifact_paths={"chunks_json": chunk_path.as_posix()} if chunk_path else {},
+                error=str(error) if error else None,
+                error_stage="chunking" if error else None,
+                chunk_status="FAILED" if error else "CHUNKED",
+            )
+        finally:
+            state_store.close()
+    except Exception as logging_error:
+        log_error(f"[CHUNK STATE ERROR] doc_id={doc.get('doc_id')} error={logging_error}")
+
+
 def collect_curated_documents() -> list[Path]:      # chunking 대상이 될 curated 문서 파일들을 전부 모으는 함수
     doc_paths = []
     if not CURATED_DIR.exists():
@@ -88,6 +112,10 @@ def save_chunks(source_type: str, doc_id: str, chunks: list[dict]) -> None:     
     save_json(chunk_path, chunks)
 
 
+def chunk_path_for(source_type: str, doc_id: str) -> Path:
+    return CHUNK_DIR / source_type / f"{doc_id}.json"
+
+
 def run_ingestion():                # 전체 ingestion 파이프라인 함수
     doc_paths = collect_curated_documents()         # chunking할 curated 문서 파일들을 모으고, 몇 개인지 출력
     print(f"[INFO] curated documents found: {len(doc_paths)}")
@@ -95,6 +123,7 @@ def run_ingestion():                # 전체 ingestion 파이프라인 함수
     for path in doc_paths:
         source_type = None
         doc_id = None
+        doc = {}
         try:
             doc = load_json(path)
             source_type = doc.get("source_type", "unknown")
@@ -139,6 +168,7 @@ def run_ingestion():                # 전체 ingestion 파이프라인 함수
 
             chunks = chunker.chunk_document(doc)  # list로 청크 결과 받기
             save_chunks(source_type, doc_id, chunks)        # 결과 저장
+            record_chunk_state(doc, "CHUNKED", chunk_path=chunk_path_for(source_type, doc_id))
 
             manifest_writer.append_jsonl("chunking.jsonl", {
                 "doc_id": doc_id,
@@ -159,6 +189,8 @@ def run_ingestion():                # 전체 ingestion 파이프라인 함수
                 extra={"file_path": path.as_posix()},
             )
             record_ingestion_error_to_db(e, path, source_type, doc_id)
+            if doc.get("source_url"):
+                record_chunk_state(doc, "FAILED", error=e)
 
 
 if __name__ == "__main__":

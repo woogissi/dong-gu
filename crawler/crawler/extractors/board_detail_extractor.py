@@ -243,6 +243,13 @@ class BoardDetailExtractor(BaseExtractor):
             full_url = urljoin(page_url, href)
             link_text = self.normalize_text(a.get_text(" ", strip=True))
             href_lower = href.lower()
+            parsed_url = urlparse(full_url)
+            url_path = parsed_url.path
+            url_ext = Path(url_path).suffix.lower()
+            mode = parse_qs(parsed_url.query).get("mode", [""])[0].lower()
+
+            if url_ext == ".do" and mode != "download":
+                continue
 
             is_attachment = (                                           # 링크에 download or file or file_exts 가 있거나 링크 텍스트에 첨부 or 다운로드가 있으면 첨부파일로 분류
                 "download" in href_lower

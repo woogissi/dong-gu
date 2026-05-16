@@ -18,6 +18,14 @@ CREATE TABLE IF NOT EXISTS crawler_documents (
   canonical_url text NOT NULL UNIQUE,
   final_url text,
   status text NOT NULL,
+  fetch_status text,
+  parse_status text,
+  chunk_status text,
+  vector_status text,
+  seed_status text,
+  discovered_from text,
+  discovery_depth integer,
+  promoted_at timestamptz,
   source_type text,
   page_kind text,
   checksum text,
@@ -32,8 +40,27 @@ CREATE TABLE IF NOT EXISTS crawler_documents (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE crawler_documents ADD COLUMN IF NOT EXISTS fetch_status text;
+ALTER TABLE crawler_documents ADD COLUMN IF NOT EXISTS parse_status text;
+ALTER TABLE crawler_documents ADD COLUMN IF NOT EXISTS chunk_status text;
+ALTER TABLE crawler_documents ADD COLUMN IF NOT EXISTS vector_status text;
+ALTER TABLE crawler_documents ADD COLUMN IF NOT EXISTS seed_status text;
+ALTER TABLE crawler_documents ADD COLUMN IF NOT EXISTS discovered_from text;
+ALTER TABLE crawler_documents ADD COLUMN IF NOT EXISTS discovery_depth integer;
+ALTER TABLE crawler_documents ADD COLUMN IF NOT EXISTS promoted_at timestamptz;
+UPDATE crawler_documents
+SET fetch_status = COALESCE(fetch_status, CASE WHEN status IN ('CRAWLED', 'PARSED', 'CHUNKED', 'EMBEDDED', 'INDEXED') THEN 'FETCHED' END),
+    parse_status = COALESCE(parse_status, CASE WHEN status IN ('PARSED', 'CHUNKED', 'EMBEDDED', 'INDEXED') THEN 'PARSED' END),
+    chunk_status = COALESCE(chunk_status, CASE WHEN status IN ('CHUNKED', 'EMBEDDED', 'INDEXED') THEN 'CHUNKED' END),
+    vector_status = COALESCE(vector_status, CASE WHEN status IN ('EMBEDDED', 'INDEXED') THEN 'INDEXED' END),
+    seed_status = COALESCE(seed_status, CASE WHEN status = 'SEEDED' THEN 'seeded' END);
+
 CREATE INDEX IF NOT EXISTS idx_crawler_documents_status
 ON crawler_documents(status);
+CREATE INDEX IF NOT EXISTS idx_crawler_documents_seed_status
+ON crawler_documents(seed_status);
+CREATE INDEX IF NOT EXISTS idx_crawler_documents_vector_status
+ON crawler_documents(vector_status);
 CREATE INDEX IF NOT EXISTS idx_crawler_documents_updated_at
 ON crawler_documents(updated_at);
 CREATE INDEX IF NOT EXISTS idx_crawler_documents_source_type
@@ -160,6 +187,28 @@ def dynamic_seed_row_to_seed(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def crawler_document_row_to_seed(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "name": f"crawler_document_{row['id']}",
+        "url": row["url"],
+        "source_type": row.get("source_type") or "webpage",
+        "source_group": row.get("source_type") or "webpage",
+        "page_kind": row.get("page_kind") or "static_page",
+        "priority": "P1",
+        "crawl_enabled": True,
+        "discover_board_candidates": True,
+        "crawler_document_id": row["id"],
+        "discovered_from": row.get("discovered_from"),
+        "discovery_depth": row.get("discovery_depth"),
+        "status": row.get("status"),
+        "fetch_status": row.get("fetch_status"),
+        "parse_status": row.get("parse_status"),
+        "chunk_status": row.get("chunk_status"),
+        "vector_status": row.get("vector_status"),
+        "seed_status": row.get("seed_status"),
+    }
+
+
 def json_safe(value: Any) -> Any:
     if isinstance(value, Decimal):
         return float(value)
@@ -268,6 +317,23 @@ class CrawlerStateStore:
         self.commit()
         return count
 
+    def promote_static_seed_candidates(self) -> int:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE crawler_documents
+                SET seed_status = 'promoted',
+                    promoted_at = COALESCE(promoted_at, now()),
+                    updated_at = now()
+                WHERE page_kind = 'static_page'
+                  AND COALESCE(seed_status, 'candidate') IN ('candidate', 'seeded')
+                  AND status IN ('DISCOVERED', 'FETCHED', 'PARSED', 'CHUNKED', 'INDEXED');
+                """
+            )
+            count = cur.rowcount
+        self.commit()
+        return count
+
     def preview_dynamic_seed_promotions(self, min_confidence: float = 0.8, limit: int = 20) -> list[dict[str, Any]]:
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -299,6 +365,107 @@ class CrawlerStateStore:
             )
             return [dynamic_seed_row_to_seed(dict(row)) for row in cur.fetchall()]
 
+    def list_promoted_static_seeds(self, include_already_parsed: bool = False) -> list[dict[str, Any]]:
+        parsed_clause = "" if include_already_parsed else "AND COALESCE(parse_status, '') <> 'PARSED'"
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                f"""
+                SELECT *
+                FROM crawler_documents
+                WHERE page_kind = 'static_page'
+                  AND seed_status = 'promoted'
+                  {parsed_clause}
+                ORDER BY updated_at DESC;
+                """
+            )
+            return [crawler_document_row_to_seed(dict(row)) for row in cur.fetchall()]
+
+    def get_document_states_by_urls(self, urls: list[str]) -> dict[str, dict[str, Any]]:
+        if not urls:
+            return {}
+        canonical_urls = [canonicalize_url(url) for url in urls]
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT
+                  canonical_url,
+                  url,
+                  doc_id,
+                  status,
+                  fetch_status,
+                  parse_status,
+                  chunk_status,
+                  vector_status,
+                  seed_status,
+                  updated_at
+                FROM crawler_documents
+                WHERE canonical_url = ANY(%s);
+                """,
+                (canonical_urls,),
+            )
+            return {row["canonical_url"]: dict(row) for row in cur.fetchall()}
+
+    def upsert_discovered_url(
+        self,
+        *,
+        url: str,
+        source_type: str | None,
+        page_kind: str,
+        discovered_from: str | None = None,
+        discovery_depth: int | None = None,
+        seed_status: str = "candidate",
+    ) -> None:
+        params = {
+            "url": url,
+            "canonical_url": canonicalize_url(url),
+            "source_type": source_type,
+            "page_kind": page_kind,
+            "discovered_from": discovered_from,
+            "discovery_depth": discovery_depth,
+            "seed_status": seed_status,
+        }
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO crawler_documents (
+                  url,
+                  canonical_url,
+                  status,
+                  source_type,
+                  page_kind,
+                  seed_status,
+                  discovered_from,
+                  discovery_depth,
+                  updated_at
+                )
+                VALUES (
+                  %(url)s,
+                  %(canonical_url)s,
+                  'DISCOVERED',
+                  %(source_type)s,
+                  %(page_kind)s,
+                  %(seed_status)s,
+                  %(discovered_from)s,
+                  %(discovery_depth)s,
+                  now()
+                )
+                ON CONFLICT (canonical_url) DO UPDATE SET
+                  url = EXCLUDED.url,
+                  source_type = COALESCE(crawler_documents.source_type, EXCLUDED.source_type),
+                  page_kind = COALESCE(crawler_documents.page_kind, EXCLUDED.page_kind),
+                  seed_status = COALESCE(crawler_documents.seed_status, EXCLUDED.seed_status),
+                  discovered_from = COALESCE(crawler_documents.discovered_from, EXCLUDED.discovered_from),
+                  discovery_depth = COALESCE(crawler_documents.discovery_depth, EXCLUDED.discovery_depth),
+                  status = CASE
+                    WHEN crawler_documents.status IN ('PARSED', 'CHUNKED', 'INDEXED') THEN crawler_documents.status
+                    ELSE EXCLUDED.status
+                  END,
+                  updated_at = now();
+                """,
+                params,
+            )
+        self.commit()
+
     def upsert_document_state(
         self,
         *,
@@ -314,6 +481,11 @@ class CrawlerStateStore:
         extractor_version: str | None = None,
         error: str | None = None,
         error_stage: str | None = None,
+        fetch_status: str | None = None,
+        parse_status: str | None = None,
+        chunk_status: str | None = None,
+        vector_status: str | None = None,
+        seed_status: str | None = None,
     ) -> None:
         params = {
             "doc_id": doc_id,
@@ -329,6 +501,11 @@ class CrawlerStateStore:
             "extractor_version": extractor_version,
             "last_error": error,
             "last_error_stage": error_stage,
+            "fetch_status": fetch_status,
+            "parse_status": parse_status,
+            "chunk_status": chunk_status,
+            "vector_status": vector_status,
+            "seed_status": seed_status,
         }
         with self.conn.cursor() as cur:
             cur.execute(
@@ -339,6 +516,11 @@ class CrawlerStateStore:
                   canonical_url,
                   final_url,
                   status,
+                  fetch_status,
+                  parse_status,
+                  chunk_status,
+                  vector_status,
+                  seed_status,
                   source_type,
                   page_kind,
                   checksum,
@@ -355,6 +537,11 @@ class CrawlerStateStore:
                   %(canonical_url)s,
                   %(final_url)s,
                   %(status)s,
+                  %(fetch_status)s,
+                  %(parse_status)s,
+                  %(chunk_status)s,
+                  %(vector_status)s,
+                  %(seed_status)s,
                   %(source_type)s,
                   %(page_kind)s,
                   %(checksum)s,
@@ -370,6 +557,11 @@ class CrawlerStateStore:
                   url = EXCLUDED.url,
                   final_url = COALESCE(EXCLUDED.final_url, crawler_documents.final_url),
                   status = EXCLUDED.status,
+                  fetch_status = COALESCE(EXCLUDED.fetch_status, crawler_documents.fetch_status),
+                  parse_status = COALESCE(EXCLUDED.parse_status, crawler_documents.parse_status),
+                  chunk_status = COALESCE(EXCLUDED.chunk_status, crawler_documents.chunk_status),
+                  vector_status = COALESCE(EXCLUDED.vector_status, crawler_documents.vector_status),
+                  seed_status = COALESCE(crawler_documents.seed_status, EXCLUDED.seed_status),
                   source_type = COALESCE(EXCLUDED.source_type, crawler_documents.source_type),
                   page_kind = COALESCE(EXCLUDED.page_kind, crawler_documents.page_kind),
                   checksum = COALESCE(EXCLUDED.checksum, crawler_documents.checksum),

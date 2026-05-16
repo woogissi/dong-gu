@@ -118,39 +118,44 @@ def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type�
     print(f"[STATIC SAVE OK] doc_id={doc_id} decision={decision} version={final_curated['version']}")
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Discover and crawl static DEU pages.")
-    parser.add_argument("--max-pages", type=int, default=50, help="Maximum static pages to crawl.")
-    parser.add_argument("--max-depth", type=int, default=2, help="Maximum discovery depth.")
-    parser.add_argument("--enable-image-ocr", action="store_true", help="Enable image OCR. Disabled by default.")
-    parser.add_argument("--skip-image-ocr", action="store_true", help="Compatibility flag. Image OCR is skipped by default.")
-    parser.add_argument("--connect-timeout", type=float, default=5, help="HTTP connect timeout in seconds.")
-    parser.add_argument("--read-timeout", type=float, default=30, help="HTTP read timeout in seconds.")
-    parser.add_argument("--sleep", type=float, default=0.5, help="Delay between successful requests.")
+    parser = argparse.ArgumentParser(
+        description="동의대학교 정적 페이지를 발견하고 수집합니다.",
+        add_help=False,
+    )
+    parser.add_argument("-h", "--help", action="help", help="도움말을 보여주고 종료합니다.")
+    parser._optionals.title = "옵션"
+    parser.add_argument("--max-pages", type=int, default=50, help="수집할 정적 페이지 최대 개수입니다.")
+    parser.add_argument("--max-depth", type=int, default=2, help="링크 discovery 최대 깊이입니다.")
+    parser.add_argument("--enable-image-ocr", action="store_true", help="이미지 OCR을 켭니다. 기본값은 꺼짐입니다.")
+    parser.add_argument("--skip-image-ocr", action="store_true", help="호환성용 옵션입니다. 이미지 OCR은 기본적으로 건너뜁니다.")
+    parser.add_argument("--connect-timeout", type=float, default=5, help="HTTP 연결 timeout(초)입니다.")
+    parser.add_argument("--read-timeout", type=float, default=30, help="HTTP 읽기 timeout(초)입니다.")
+    parser.add_argument("--sleep", type=float, default=0.5, help="성공한 요청 사이에 대기할 시간(초)입니다.")
     parser.add_argument(#--
         "--allow-insecure-ssl",
         action="store_true",
-        help="Allow configured legacy DEU hosts to retry without SSL verification.",
+        help="설정된 구형 DEU 호스트에 한해 SSL 검증 없이 재시도를 허용합니다.",
     )
     parser.add_argument(
         "--promote-discovery-results",
         action="store_true",
-        help="Store discovered board candidates in Postgres and promote high-confidence board_list seeds.",
+        help="발견한 게시판 후보를 Postgres에 저장하고 confidence가 높은 board_list seed를 승격합니다.",
     )
     parser.add_argument(
         "--closed-loop-discovery",
         action="store_true",
-        help="Store and promote discovery results for the full pipeline. Alias for --promote-discovery-results.",
+        help="전체 파이프라인용 discovery 결과를 저장/승격합니다. --promote-discovery-results와 같습니다.",
     )
     parser.add_argument(
         "--dry-run-promotion-preview",
         action="store_true",
-        help="After discovery, print promotion candidates without changing their status.",
+        help="discovery 후 상태를 바꾸지 않고 승격 후보만 출력합니다.",
     )
     parser.add_argument(
         "--min-discovery-confidence",
         type=float,
         default=0.8,
-        help="Minimum confidence for promoted dynamic board seeds.",
+        help="동적 게시판 seed 승격에 필요한 최소 confidence입니다.",
     )
     return parser.parse_args()
 
@@ -198,6 +203,15 @@ def main(
                 source_type_by_url[canonical_url] = seed["source_type"]
                 source_group_by_url[canonical_url] = seed.get("source_group")
                 discover_candidates_by_url[canonical_url] = seed.get("discover_board_candidates", False)
+                if state_store:
+                    state_store.upsert_discovered_url(
+                        url=seed["url"],
+                        source_type=seed["source_type"],
+                        page_kind=seed["page_kind"],
+                        discovered_from="seed",
+                        discovery_depth=0,
+                        seed_status="seeded",
+                    )
 
     crawled_count = 0
 
@@ -215,6 +229,15 @@ def main(
             source_type = source_type_by_url.get(canonical_url) or url_classifier.infer_source_type(url)
             source_group = source_group_by_url.get(canonical_url) or source_type
             discover_board_candidates = discover_candidates_by_url.get(canonical_url, False)
+            if state_store:
+                state_store.upsert_discovered_url(
+                    url=url,
+                    source_type=source_type,
+                    page_kind=url_type,
+                    discovered_from=discovered_from,
+                    discovery_depth=depth,
+                    seed_status="candidate",
+                )
 
             # 현재 static discovery는 정적 페이지만 대상으로 삼음
             if url_type != "static_page":
@@ -234,7 +257,25 @@ def main(
                 continue
 
             raw_doc = extractor.extract_static_page(source_type=source_type, page_url=url)  # 실제 페이지를 가져와서 raw 문서 dict로 만듬
-            save_static_document(raw_doc)    
+            save_static_document(raw_doc)
+            if state_store:
+                state_store.upsert_document_state(
+                    url=url,
+                    doc_id=raw_doc.get("doc_id"),
+                    status="PARSED",
+                    final_url=raw_doc.get("final_url"),
+                    source_type=source_type,
+                    page_kind="static_page",
+                    checksum=raw_doc.get("content_hash"),
+                    artifact_paths={
+                        "raw_json": (RAW_DOC_DIR / source_type / f"{raw_doc['doc_id']}.json").as_posix(),
+                        "curated_json": (CURATED_DOC_DIR / source_type / f"{raw_doc['doc_id']}.json").as_posix(),
+                    },
+                    extractor_name=raw_doc.get("extractor_name"),
+                    extractor_version=raw_doc.get("extractor_version"),
+                    fetch_status="FETCHED",
+                    parse_status="PARSED",
+                )
 
             manifest_writer.append_jsonl("discovery_edges.jsonl", {
                 "url": url,
@@ -271,6 +312,15 @@ def main(
                         )
                         source_group_by_url[next_canonical_url] = source_group
                         discover_candidates_by_url[next_canonical_url] = discover_board_candidates
+                        if state_store:
+                            state_store.upsert_discovered_url(
+                                url=next_url,
+                                source_type=source_type_by_url[next_canonical_url],
+                                page_kind="static_page",
+                                discovered_from=url,
+                                discovery_depth=depth + 1,
+                                seed_status="candidate",
+                            )
 
             crawled_count += 1
             print(f"[DISCOVERY OK] depth={depth} source={source_type} url={url}")
@@ -280,6 +330,16 @@ def main(
         except Exception as e:
             message = f"[DISCOVERY ERROR] url={url} depth={depth} error={e}"
             log_error(message)
+            if state_store:
+                state_store.upsert_document_state(
+                    url=url,
+                    status="FAILED",
+                    source_type=source_type_by_url.get(frontier.canonicalize_url(url)),
+                    page_kind=url_classifier.classify(url),
+                    error=str(e),
+                    error_stage="static_discovery",
+                    fetch_status="FAILED",
+                )
             manifest_writer.write_error_record(
                 stage="static_discovery",
                 message=message,
@@ -301,8 +361,11 @@ def main(
             promoted_count = 0
         else:
             promoted_count = state_store.promote_dynamic_seeds(min_discovery_confidence)
+            promoted_static_count = state_store.promote_static_seed_candidates()
         state_store.close()
         print(f"[DYNAMIC SEEDS] promoted={promoted_count} min_confidence={min_discovery_confidence}")
+        if not dry_run_promotion_preview:
+            print(f"[STATIC SEEDS] promoted={promoted_static_count}")
     print(frontier.stats())
 
 

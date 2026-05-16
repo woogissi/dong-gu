@@ -15,9 +15,6 @@ x-amd-wsl-gpu: &amd-wsl-gpu
   shm_size: 8g
 
 services:
-  backend:
-    <<: *amd-wsl-gpu
-
   rag:
     <<: *amd-wsl-gpu
 

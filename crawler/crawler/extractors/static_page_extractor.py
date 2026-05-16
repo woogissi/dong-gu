@@ -5,7 +5,7 @@ import hashlib
 import os
 from crawler.utils.content_hash import build_content_hash
 from datetime import datetime, timezone, timedelta
-from urllib.parse import urljoin, urlparse, urldefrag
+from urllib.parse import parse_qs, urljoin, urlparse, urldefrag
 
 from crawler.schemas.document_models import StaticPageRawDocument
 from crawler.extractors.base import BaseExtractor, FetchResult
@@ -98,8 +98,12 @@ class StaticPageExtractor(BaseExtractor):
                 headers=dict(res.headers),
                 raw_html=self._response_text(res, url),
             )
-        except requests.exceptions.SSLError:
-            insecure_ssl_hosts = ("lib.deu.ac.kr", "has.deu.ac.kr")
+        except requests.exceptions.SSLError as exc:
+            if "has.deu.ac.kr" in url:
+                raise requests.exceptions.SSLError(
+                    f"SSL verification failed for has.deu.ac.kr; keeping verify=True and skipping url={url}"
+                ) from exc
+            insecure_ssl_hosts = ("lib.deu.ac.kr",)
             if any(host in url for host in insecure_ssl_hosts) and os.getenv("CRAWLER_ALLOW_INSECURE_SSL") == "1":
                 res = self.session.get(url, timeout=self.timeout, verify=False)       # 도서관 사이트 SSLhandshake failure 해결
                 res.raise_for_status()
@@ -238,6 +242,12 @@ class StaticPageExtractor(BaseExtractor):
             href = a_tag["href"].strip()
             href_lower = href.lower()
             link_text = self.normalize_text(a_tag.get_text(" ", strip=True))
+            full_url = urljoin(page_url, href)
+            parsed_url = urlparse(full_url)
+            url_ext = os.path.splitext(parsed_url.path)[1].lower()
+            mode = parse_qs(parsed_url.query).get("mode", [""])[0].lower()
+            if url_ext == ".do" and mode != "download":
+                continue
             is_attachment = (
                 "download" in href_lower
                 or "file" in href_lower
@@ -247,7 +257,6 @@ class StaticPageExtractor(BaseExtractor):
             )
             if not is_attachment:
                 continue
-            full_url = urljoin(page_url, href)
             attachments.append(
                 {
                     "attachment_index": len(attachments) + 1,

@@ -1,6 +1,7 @@
 # crawler/extractors/board_list_extractor.py
 
 import re
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
 
@@ -26,6 +27,24 @@ class BoardListExtractor:
         res = self.session.get(url, params=params, timeout=self.timeout)
         res.raise_for_status()
         return res.text
+
+    def normalize_list_request(
+        self,
+        list_url: str,
+        page_no: int = 1,
+        page_size: int = 10,
+    ) -> tuple[str, dict[str, str | int]]:
+        parsed = urlsplit(list_url)
+        base_url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+        params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        params.update(
+            {
+                "article.offset": (page_no - 1) * page_size,
+                "articleLimit": page_size,
+                "mode": "list",
+            }
+        )
+        return base_url, params
 
     def extract_article_no(self, url: str) -> str | None:               #게시글 번호 뽑기
         return adapter_for_url(url).article_no_from_url(url)
@@ -83,17 +102,14 @@ class BoardListExtractor:
         return list(dedup.values())
 
     def extract_list(self, list_url: str, page_no: int = 1, page_size: int = 10) -> dict:   #목록 추출 메인 함수
-        params = {
-            "article.offset": (page_no - 1) * page_size,                                    # 몇번째 게시글부터
-            "articleLimit": page_size,                                                      # 한페이지에 몇개씩
-            "mode": "list",
-        }
+        base_url, params = self.normalize_list_request(list_url, page_no, page_size)
 
-        html = self.fetch(list_url, params)
-        items = self.parse_rows(html, list_url)
+        html = self.fetch(base_url, params)
+        request_url = f"{base_url}?{urlencode(params)}"
+        items = self.parse_rows(html, request_url)
 
         return {
-            "list_url": list_url,               #어떤 URL을 요청했는지
+            "list_url": request_url,            #어떤 URL을 요청했는지
             "page_no": page_no,                 #몇 페이지인지
             "page_size": page_size,             #페이지 크기
             "count": len(items),                #몇 개 찾았는지

@@ -5,7 +5,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 
-DEFAULT_RETRY_STATUS_CODES = (403, 429, 500, 502, 503, 504)
+DEFAULT_RETRY_STATUS_CODES = (403, 408, 429, 500, 502, 503, 504)
 
 
 def build_retry_session(
@@ -21,6 +21,7 @@ def build_retry_session(
         total=total_retries,
         connect=total_retries,
         read=total_retries,
+        other=total_retries,
         status=total_retries,
         backoff_factor=backoff_factor,
         status_forcelist=DEFAULT_RETRY_STATUS_CODES,

@@ -21,4 +21,6 @@ COPY ./rag /app/rag
 
 ENV PYTHONPATH=/app
 
-CMD ["tail", "-f", "/dev/null"]
+EXPOSE 8001
+
+CMD ["uvicorn", "rag.app.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]

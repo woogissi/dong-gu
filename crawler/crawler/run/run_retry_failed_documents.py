@@ -316,9 +316,14 @@ def process_retry_targets(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Retry selected crawler failures from crawl_logs.")
-    parser.add_argument("--execute", action="store_true", help="Run retries. Default is dry-run.")
-    parser.add_argument("--limit", type=int, default=10, help="Maximum distinct failures to inspect.")
+    parser = argparse.ArgumentParser(
+        description="crawl_logs 또는 retry queue의 크롤러 실패 항목을 재처리합니다.",
+        add_help=False,
+    )
+    parser.add_argument("-h", "--help", action="help", help="도움말을 보여주고 종료합니다.")
+    parser._optionals.title = "옵션"
+    parser.add_argument("--execute", action="store_true", help="실제로 재처리를 실행합니다. 기본값은 dry-run입니다.")
+    parser.add_argument("--limit", type=int, default=10, help="확인할 고유 실패 항목 최대 개수입니다.")
     parser.add_argument(
         "--stage",
         action="append",
@@ -334,17 +339,17 @@ def parse_args() -> argparse.Namespace:
             "board_list",
             "discovery",
         ],
-        help="Retry stage to include. Can be passed multiple times.",
+        help="재처리할 stage입니다. 여러 번 지정할 수 있습니다.",
     )
     parser.add_argument(
         "--from-retry-queue",
         action="store_true",
-        help="Read pending targets from crawler_retry_queue instead of crawl_logs.",
+        help="crawl_logs 대신 crawler_retry_queue에서 대기 중인 대상을 읽습니다.",
     )
     parser.add_argument(
         "--allow-insecure-ssl",
         action="store_true",
-        help="Allow configured legacy DEU hosts to retry without SSL verification.",
+        help="설정된 구형 DEU 호스트에 한해 SSL 검증 없이 재시도를 허용합니다.",
     )
     return parser.parse_args()
 
