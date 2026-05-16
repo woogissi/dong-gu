@@ -2,22 +2,39 @@
 
 동의대학교 도메인 특화 RAG 적재 파이프라인의 크롤링, 파싱, 청킹, 임베딩, 검증 작업을 담당한다.
 
-## 빠른 실행
+## 운영 표준 수동 실행
 
-프로젝트 루트에서 Docker 환경으로 실행한다.
+프로젝트 루트에서 Docker Compose로만 실행한다. 운영 수동 실행의 표준 경로는 `run_crawl_to_rag`이며, 수집, 청킹, 벡터 적재, RAG 적재 점검을 순서대로 수행한다.
 
 ```powershell
-docker compose run --rm crawler python -m crawler.run.run_full_pipeline
-docker compose run --rm crawler python -m crawler.run.run_full_pipeline --closed-loop-discovery
-docker compose run --rm crawler python -m crawler.run.run_rag_load_check
-docker compose run --rm crawler python -m crawler.run.run_rag_load_check --create-retry-queue
-docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents
-docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --from-retry-queue --execute
 docker compose run --rm crawler python -m crawler.ops.supabase_smoke_check --ensure-tables
-docker compose run --rm crawler python -m unittest discover tests
+docker compose run --rm crawler python -m crawler.run.run_crawl_to_rag --fail-on-partial
 ```
 
-`run_retry_failed_documents`는 기본값이 dry-run이다. 실제 재처리는 `--execute`를 붙여야 수행된다. 운영에서는 `--from-retry-queue`를 우선 사용해 `crawler_retry_queue`의 `task_type`, `attempts`, `last_error`, `dead_letter` 상태를 남긴다.
+증분 운영 실행은 다음 옵션을 기본으로 둔다.
+
+```powershell
+docker compose run --rm crawler python -m crawler.run.run_crawl_to_rag --since-date 2025-12-01 --pages 10 --detail-workers 3 --fail-on-partial
+```
+
+특정 사유로 단계를 나누어 실행해야 할 때만 아래 명령을 사용한다.
+
+```powershell
+docker compose run --rm crawler python -m crawler.run.run_static_discovery --closed-loop-discovery --max-pages 200 --max-depth 2
+docker compose run --rm crawler python -m crawler.run.run_full_pipeline --closed-loop-discovery --incremental --since-date 2025-12-01 --pages 10 --compress-raw-html --detail-workers 3
+docker compose run --rm crawler python -m crawler.run.run_ingestion_pipeline
+docker compose run --rm crawler python -m crawler.run.run_vector_ingestion --batch-size 32
+docker compose run --rm crawler python -m crawler.run.run_rag_load_check --fail-on-partial
+```
+
+운영 기본 원칙:
+
+- DB/RLS 상태 확인은 첫 실행 또는 스키마 변경 뒤 `supabase_smoke_check --ensure-tables`로 확인한다.
+- 전체 수동 실행은 `run_crawl_to_rag --fail-on-partial`을 우선한다.
+- 단계별 실행이 필요하면 `static_discovery -> full_pipeline -> ingestion_pipeline -> vector_ingestion -> rag_load_check` 순서를 유지한다.
+- `--allow-insecure-ssl`은 SSL 인증서 문제로 실패한 DEU 구형 호스트를 재시도할 때만 붙인다.
+- `run_retry_failed_documents`는 기본값이 dry-run이다. 실제 재처리는 반드시 `--execute`를 붙여 수행한다.
+- 운영 재처리는 `crawl_logs` 직접 조회보다 `--from-retry-queue`를 우선 사용해 `crawler_retry_queue`의 `task_type`, `attempts`, `last_error`, `dead_letter` 상태를 남긴다.
 
 ## 주요 진입점
 
@@ -81,7 +98,33 @@ Seed에는 다음 운영 정책 값을 둘 수 있다.
 
 ## 실패 재처리
 
-최근 실패 이력은 `crawl_logs`에서 확인하고, 운영 재처리는 `crawler_retry_queue`를 우선한다. `run_rag_load_check --create-retry-queue`는 데이터 공백을 다음 task_type으로 넣는다.
+최근 실패 이력은 `crawl_logs`에서 참고할 수 있지만, 운영 복구 절차는 `crawler_retry_queue`를 기준으로 한다. `run_rag_load_check --create-retry-queue`는 데이터 공백을 감지해 bounded retry queue를 생성하고, `run_retry_failed_documents --from-retry-queue`는 이 queue의 대기 항목만 재처리한다.
+
+표준 복구 순서:
+
+1. RAG 적재 상태를 점검하고 누락 항목을 queue로 만든다.
+2. queue 대상 dry-run으로 재처리 범위와 `task_type`을 확인한다.
+3. 필요한 경우 `--stage`와 `--limit`으로 범위를 좁혀 `--execute`를 실행한다.
+4. 재처리 뒤 다시 RAG 적재 상태를 점검한다.
+5. `dead_letter`가 남으면 `last_error`, `attempts`, 원본 URL/doc_id를 보고 코드, seed, SSL, 파일 파싱 문제 중 하나로 분류해 별도 조치한다.
+
+```powershell
+docker compose run --rm crawler python -m crawler.run.run_rag_load_check --create-retry-queue
+docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --from-retry-queue --limit 20
+docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --from-retry-queue --limit 20 --execute
+docker compose run --rm crawler python -m crawler.run.run_rag_load_check --fail-on-partial
+```
+
+단계별로 좁혀 복구할 때는 다음 명령을 사용한다.
+
+```powershell
+docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --from-retry-queue --stage vector_ingestion --limit 20
+docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --from-retry-queue --stage vector_ingestion --limit 20 --execute
+docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --from-retry-queue --stage attachment_download --limit 20 --execute
+docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --from-retry-queue --stage static_page --limit 20 --allow-insecure-ssl --execute
+```
+
+`run_rag_load_check --create-retry-queue`는 데이터 공백을 다음 task_type으로 넣는다.
 
 | task_type | 재처리 방식 |
 | --- | --- |
@@ -92,15 +135,6 @@ Seed에는 다음 운영 정책 값을 둘 수 있다.
 | `file_parse` | 다운로드된 첨부 파일 텍스트 추출 재시도 |
 | `chunking` | curated JSON에서 chunk 파일 재생성 |
 | `vector_ingestion` | 로컬 chunk JSON을 우선 사용하고, 없으면 DB의 `chunks`에서 chunk 파일 복구 후 임베딩 재시도 |
-
-예시:
-
-```powershell
-docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents
-docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --from-retry-queue --stage vector_ingestion --execute
-docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --from-retry-queue --stage attachment_download --execute
-docker compose run --rm crawler python -m crawler.run.run_retry_failed_documents --from-retry-queue --stage static_page --allow-insecure-ssl --execute
-```
 
 알 수 없는 task_type은 `failed_unknown_task_type`으로 기록된다. 실패가 반복되어 `max_attempts`를 넘으면 `dead_letter` 상태로 남겨 사람이 원인을 본다. `--allow-insecure-ssl`은 SSL 인증서 문제로 실패한 정적 페이지를 재시도할 때만 사용한다.
 
@@ -133,10 +167,10 @@ docker compose run --rm crawler python -m crawler.ops.live_fetch_smoke --url htt
 
 ## 테스트
 
-로컬 Python 직접 실행 대신 Docker 환경에서 테스트한다.
+로컬 Python 직접 실행 대신 Docker Compose 환경에서 pytest를 실행한다.
 
 ```powershell
-docker compose run --rm crawler python -m unittest discover tests
+docker compose run --rm crawler pytest
 ```
 
 현재 fixture 테스트는 게시판 목록/상세 extractor, 첨부 라우터, 텍스트 품질, 청킹/파서를 중심으로 구성되어 있다. 신규 크롤러를 추가할 때는 최소한 목록 fixture 1개와 상세 fixture 1개를 테스트에 추가한다.

@@ -4,7 +4,10 @@ import gzip
 from pathlib import Path
 from unittest.mock import Mock
 
+from bs4 import BeautifulSoup
+
 from crawler.extractors.base import BaseExtractor, GenericExtractor
+from crawler.extractors.static_page_extractor import StaticPageExtractor
 from crawler.storage.document_store import DocumentStore
 
 
@@ -85,6 +88,32 @@ class DocumentStoreAndBaseExtractorTest(unittest.TestCase):
         self.assertIn("HTML 본문", result["raw_text"])
         self.assertIn("JSON 본문 안내", result["raw_text"])
         self.assertEqual(result["extraction_strategy"], "generic_fallback_json")
+
+    def test_static_page_extractor_collects_department_navigation_links(self) -> None:
+        html = """
+        <html>
+          <body>
+            <header>
+              <nav id="gnb">
+                <a href="/computer/sub01_01.do">intro</a>
+                <a href="/computer/sub02.do">faculty</a>
+                <a href="/ai/index.do">other department</a>
+                <a href="https://www.deu.ac.kr/www">university</a>
+              </nav>
+            </header>
+            <main><p>body</p></main>
+          </body>
+        </html>
+        """
+        extractor = StaticPageExtractor(allowed_hosts={"swcc.deu.ac.kr", "www.deu.ac.kr"})
+        soup = BeautifulSoup(html, "html.parser")
+
+        links = extractor.extract_navigation_links(soup, "https://swcc.deu.ac.kr/computer/index.do")
+
+        self.assertIn("https://swcc.deu.ac.kr/computer/sub01_01.do", links)
+        self.assertIn("https://swcc.deu.ac.kr/computer/sub02.do", links)
+        self.assertNotIn("https://swcc.deu.ac.kr/ai/index.do", links)
+        self.assertNotIn("https://www.deu.ac.kr/www", links)
 
     def test_document_store_can_compress_raw_html_and_keep_metadata_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -11,6 +11,7 @@ from crawler.schemas.document_models import StaticPageRawDocument
 from crawler.extractors.base import BaseExtractor, FetchResult
 from crawler.extractors.image_text_extractor import ImageTextExtractor
 from crawler.utils.text_quality import is_binary_like_text
+from crawler.config.domains import DEPARTMENT_HOSTS
 
 import requests
 from bs4 import BeautifulSoup
@@ -284,6 +285,64 @@ class StaticPageExtractor(BaseExtractor):
 
         return sorted(set(urls))
 
+    def first_path_segment(self, url: str) -> str:
+        path = urlparse(url).path.strip("/")
+        return path.split("/", 1)[0] if path else ""
+
+    def is_navigation_link_allowed(self, page_url: str, link_url: str) -> bool:
+        page = urlparse(page_url)
+        link = urlparse(link_url)
+        link_ext = os.path.splitext(link.path)[1].lower()
+
+        if link.scheme not in {"http", "https"}:
+            return False
+
+        if link.netloc.lower() != page.netloc.lower():
+            return False
+
+        if link_ext in {".css", ".js", ".ico"}:
+            return False
+
+        if link_ext and link_ext != ".do":
+            return False
+
+        if page.netloc.lower() in DEPARTMENT_HOSTS:
+            page_section = self.first_path_segment(page_url)
+            link_section = self.first_path_segment(link_url)
+            if page_section and link_section and page_section != link_section:
+                return False
+
+        return True
+
+    def extract_navigation_links(self, soup: BeautifulSoup, page_url: str) -> list[str]:
+        selectors = [
+            "header",
+            "nav",
+            "#gnb",
+            "#mGnb",
+            ".gnb",
+            ".mbGnb",
+        ]
+        urls = []
+        seen_nodes = set()
+
+        for selector in selectors:
+            for node in soup.select(selector):
+                node_id = id(node)
+                if node_id in seen_nodes:
+                    continue
+                seen_nodes.add(node_id)
+                for a_tag in node.find_all("a", href=True):
+                    href = a_tag["href"].strip()
+                    if href.startswith(("javascript:", "mailto:", "tel:", "#")):
+                        continue
+
+                    full_url = self.canonicalize_url(urljoin(page_url, href))
+                    if self.is_navigation_link_allowed(page_url, full_url):
+                        urls.append(full_url)
+
+        return sorted(set(urls))
+
     def infer_category(self, url: str, title: str) -> tuple[str | None, str | None]:        # 정적 페이지의 카테고리를 URL과 제목 기반으로 추정하는 함수
         combined = f"{url} {title}"
 
@@ -318,7 +377,10 @@ class StaticPageExtractor(BaseExtractor):
                 for idx, image_url in enumerate(image_urls, start=1)
             ]
         )
-        outgoing_links = self.extract_internal_links(content_node, page_url)
+        outgoing_links = sorted(
+            set(self.extract_internal_links(content_node, page_url))
+            | set(self.extract_navigation_links(soup, page_url))
+        )
         attachments = self.extract_attachments(content_node, page_url)
         merged_image_text = "\n\n".join(
             item["image_text"] for item in image_texts if item.get("image_text")
