@@ -7,18 +7,72 @@ import time
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run crawl, chunk, vector index, and RAG smoke check.")
-    parser.add_argument("--skip-static-discovery", action="store_true")
-    parser.add_argument("--skip-full-pipeline", action="store_true")
-    parser.add_argument("--max-pages", type=int, default=200)
-    parser.add_argument("--max-depth", type=int, default=2)
-    parser.add_argument("--since-date", default="2025-12-01")
-    parser.add_argument("--pages", type=int, default=10)
-    parser.add_argument("--detail-workers", type=int, default=3)
-    parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--allow-insecure-ssl", action="store_true")
-    parser.add_argument("--force-static-recrawl", action="store_true")
-    parser.add_argument("--fail-on-partial", action="store_true")
+    parser = argparse.ArgumentParser(
+        description="크롤링, 청킹, 벡터 적재, RAG 적재 점검을 순서대로 실행합니다.",
+        add_help=False,
+    )
+    parser.add_argument("-h", "--help", action="help", help="도움말을 보여주고 종료합니다.")
+    parser._optionals.title = "옵션"
+    parser.add_argument(
+        "--skip-static-discovery",
+        action="store_true",
+        help="정적 페이지 discovery 단계를 건너뜁니다.",
+    )
+    parser.add_argument(
+        "--skip-full-pipeline",
+        action="store_true",
+        help="전체 수집 파이프라인 단계를 건너뜁니다.",
+    )
+    parser.add_argument(
+        "--max-pages",
+        type=int,
+        default=200,
+        help="static discovery에서 수집할 정적 페이지 최대 개수입니다.",
+    )
+    parser.add_argument(
+        "--max-depth",
+        type=int,
+        default=2,
+        help="static discovery의 내부 링크 탐색 최대 깊이입니다.",
+    )
+    parser.add_argument(
+        "--since-date",
+        default="2025-12-01",
+        help="YYYY-MM-DD 이후 게시글만 수집합니다.",
+    )
+    parser.add_argument(
+        "--pages",
+        type=int,
+        default=10,
+        help="게시판 seed별로 수집할 목록 페이지 최대 개수입니다.",
+    )
+    parser.add_argument(
+        "--detail-workers",
+        type=int,
+        default=3,
+        help="게시판 상세 페이지 fetch worker 개수입니다.",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=32,
+        help="벡터 적재에서 한 번에 처리할 chunk batch 크기입니다.",
+    )
+    parser.add_argument(
+        "--allow-insecure-ssl",
+        action="store_true",
+        help="설정된 구형 DEU 호스트에 한해 SSL 검증 없이 재시도를 허용합니다.",
+    )
+    parser.add_argument(
+        "--force-static-recrawl",
+        action="store_true",
+        help="이미 처리된 정적 페이지도 다시 수집합니다.",
+    )
+    parser.add_argument(
+        "--fail-on-partial",
+        action="store_true",
+        help="RAG 적재 점검 결과가 부분 완료 또는 비정상이면 실패 코드로 종료합니다.",
+    )
     return parser.parse_args()
 
 

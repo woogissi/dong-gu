@@ -253,7 +253,9 @@ class CrawlerStateStoreTest(unittest.TestCase):
 
         with patch.object(full_pipeline, "BoardListExtractor", return_value=list_extractor), patch.object(
             full_pipeline, "BoardDetailExtractor", return_value=detail_extractor
-        ), patch.object(full_pipeline, "save_document_bundle"), patch.object(full_pipeline, "save_json"):
+        ), patch.object(full_pipeline, "save_document_bundle"), patch.object(full_pipeline, "save_json"), patch.object(
+            full_pipeline, "get_existing_processed_doc_ids", return_value=set()
+        ):
             full_pipeline.run_board_pipeline(
                 source_type="homepage",
                 list_url="https://www.deu.ac.kr/www/deu-education.do?mode=list",
@@ -269,6 +271,35 @@ class CrawlerStateStoreTest(unittest.TestCase):
 
         detail_extractor.extract_detail.assert_called_once()
         self.assertEqual(seen_doc_ids, {"deu_homepage_79937"})
+
+    def test_run_board_pipeline_skips_existing_processed_doc_ids_before_detail_fetch(self) -> None:
+        list_extractor = Mock()
+        list_extractor.extract_list.return_value = {
+            "list_url": "https://www.deu.ac.kr/www/deu-education.do?mode=list",
+            "page_no": 1,
+            "count": 1,
+            "items": [
+                {
+                    "article_no": "79937",
+                    "detail_url": "https://www.deu.ac.kr/www/deu-education.do?mode=view&articleNo=79937",
+                    "title_hint": "title",
+                }
+            ],
+        }
+        detail_extractor = Mock()
+
+        with patch.object(full_pipeline, "BoardListExtractor", return_value=list_extractor), patch.object(
+            full_pipeline, "BoardDetailExtractor", return_value=detail_extractor
+        ), patch.object(full_pipeline, "save_json"), patch.object(
+            full_pipeline, "get_existing_processed_doc_ids", return_value={"deu_homepage_79937"}
+        ):
+            full_pipeline.run_board_pipeline(
+                source_type="homepage",
+                list_url="https://www.deu.ac.kr/www/deu-education.do?mode=list",
+                pages=1,
+            )
+
+        detail_extractor.extract_detail.assert_not_called()
 
     def test_resolve_since_date_uses_recent_lookback_floor(self) -> None:
         resolved = resolve_since_date(

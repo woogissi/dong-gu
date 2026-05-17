@@ -48,6 +48,7 @@ RUNTIME = {
     "sleep_seconds": 0.0,
     "download_static_attachments": True,
     "force_static_recrawl": False,
+    "force_document_recrawl": False,
 }
 
 BOARD_LIST_PAGING_QUERY_KEYS = {
@@ -459,6 +460,53 @@ def normalize_board_list_seed_url(url: str) -> str:
     return canonical_board_list_seed_key(url)
 
 
+def is_processed_document_state(state: dict | None) -> bool:
+    if not state:
+        return False
+    return (
+        state.get("vector_status") == "INDEXED"
+        or state.get("parse_status") == "PARSED"
+        or state.get("status") in {"PARSED", "CHUNKED", "EMBEDDED", "INDEXED"}
+    )
+
+
+def get_existing_processed_doc_ids(source_type: str, doc_ids: list[str]) -> set[str]:
+    if not doc_ids:
+        return set()
+
+    processed = {
+        doc_id
+        for doc_id in doc_ids
+        if version_manager.load_existing_document(source_type, doc_id) is not None
+    }
+
+    state_store = None
+    try:
+        state_store = CrawlerStateStore()
+        with state_store.conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT doc_id
+                FROM crawler_documents
+                WHERE doc_id = ANY(%s)
+                  AND (
+                    vector_status = 'INDEXED'
+                    OR parse_status = 'PARSED'
+                    OR status IN ('PARSED', 'CHUNKED', 'EMBEDDED', 'INDEXED')
+                  );
+                """,
+                (doc_ids,),
+            )
+            processed.update(row[0] for row in cur.fetchall() if row[0])
+    except Exception as exc:
+        log_error(f"[DUP CHECK WARN] source={source_type} error={exc}")
+    finally:
+        if state_store:
+            state_store.close()
+
+    return processed
+
+
 def run_board_pipeline(
     source_type: str,
     list_url: str,
@@ -493,6 +541,16 @@ def run_board_pipeline(
             })
 
             page_items = []
+            candidate_doc_ids = [
+                f"deu_{source_type}_{item['article_no']}"
+                for item in list_result["items"]
+                if item.get("article_no")
+            ]
+            already_processed_doc_ids = (
+                set()
+                if RUNTIME["force_document_recrawl"]
+                else get_existing_processed_doc_ids(source_type, candidate_doc_ids)
+            )
             for item in list_result["items"]:
                 published_at = item.get("published_at_hint")
                 if since_date and published_at and published_at < since_date:
@@ -505,6 +563,10 @@ def run_board_pipeline(
                     break
                 if item.get("article_no"):
                     candidate_doc_id = f"deu_{source_type}_{item['article_no']}"
+                    if candidate_doc_id in already_processed_doc_ids:
+                        print(f"[BOARD SKIP] doc_id={candidate_doc_id} source={source_type} reason=already_processed")
+                        seen_doc_ids.add(candidate_doc_id)
+                        continue
                     if candidate_doc_id in seen_doc_ids:
                         print(f"[DUP SKIP] doc_id={candidate_doc_id} source={source_type}")
                         continue
@@ -766,7 +828,7 @@ def load_promoted_static_seeds(include_already_parsed: bool = False) -> list[dic
 
 
 def filter_static_seeds_for_recrawl(static_seeds: list[dict], force_recrawl: bool = False) -> list[dict]:
-    if force_recrawl or not static_seeds:
+    if force_recrawl or RUNTIME["force_document_recrawl"] or not static_seeds:
         return static_seeds
 
     state_store = CrawlerStateStore()
@@ -780,11 +842,11 @@ def filter_static_seeds_for_recrawl(static_seeds: list[dict], force_recrawl: boo
     skipped = 0
     for seed in static_seeds:
         state = states.get(canonicalize_url(seed["url"]))
-        if state and state.get("parse_status") == "PARSED":
+        if is_processed_document_state(state):
             skipped += 1
             print(
                 "[STATIC SKIP] "
-                f"reason=already_parsed seed={seed.get('name')} "
+                f"reason=already_processed seed={seed.get('name')} "
                 f"url={seed.get('url')} status={state.get('status')} "
                 f"updated_at={state.get('updated_at')}"
             )
@@ -936,6 +998,11 @@ def parse_args() -> argparse.Namespace:
         help="raw JSON에는 HTML 경로/해시/크기 메타데이터만 저장합니다. JSON 구조가 바뀌므로 주의해서 사용하세요.",
     )
     parser.add_argument(
+        "--force-recrawl",
+        action="store_true",
+        help="이미 PARSED/INDEXED로 기록된 문서도 다시 fetch/parse합니다.",
+    )
+    parser.add_argument(
         "--force-static-recrawl",
         action="store_true",
         help="crawler_documents에서 이미 PARSED로 기록된 정적 페이지도 다시 수집합니다.",
@@ -967,7 +1034,8 @@ def main():
     RUNTIME["timeout"] = (args.connect_timeout, args.read_timeout)
     RUNTIME["sleep_seconds"] = max(0.0, args.sleep)
     RUNTIME["download_static_attachments"] = bool(args.download_attachments)
-    RUNTIME["force_static_recrawl"] = bool(args.force_static_recrawl)
+    RUNTIME["force_document_recrawl"] = bool(args.force_recrawl)
+    RUNTIME["force_static_recrawl"] = bool(args.force_static_recrawl or args.force_recrawl)
     document_store.compress_raw_html = bool(args.compress_raw_html)
     document_store.raw_json_html_metadata_only = bool(args.raw_json_html_metadata_only)
     if args.allow_insecure_ssl:
