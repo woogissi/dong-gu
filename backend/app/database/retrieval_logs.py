@@ -155,6 +155,8 @@ def save_retrieval_log(request_id: str, log_data: dict[str, Any] | None) -> None
 def _retrieval_strategy(value: Any) -> str | None:
     if value in ("vector", "hybrid", "keyword"):
         return value
+    if value == "dense":
+        return "vector"
     if value in ("lexical", "bm25", "fts"):
         return "keyword"
     return None

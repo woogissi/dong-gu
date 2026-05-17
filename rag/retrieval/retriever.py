@@ -33,6 +33,7 @@ except ImportError:  # pragma: no cover - psycopg2가 없는 환경에서는 파
 
 _DB_USE_ENV_VAR = "RAG_USE_DB"
 _DB_URL_ENV_VAR = "DATABASE_URL"
+_RETRIEVAL_MODE_ENV_VAR = "RETRIEVAL_MODE"
 
 _DEFAULT_TOP_K = 10
 _MIN_DB_SCORE = 0.5
@@ -75,8 +76,21 @@ class IndexedChunk: # BM25 검색을 위해 토큰화되고 통계가 계산된 
 @dataclass(frozen=True)
 class BM25Index: # 전체 인덱스 구조를 나타내는 데이터 클래스
     chunks: tuple[IndexedChunk, ...]
+    chunks: tuple[IndexedChunk, ...]
     document_frequencies: dict[str, int]
     average_document_length: float
+
+
+@dataclass(frozen=True)
+class RetrievalCandidate:
+    chunk_id: str
+    doc_id: str
+    document: RetrievedDoc
+    lexical_score: float | None = None
+    vector_score: float | None = None
+    rrf_score: float = 0.0
+    final_score: float = 0.0
+    search_mode: str = "hybrid_rrf"
 
 # 한국어 텍스트를 BM25 검색에 적합한 토큰으로 변환하는 클래스
 class KoreanBM25Tokenizer: 
@@ -143,6 +157,16 @@ def retrieve_documents(
 
     if _use_database_retriever():
         try:
+            retrieval_mode = _resolve_retrieval_mode(request)
+            if retrieval_mode == "vector":
+                documents = _retrieve_documents_from_database_vector(request)
+                return documents
+
+            if retrieval_mode == "hybrid":
+                documents = _retrieve_documents_from_database_hybrid(request)
+                if documents:
+                    return documents
+
             documents = _retrieve_documents_from_database(request)
             if documents:  # DB에서 검색 결과가 있으면 반환
                 return documents
@@ -201,6 +225,17 @@ def _use_database_retriever() -> bool:
     # 환경 변수가 없어도 supabase 연결을 시도하도록 기본적으로 True 반환
     # (실제 연결 실패 시 파일 기반 검색으로 fallback)
     return True
+
+
+def _resolve_retrieval_mode(request: RetrievalRequest) -> str:
+    configured_mode = os.getenv(_RETRIEVAL_MODE_ENV_VAR, "").strip().lower()
+    if configured_mode in {"lexical", "vector", "hybrid"}:
+        return configured_mode
+    if request.strategy in {"dense", "vector"}:
+        return "vector"
+    if request.strategy == "hybrid":
+        return "hybrid"
+    return "lexical"
 
 
 def _normalize_database_url(database_url: str) -> str:
@@ -281,12 +316,253 @@ def _build_db_filter_conditions(request: RetrievalRequest) -> tuple[str, list[An
     return " AND ".join(conditions), parameters
 
 
+def _has_query_vector(request: RetrievalRequest) -> bool:
+    return bool(request.query_vector)
+
+
+def _to_pg_vector(vector: list[float]) -> str:
+    values: list[str] = []
+    for item in vector:
+        value = float(item)
+        if not math.isfinite(value):
+            raise ValueError("query_vector contains a non-finite value")
+        values.append(str(value))
+    return "[" + ",".join(values) + "]"
+
+
+def _retrieve_documents_from_database_vector(request: RetrievalRequest) -> list[RetrievedDoc]:
+    if not _has_query_vector(request):
+        return []
+
+    sql = """
+    WITH latest_document_versions AS (
+        SELECT doc_id, max(version) AS latest_version
+        FROM document_versions
+        GROUP BY doc_id
+    )
+    SELECT
+        chunks.chunk_id,
+        chunks.doc_id,
+        chunks.chunk_index,
+        chunks.section_index,
+        chunks.section_type,
+        chunks.section_title,
+        chunks.content,
+        chunks.content_length,
+        chunks.content_hash,
+        document_versions.version,
+        chunks.document_version_id,
+        chunks.metadata AS chunk_metadata,
+        documents.title,
+        documents.source_url,
+        documents.source_type,
+        documents.department,
+        documents.published_at,
+        documents.metadata AS document_metadata,
+        1 - (chunk_embeddings.embedding <=> %s::vector) AS vector_score
+    FROM chunk_embeddings
+    JOIN chunks ON chunks.chunk_id = chunk_embeddings.chunk_id
+    JOIN documents ON documents.doc_id = chunks.doc_id
+    LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
+    LEFT JOIN latest_document_versions
+      ON latest_document_versions.doc_id = chunks.doc_id
+    WHERE (
+        chunks.document_version_id IS NULL
+        OR document_versions.version = latest_document_versions.latest_version
+    )
+    """
+
+    filter_clause, filter_params = _build_db_filter_conditions(request)
+    if filter_clause:
+        sql += "\n      AND " + filter_clause
+
+    sql += """
+    ORDER BY chunk_embeddings.embedding <=> %s::vector,
+             documents.published_at DESC NULLS LAST,
+             chunks.chunk_id ASC
+    LIMIT %s
+    """
+
+    try:
+        pg_vector = _to_pg_vector(request.query_vector)
+        with _open_db_connection() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute(
+                    sql,
+                    (
+                        pg_vector,
+                        *filter_params,
+                        pg_vector,
+                        max(request.top_k or _DEFAULT_TOP_K, (request.top_k or _DEFAULT_TOP_K) * 3),
+                    ),
+                )
+                rows = cur.fetchall()
+    except (psycopg2.Error, ValueError):
+        return []
+
+    retrieved_docs: list[RetrievedDoc] = []
+    for row in rows:
+        vector_score = float(row["vector_score"] or 0.0)
+        document_metadata = _dict_or_empty(row["document_metadata"])
+        chunk_metadata = _dict_or_empty(row["chunk_metadata"])
+        retrieved_docs.append(
+            RetrievedDoc(
+                doc_id=row["doc_id"],
+                chunk_id=row["chunk_id"],
+                content=row["content"],
+                score=vector_score,
+                title=row["title"] or "",
+                source=row["source_url"] or row["source_type"] or "",
+                category=request.category or row["source_type"],
+                metadata={
+                    **document_metadata,
+                    **chunk_metadata,
+                    **request.log_fields,
+                    "strategy": _resolve_retrieval_mode(request),
+                    "query": request.query,
+                    "keywords": request.keywords,
+                    "filters": request.filters,
+                    "search_mode": "vector_cosine",
+                    "lexical_score": None,
+                    "vector_score": vector_score,
+                    "rrf_score": None,
+                    "final_score": vector_score,
+                    "source_type": row["source_type"],
+                    "department": row["department"],
+                    "published_at": row["published_at"],
+                    "chunk_index": row["chunk_index"],
+                    "section_index": row["section_index"],
+                    "section_type": row["section_type"],
+                    "section_title": row["section_title"],
+                    "content_length": row["content_length"],
+                    "content_hash": row["content_hash"],
+                    "version": row["version"],
+                    "document_version_id": row["document_version_id"],
+                },
+            )
+        )
+    return retrieved_docs
+
+
+def _retrieve_documents_from_database_hybrid(request: RetrievalRequest) -> list[RetrievedDoc]:
+    lexical_docs = _retrieve_documents_from_database(request)
+    vector_docs = _retrieve_documents_from_database_vector(request)
+    candidates = merge_retrieval_candidates(lexical_docs, vector_docs)
+    return _candidates_to_retrieved_docs(candidates, request)
+
+
+def merge_retrieval_candidates(
+    lexical_docs: list[RetrievedDoc],
+    vector_docs: list[RetrievedDoc],
+) -> list[RetrievalCandidate]:
+    """Merge lexical and vector candidates by chunk_id using RRF.
+
+    Chunk-level dedupe happens here. Document-level dedupe stays in select_topk.
+    Weighted-sum ranking can be added later without changing the retrieval shape.
+    """
+    candidates: dict[str, RetrievalCandidate] = {}
+
+    for rank, doc in enumerate(lexical_docs, start=1):
+        rrf_score = _rrf_score(rank)
+        candidates[doc.chunk_id] = RetrievalCandidate(
+            chunk_id=doc.chunk_id,
+            doc_id=doc.doc_id,
+            document=doc,
+            lexical_score=doc.score,
+            vector_score=_optional_float(doc.metadata.get("vector_score")),
+            rrf_score=rrf_score,
+            final_score=rrf_score,
+        )
+
+    for rank, doc in enumerate(vector_docs, start=1):
+        previous = candidates.get(doc.chunk_id)
+        vector_score = _optional_float(doc.metadata.get("vector_score")) or doc.score
+        vector_rrf_score = _rrf_score(rank)
+        if previous is None:
+            candidates[doc.chunk_id] = RetrievalCandidate(
+                chunk_id=doc.chunk_id,
+                doc_id=doc.doc_id,
+                document=doc,
+                lexical_score=_optional_float(doc.metadata.get("lexical_score")),
+                vector_score=vector_score,
+                rrf_score=vector_rrf_score,
+                final_score=vector_rrf_score,
+            )
+            continue
+
+        rrf_score = previous.rrf_score + vector_rrf_score
+        metadata = {
+            **previous.document.metadata,
+            "lexical_score": previous.lexical_score,
+            "vector_score": vector_score,
+            "rrf_score": rrf_score,
+            "final_score": rrf_score,
+            "search_mode": "hybrid_rrf",
+        }
+        candidates[doc.chunk_id] = RetrievalCandidate(
+            chunk_id=previous.chunk_id,
+            doc_id=previous.doc_id,
+            document=previous.document.model_copy(update={"metadata": metadata}),
+            lexical_score=previous.lexical_score,
+            vector_score=vector_score,
+            rrf_score=rrf_score,
+            final_score=rrf_score,
+        )
+
+    return sorted(
+        candidates.values(),
+        key=lambda candidate: (candidate.final_score, candidate.rrf_score),
+        reverse=True,
+    )
+
+
+def _candidates_to_retrieved_docs(
+    candidates: list[RetrievalCandidate],
+    request: RetrievalRequest,
+) -> list[RetrievedDoc]:
+    limit = max(request.top_k or _DEFAULT_TOP_K, (request.top_k or _DEFAULT_TOP_K) * 3)
+    docs: list[RetrievedDoc] = []
+    for candidate in candidates[:limit]:
+        metadata = {
+            **candidate.document.metadata,
+            "strategy": "hybrid",
+            "search_mode": candidate.search_mode,
+            "lexical_score": candidate.lexical_score,
+            "vector_score": candidate.vector_score,
+            "rrf_score": candidate.rrf_score,
+            "final_score": candidate.final_score,
+        }
+        docs.append(
+            candidate.document.model_copy(
+                update={
+                    "score": candidate.final_score,
+                    "metadata": metadata,
+                }
+            )
+        )
+    return docs
+
+
+def _rrf_score(rank: int, k: int = 60) -> float:
+    return 1.0 / (k + rank)
+
+
+def _optional_float(value: Any) -> float | None:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
+
+
 def _retrieve_documents_from_database(request: RetrievalRequest) -> list[RetrievedDoc]:
     search_terms = _build_db_search_terms(request)
     tsquery = _build_tsquery_or_expression(search_terms)
     if not search_terms:
         return []
 
+    # TODO: Move search_text/search_vector to generated columns with a GIN index
+    # in a separate migration. Keep this rollout read-only and behavior-preserving.
     ilike_patterns = [f"%{term}%" for term in search_terms]
     ilike_score_sql = " + ".join(
         ["CASE WHEN search_text ILIKE %s THEN 0.2 ELSE 0 END" for _ in ilike_patterns]
@@ -420,6 +696,10 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
                     "filters": request.filters,
                     "matched_terms": search_terms,
                     "search_mode": "keyword_or_tsquery_ilike",
+                    "lexical_score": score,
+                    "vector_score": None,
+                    "rrf_score": None,
+                    "final_score": score,
                     "source_type": row["source_type"],
                     "department": row["department"],
                     "published_at": row["published_at"],
@@ -522,6 +802,11 @@ def _to_retrieved_docs(
                     "keywords": request.keywords,
                     "filters": request.filters,
                     "matched_tokens": matched_tokens,
+                    "search_mode": "file_bm25",
+                    "lexical_score": round(score, 6),
+                    "vector_score": None,
+                    "rrf_score": None,
+                    "final_score": round(score, 6),
                     "source_type": record.source_type,
                     "published_at": record.published_at,
                 },

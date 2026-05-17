@@ -1,5 +1,7 @@
 ﻿"""RAG pipeline orchestration."""
 
+import os
+
 from rag.pipeline.state import PipelineState
 from rag.pipeline.preprocessor import QueryPreprocessor
 from rag.schemas.query import Query
@@ -20,6 +22,9 @@ from rag.embedding.koe5_embedder import KoE5Embedder
 
 from pprint import pprint
 from threading import Lock, Thread
+
+
+_RETRIEVAL_MODE_ENV_VAR = "RETRIEVAL_MODE"
 
 
 class NoRetrievalResultsError(Exception):
@@ -85,10 +90,14 @@ class ChatPipeline:
 
     def _retrieve(self, state: PipelineState) -> None:
         request = build_retrieval_request(state)
-        state.retrieval_strategy = request.strategy
+        effective_strategy = self._effective_retrieval_strategy(request.strategy)
+        state.retrieval_strategy = effective_strategy
         state.retrieval_top_k = request.top_k
-        state.metadata["retrieval_request"] = request.model_dump()
-        state.metadata["retrieval_strategy_log"] = request.log_fields
+        retrieval_request_log = request.model_dump(exclude={"query_vector"})
+        retrieval_request_log["query_vector_size"] = len(request.query_vector or [])
+        retrieval_request_log["effective_strategy"] = effective_strategy
+        state.metadata["retrieval_request"] = retrieval_request_log
+        state.metadata["retrieval_strategy_log"] = {**request.log_fields, "effective_strategy": effective_strategy}
         state.retrieved_docs = retrieve_documents(
             request=request,
         )
@@ -101,6 +110,14 @@ class ChatPipeline:
                 "fallback_triggers": [*request.fallback_triggers, "no_retrieval_results"],
             }
             raise NoRetrievalResultsError("관련 문서를 찾지 못했습니다.")
+
+    def _effective_retrieval_strategy(self, request_strategy: str) -> str:
+        configured_mode = os.getenv(_RETRIEVAL_MODE_ENV_VAR, "").strip().lower()
+        if configured_mode in {"lexical", "vector", "hybrid"}:
+            return configured_mode
+        if request_strategy == "dense":
+            return "vector"
+        return request_strategy
 
     def _select_and_build_context(self, state: PipelineState) -> None:
         state.reranked_docs = rerank_documents(
