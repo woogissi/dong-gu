@@ -110,20 +110,34 @@ class AttachmentDownloader:
 
         return mimetypes.guess_extension(content_type) or ""
 
+    def supported_extension(self, extension: str | None) -> str:
+        if not extension:
+            return ""
+        normalized = extension.strip().lower()
+        return normalized if normalized in self.SUPPORTED_EXTENSIONS else ""
+
+    def supported_suffix(self, text: str | None) -> str:
+        if not text:
+            return ""
+        return self.supported_extension(Path(text).suffix)
+
     def ensure_extension(self, file_name: str, file_url: str, content_disposition: str | None, content_type: str | None) -> tuple[str, str]:
         """
         파일명에 확장자가 없으면
         Content-Disposition -> URL -> Content-Type 순서로 확장자를 보정
         """
-        current_ext = Path(file_name).suffix
+        current_suffix = Path(file_name).suffix
+        current_ext = self.supported_extension(current_suffix)
+        if current_suffix and not current_ext:
+            file_name = str(Path(file_name).with_suffix(""))
 
         cd_filename = self.extract_filename_from_content_disposition(content_disposition)
-        cd_ext = Path(cd_filename).suffix if cd_filename else ""
+        cd_ext = self.supported_suffix(cd_filename)
 
         url_path = unquote(urlparse(file_url).path)
-        url_ext = Path(url_path).suffix
+        url_ext = self.supported_suffix(url_path)
 
-        type_ext = self.guess_extension_from_content_type(content_type)
+        type_ext = self.supported_extension(self.guess_extension_from_content_type(content_type))
 
         final_ext = current_ext or cd_ext or url_ext or type_ext
 

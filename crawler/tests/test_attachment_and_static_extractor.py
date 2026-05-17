@@ -27,6 +27,15 @@ class FakeStreamResponse:
         yield b"world"
 
 
+class DynamicDownloadResponse(FakeStreamResponse):
+    url = "https://www.deu.ac.kr/www/deu-notice.do?mode=download&articleNo=123&attachNo=1"
+    headers = {
+        "Content-Type": "application/x-hwp",
+        "Content-Length": "11",
+        "Content-Disposition": 'attachment; filename="guide.hwp"',
+    }
+
+
 class FailingOnceStreamResponse(FakeStreamResponse):
     attempts = 0
 
@@ -66,6 +75,29 @@ class AttachmentAndStaticExtractorTest(unittest.TestCase):
             )
             self.assertEqual(downloaded["file_ext"], ".pdf")
             self.assertEqual(Path(downloaded["saved_path"]).read_bytes(), b"hello world")
+
+    def test_attachment_downloader_ignores_dynamic_route_suffix_when_guessing_extension(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            downloader = AttachmentDownloader(
+                base_save_dir=Path(tmpdir),
+                max_file_size=1024,
+                timeout=(1, 2),
+            )
+            downloader.session.get = Mock(return_value=DynamicDownloadResponse())
+
+            downloaded = downloader.download(
+                "notice",
+                "doc1",
+                {
+                    "attachment_index": 1,
+                    "file_name": "deu-notice.do_mode=download&articleNo=123&attachNo=1",
+                    "file_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=download&articleNo=123&attachNo=1",
+                },
+            )
+
+            self.assertEqual(downloaded["file_ext"], ".hwp")
+            self.assertTrue(downloaded["saved_path"].endswith(".hwp"))
+            self.assertNotIn(".do_mode=download", downloaded["saved_path"])
 
     def test_attachment_downloader_retries_chunked_encoding_errors(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
