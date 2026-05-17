@@ -293,7 +293,12 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
     ) or "0"
 
     sql = f"""
-    WITH searchable AS (
+    WITH latest_document_versions AS (
+        SELECT doc_id, max(version) AS latest_version
+        FROM document_versions
+        GROUP BY doc_id
+    ),
+    searchable AS (
         SELECT
             chunks.chunk_id,
             chunks.doc_id,
@@ -318,11 +323,17 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
         FROM chunks
         JOIN documents ON documents.doc_id = chunks.doc_id
         LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
+        LEFT JOIN latest_document_versions
+          ON latest_document_versions.doc_id = chunks.doc_id
+        WHERE (
+            chunks.document_version_id IS NULL
+            OR document_versions.version = latest_document_versions.latest_version
+        )
     """
 
     filter_clause, filter_params = _build_db_filter_conditions(request)
     if filter_clause:
-        sql += "\n        WHERE " + filter_clause
+        sql += "\n          AND " + filter_clause
 
     sql += f"""
     )

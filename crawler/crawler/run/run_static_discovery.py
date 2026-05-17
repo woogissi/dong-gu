@@ -1,45 +1,34 @@
 # crawler/run/run_static_discovery.py
 
-import json
 import argparse
+import os
 import time
-from pathlib import Path
 
 from crawler.utils.content_hash import build_content_hash
-from crawler.config.seeds import SEED_URLS
+from crawler.config.seeds import iter_enabled_seeds
 from crawler.config.domains import ALLOWED_HOSTS
+from crawler.discovery.board_candidate_policy import build_board_candidate_record
 from crawler.discovery.url_classifier import URLClassifier
 from crawler.discovery.frontier_manager import FrontierManager
 from crawler.extractors.static_page_extractor import StaticPageExtractor
+from crawler.storage.document_store import DocumentStore
 from crawler.storage.manifest_writer import ManifestWriter
+from crawler.state.crawler_state_store import CrawlerStateStore
 from crawler.normalize.text_cleaner import TextCleaner
 from crawler.schemas.document_models import CuratedDocument
 from crawler.ingestion.document_version_manager import DocumentVersionManager
+from crawler.paths import CURATED_DOC_DIR, DATA_DIR, LOG_DIR, RAW_DOC_DIR, RAW_HTML_DIR, ensure_dirs
 
-BASE_DIR = Path("crawler/data")
-RAW_HTML_DIR = BASE_DIR / "raw" / "html"
-RAW_DOC_DIR = BASE_DIR / "raw" / "documents"
-CURATED_DOC_DIR = BASE_DIR / "curated" / "documents"
-LOG_DIR = BASE_DIR / "logs"
+BASE_DIR = DATA_DIR
 
 version_manager = DocumentVersionManager(curated_base_dir=str(CURATED_DOC_DIR))
 
-for d in [RAW_HTML_DIR, RAW_DOC_DIR, CURATED_DOC_DIR, LOG_DIR]:     # 필요한 폴더들을 미리 생성
-    d.mkdir(parents=True, exist_ok=True)
+ensure_dirs(RAW_HTML_DIR, RAW_DOC_DIR, CURATED_DOC_DIR, LOG_DIR)     # 필요한 폴더들을 미리 생성
 
 manifest_writer = ManifestWriter()
+document_store = DocumentStore()
 url_classifier = URLClassifier()
 text_cleaner = TextCleaner()
-
-
-def save_json(path: Path, data: dict | list) -> None:       # JSON 저장 함수
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def save_text(path: Path, text: str) -> None:               # html 원문 저장용 텍스트 파일 저장 함수
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
 
 
 def log_error(message: str) -> None:
@@ -94,20 +83,14 @@ def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type�
     source_type = raw_doc["source_type"]
     doc_id = raw_doc["doc_id"]
 
-    html_path = RAW_HTML_DIR / source_type / f"{doc_id}.html"
-    raw_path = RAW_DOC_DIR / source_type / f"{doc_id}.json"
-    curated_path = CURATED_DOC_DIR / source_type / f"{doc_id}.json"
-
-    save_text(html_path, raw_doc["html"])       # 원문 저장
-
-    raw_to_save = dict(raw_doc)
-    raw_to_save["html_path"] = str(html_path.as_posix())
-    raw_to_save.pop("html", None)
+    raw_to_save, raw_path, _html_path = document_store.prepare_raw_document(raw_doc)
+    image_text = merge_image_texts(raw_to_save.get("image_texts", []))
 
     raw_to_save["content_hash"] = build_content_hash(
         raw_text=raw_to_save.get("raw_text"),
         table_text=raw_to_save.get("table_text"),
         attachment_text=raw_to_save.get("attachment_text"),
+        image_text=image_text,
     )
 
     # 새 curated 후보 생성
@@ -121,8 +104,8 @@ def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type�
 
     raw_to_save["version"] = final_curated["version"]
 
-    save_json(raw_path, raw_to_save)            # raw 저장
-    save_json(curated_path, final_curated)        # curated 저장
+    document_store.save_json(raw_path, raw_to_save)            # raw 저장
+    document_store.save_curated_document(source_type, doc_id, final_curated)        # curated 저장
     manifest_writer.write_document_record(raw_to_save)      # manifest 기록
     manifest_writer.append_jsonl("document_versioning.jsonl", {
         "doc_id": doc_id,
@@ -135,14 +118,45 @@ def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type�
     print(f"[STATIC SAVE OK] doc_id={doc_id} decision={decision} version={final_curated['version']}")
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Discover and crawl static DEU pages.")
-    parser.add_argument("--max-pages", type=int, default=50, help="Maximum static pages to crawl.")
-    parser.add_argument("--max-depth", type=int, default=2, help="Maximum discovery depth.")
-    parser.add_argument("--enable-image-ocr", action="store_true", help="Enable image OCR. Disabled by default.")
-    parser.add_argument("--skip-image-ocr", action="store_true", help="Compatibility flag. Image OCR is skipped by default.")
-    parser.add_argument("--connect-timeout", type=float, default=5, help="HTTP connect timeout in seconds.")
-    parser.add_argument("--read-timeout", type=float, default=30, help="HTTP read timeout in seconds.")
-    parser.add_argument("--sleep", type=float, default=0.5, help="Delay between successful requests.")
+    parser = argparse.ArgumentParser(
+        description="동의대학교 정적 페이지를 발견하고 수집합니다.",
+        add_help=False,
+    )
+    parser.add_argument("-h", "--help", action="help", help="도움말을 보여주고 종료합니다.")
+    parser._optionals.title = "옵션"
+    parser.add_argument("--max-pages", type=int, default=50, help="수집할 정적 페이지 최대 개수입니다.")
+    parser.add_argument("--max-depth", type=int, default=2, help="링크 discovery 최대 깊이입니다.")
+    parser.add_argument("--enable-image-ocr", action="store_true", help="이미지 OCR을 켭니다. 기본값은 꺼짐입니다.")
+    parser.add_argument("--skip-image-ocr", action="store_true", help="호환성용 옵션입니다. 이미지 OCR은 기본적으로 건너뜁니다.")
+    parser.add_argument("--connect-timeout", type=float, default=5, help="HTTP 연결 timeout(초)입니다.")
+    parser.add_argument("--read-timeout", type=float, default=30, help="HTTP 읽기 timeout(초)입니다.")
+    parser.add_argument("--sleep", type=float, default=0.5, help="성공한 요청 사이에 대기할 시간(초)입니다.")
+    parser.add_argument(#--
+        "--allow-insecure-ssl",
+        action="store_true",
+        help="설정된 구형 DEU 호스트에 한해 SSL 검증 없이 재시도를 허용합니다.",
+    )
+    parser.add_argument(
+        "--promote-discovery-results",
+        action="store_true",
+        help="발견한 게시판 후보를 Postgres에 저장하고 confidence가 높은 board_list seed를 승격합니다.",
+    )
+    parser.add_argument(
+        "--closed-loop-discovery",
+        action="store_true",
+        help="전체 파이프라인용 discovery 결과를 저장/승격합니다. --promote-discovery-results와 같습니다.",
+    )
+    parser.add_argument(
+        "--dry-run-promotion-preview",
+        action="store_true",
+        help="discovery 후 상태를 바꾸지 않고 승격 후보만 출력합니다.",
+    )
+    parser.add_argument(
+        "--min-discovery-confidence",
+        type=float,
+        default=0.8,
+        help="동적 게시판 seed 승격에 필요한 최소 confidence입니다.",
+    )
     return parser.parse_args()
 
 
@@ -152,7 +166,19 @@ def main(
     enable_image_ocr: bool = False,
     timeout: tuple[float, float] = (5, 30),
     sleep_seconds: float = 0.5,
+    allow_insecure_ssl: bool = False,
+    promote_discovery_results: bool = False,
+    min_discovery_confidence: float = 0.8,
+    dry_run_promotion_preview: bool = False,
 ):
+    if allow_insecure_ssl:
+        os.environ["CRAWLER_ALLOW_INSECURE_SSL"] = "1"
+    if not promote_discovery_results and os.getenv("CRAWLER_OPERATION_MODE") in {"prod", "production", "operating"}:
+        print(
+            "[WARN] operating mode without discovery promotion: "
+            "pass --closed-loop-discovery or --promote-discovery-results to persist dynamic board seeds."
+        )
+
     frontier = FrontierManager(ALLOWED_HOSTS, max_depth=max_depth)
     extractor = StaticPageExtractor(
         allowed_hosts=ALLOWED_HOSTS,
@@ -160,10 +186,32 @@ def main(
         timeout=timeout,
     )
 
+    source_type_by_url = {}
+    source_group_by_url = {}
+    discover_candidates_by_url = {}
+    candidate_urls = set()
+    state_store = None
+    if promote_discovery_results:
+        state_store = CrawlerStateStore()
+        state_store.ensure_tables()
+
     # static seed만 넣기
-    for seed in SEED_URLS:
+    for seed in iter_enabled_seeds():
         if seed["page_kind"] in {"static_page", "seed"}:
-            frontier.add_url(seed["url"], depth=0, discovered_from="seed")
+            if frontier.add_url(seed["url"], depth=0, discovered_from="seed"):
+                canonical_url = frontier.canonicalize_url(seed["url"])
+                source_type_by_url[canonical_url] = seed["source_type"]
+                source_group_by_url[canonical_url] = seed.get("source_group")
+                discover_candidates_by_url[canonical_url] = seed.get("discover_board_candidates", False)
+                if state_store:
+                    state_store.upsert_discovered_url(
+                        url=seed["url"],
+                        source_type=seed["source_type"],
+                        page_kind=seed["page_kind"],
+                        discovered_from="seed",
+                        discovery_depth=0,
+                        seed_status="seeded",
+                    )
 
     crawled_count = 0
 
@@ -177,14 +225,57 @@ def main(
 
         try:
             url_type = url_classifier.classify(url)     # 정적페이지인지 다시 확인
+            canonical_url = frontier.canonicalize_url(url)
+            source_type = source_type_by_url.get(canonical_url) or url_classifier.infer_source_type(url)
+            source_group = source_group_by_url.get(canonical_url) or source_type
+            discover_board_candidates = discover_candidates_by_url.get(canonical_url, False)
+            if state_store:
+                state_store.upsert_discovered_url(
+                    url=url,
+                    source_type=source_type,
+                    page_kind=url_type,
+                    discovered_from=discovered_from,
+                    discovery_depth=depth,
+                    seed_status="candidate",
+                )
 
             # 현재 static discovery는 정적 페이지만 대상으로 삼음
             if url_type != "static_page":
+                candidate = build_board_candidate_record(
+                    url=url,
+                    page_kind=url_type,
+                    discovered_from=discovered_from or "unknown",
+                    source_type=source_type,
+                    source_group=source_group,
+                    depth=depth,
+                )
+                if discover_board_candidates and candidate and url not in candidate_urls:
+                    candidate_urls.add(url)
+                    manifest_writer.append_jsonl("candidate_boards.jsonl", candidate)
+                    if state_store:
+                        state_store.upsert_dynamic_seed(candidate)
                 continue
 
-            source_type = url_classifier.infer_source_type(url)     # source_type을 추정
             raw_doc = extractor.extract_static_page(source_type=source_type, page_url=url)  # 실제 페이지를 가져와서 raw 문서 dict로 만듬
-            save_static_document(raw_doc)    
+            save_static_document(raw_doc)
+            if state_store:
+                state_store.upsert_document_state(
+                    url=url,
+                    doc_id=raw_doc.get("doc_id"),
+                    status="PARSED",
+                    final_url=raw_doc.get("final_url"),
+                    source_type=source_type,
+                    page_kind="static_page",
+                    checksum=raw_doc.get("content_hash"),
+                    artifact_paths={
+                        "raw_json": (RAW_DOC_DIR / source_type / f"{raw_doc['doc_id']}.json").as_posix(),
+                        "curated_json": (CURATED_DOC_DIR / source_type / f"{raw_doc['doc_id']}.json").as_posix(),
+                    },
+                    extractor_name=raw_doc.get("extractor_name"),
+                    extractor_version=raw_doc.get("extractor_version"),
+                    fetch_status="FETCHED",
+                    parse_status="PARSED",
+                )
 
             manifest_writer.append_jsonl("discovery_edges.jsonl", {
                 "url": url,
@@ -197,10 +288,39 @@ def main(
             # 내부 링크 확장
             for next_url in raw_doc.get("outgoing_links", []):
                 next_type = url_classifier.classify(next_url)
+                candidate = build_board_candidate_record(
+                    url=next_url,
+                    page_kind=next_type,
+                    discovered_from=url,
+                    source_type=source_type,
+                    source_group=source_group,
+                    depth=depth + 1,
+                )
+                if discover_board_candidates and candidate and next_url not in candidate_urls:
+                    candidate_urls.add(next_url)
+                    manifest_writer.append_jsonl("candidate_boards.jsonl", candidate)
+                    if state_store:
+                        state_store.upsert_dynamic_seed(candidate)
 
                 # 정적 페이지만 계속 확장
                 if next_type == "static_page":
-                    frontier.add_url(next_url, depth=depth + 1, discovered_from=url)
+                    if frontier.add_url(next_url, depth=depth + 1, discovered_from=url):
+                        next_canonical_url = frontier.canonicalize_url(next_url)
+                        inferred_source_type = url_classifier.infer_source_type(next_url)
+                        source_type_by_url[next_canonical_url] = (
+                            inferred_source_type if inferred_source_type != "webpage" else source_type
+                        )
+                        source_group_by_url[next_canonical_url] = source_group
+                        discover_candidates_by_url[next_canonical_url] = discover_board_candidates
+                        if state_store:
+                            state_store.upsert_discovered_url(
+                                url=next_url,
+                                source_type=source_type_by_url[next_canonical_url],
+                                page_kind="static_page",
+                                discovered_from=url,
+                                discovery_depth=depth + 1,
+                                seed_status="candidate",
+                            )
 
             crawled_count += 1
             print(f"[DISCOVERY OK] depth={depth} source={source_type} url={url}")
@@ -210,6 +330,16 @@ def main(
         except Exception as e:
             message = f"[DISCOVERY ERROR] url={url} depth={depth} error={e}"
             log_error(message)
+            if state_store:
+                state_store.upsert_document_state(
+                    url=url,
+                    status="FAILED",
+                    source_type=source_type_by_url.get(frontier.canonicalize_url(url)),
+                    page_kind=url_classifier.classify(url),
+                    error=str(e),
+                    error_stage="static_discovery",
+                    fetch_status="FAILED",
+                )
             manifest_writer.write_error_record(
                 stage="static_discovery",
                 message=message,
@@ -217,6 +347,25 @@ def main(
             )
 
     print("[DONE] static discovery finished")
+    if state_store:
+        if dry_run_promotion_preview:
+            candidates = state_store.preview_dynamic_seed_promotions(min_discovery_confidence, limit=10)
+            print(f"[DYNAMIC SEEDS PREVIEW] candidates={len(candidates)} min_confidence={min_discovery_confidence}")
+            for candidate in candidates[:5]:
+                print(
+                    "[DYNAMIC SEEDS PREVIEW] "
+                    f"confidence={float(candidate['confidence']):.2f} "
+                    f"source={candidate.get('source_type')} "
+                    f"url={candidate.get('url')}"
+                )
+            promoted_count = 0
+        else:
+            promoted_count = state_store.promote_dynamic_seeds(min_discovery_confidence)
+            promoted_static_count = state_store.promote_static_seed_candidates()
+        state_store.close()
+        print(f"[DYNAMIC SEEDS] promoted={promoted_count} min_confidence={min_discovery_confidence}")
+        if not dry_run_promotion_preview:
+            print(f"[STATIC SEEDS] promoted={promoted_static_count}")
     print(frontier.stats())
 
 
@@ -228,4 +377,8 @@ if __name__ == "__main__":
         enable_image_ocr=bool(args.enable_image_ocr and not args.skip_image_ocr),
         timeout=(args.connect_timeout, args.read_timeout),
         sleep_seconds=args.sleep,
+        allow_insecure_ssl=args.allow_insecure_ssl,
+        promote_discovery_results=bool(args.promote_discovery_results or args.closed_loop_discovery),
+        min_discovery_confidence=args.min_discovery_confidence,
+        dry_run_promotion_preview=args.dry_run_promotion_preview,
     )

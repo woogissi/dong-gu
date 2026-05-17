@@ -5,11 +5,13 @@ import hashlib
 import os
 from crawler.utils.content_hash import build_content_hash
 from datetime import datetime, timezone, timedelta
-from urllib.parse import urljoin, urlparse, urldefrag
+from urllib.parse import parse_qs, urljoin, urlparse, urldefrag
 
 from crawler.schemas.document_models import StaticPageRawDocument
+from crawler.extractors.base import BaseExtractor, FetchResult
 from crawler.extractors.image_text_extractor import ImageTextExtractor
 from crawler.utils.text_quality import is_binary_like_text
+from crawler.config.domains import DEPARTMENT_HOSTS
 
 import requests
 from bs4 import BeautifulSoup
@@ -26,18 +28,19 @@ HEADERS = {
 KST = timezone(timedelta(hours=9))
 
 
-class StaticPageExtractor:
+class StaticPageExtractor(BaseExtractor):
+    name = "static_page"
+    version = "1"
+
     def __init__(
         self,
         allowed_hosts: set[str] | None = None,
         enable_image_ocr: bool = False,
         timeout: tuple[float, float] = (5, 30),
     ):
-        self.session = requests.Session()
-        self.session.headers.update(HEADERS)
+        super().__init__(headers=HEADERS, timeout=timeout)
         self.allowed_hosts = allowed_hosts or set()     #허용도메인
         self.enable_image_ocr = enable_image_ocr
-        self.timeout = timeout
         self.image_text_extractor = ImageTextExtractor()
 
     def now_kst_iso(self) -> str:                       #현재 시각을 한국 시간 ISO 문자열로 반환
@@ -85,18 +88,37 @@ class StaticPageExtractor:
             raise ValueError(f"binary-like static response: url={url} content_type={content_type or 'unknown'}")
         return text
 
-    def fetch(self, url: str) -> str:                       #정적 페이지 HTML을 실제로 가져오는 함수
+    def fetch_result(self, url: str) -> FetchResult:
         try:
             res = self.session.get(url, timeout=self.timeout)
             res.raise_for_status()
-            return self._response_text(res, url)
-        except requests.exceptions.SSLError:
-            insecure_ssl_hosts = ("lib.deu.ac.kr", "has.deu.ac.kr")
+            return FetchResult(
+                url=url,
+                final_url=res.url,
+                status_code=res.status_code,
+                headers=dict(res.headers),
+                raw_html=self._response_text(res, url),
+            )
+        except requests.exceptions.SSLError as exc:
+            if "has.deu.ac.kr" in url:
+                raise requests.exceptions.SSLError(
+                    f"SSL verification failed for has.deu.ac.kr; keeping verify=True and skipping url={url}"
+                ) from exc
+            insecure_ssl_hosts = ("lib.deu.ac.kr",)
             if any(host in url for host in insecure_ssl_hosts) and os.getenv("CRAWLER_ALLOW_INSECURE_SSL") == "1":
                 res = self.session.get(url, timeout=self.timeout, verify=False)       # 도서관 사이트 SSLhandshake failure 해결
                 res.raise_for_status()
-                return self._response_text(res, url)
+                return FetchResult(
+                    url=url,
+                    final_url=res.url,
+                    status_code=res.status_code,
+                    headers=dict(res.headers),
+                    raw_html=self._response_text(res, url),
+                )
             raise
+
+    def fetch(self, url: str) -> str:                       #정적 페이지 HTML을 실제로 가져오는 함수
+        return self.fetch_result(url).raw_html
 
     def make_doc_id(self, url: str) -> str:
         return f"static_{self.sha1_text(url)[:16]}"         #정적페이지는 articleNo가 없기 때문에 해시로 id생성
@@ -208,6 +230,43 @@ class StaticPageExtractor:
 
         return sorted(set(urls))        #중복검사
 
+    def extract_attachments(self, content_node, page_url: str) -> list[dict]:
+        if not content_node:
+            return []
+
+        file_exts = (
+            ".pdf", ".hwp", ".hwpx", ".doc", ".docx", ".xls", ".xlsx",
+            ".ppt", ".pptx", ".zip", ".jpg", ".jpeg", ".png"
+        )
+        attachments = []
+        for idx, a_tag in enumerate(content_node.find_all("a", href=True), start=1):
+            href = a_tag["href"].strip()
+            href_lower = href.lower()
+            link_text = self.normalize_text(a_tag.get_text(" ", strip=True))
+            full_url = urljoin(page_url, href)
+            parsed_url = urlparse(full_url)
+            url_ext = os.path.splitext(parsed_url.path)[1].lower()
+            mode = parse_qs(parsed_url.query).get("mode", [""])[0].lower()
+            if url_ext == ".do" and mode != "download":
+                continue
+            is_attachment = (
+                "download" in href_lower
+                or "file" in href_lower
+                or any(href_lower.endswith(ext) for ext in file_exts)
+                or "첨부" in link_text
+                or "다운로드" in link_text
+            )
+            if not is_attachment:
+                continue
+            attachments.append(
+                {
+                    "attachment_index": len(attachments) + 1,
+                    "file_name": link_text or full_url.rsplit("/", 1)[-1],
+                    "file_url": full_url,
+                }
+            )
+        return attachments
+
     def extract_internal_links(self, content_node, page_url: str) -> list[str]:     # 본문 안 내부 url 수집
         if not content_node:
             return []
@@ -223,6 +282,64 @@ class StaticPageExtractor:
 
             if not self.allowed_hosts or host in self.allowed_hosts:    # 허용 도메인만
                 urls.append(full_url)
+
+        return sorted(set(urls))
+
+    def first_path_segment(self, url: str) -> str:
+        path = urlparse(url).path.strip("/")
+        return path.split("/", 1)[0] if path else ""
+
+    def is_navigation_link_allowed(self, page_url: str, link_url: str) -> bool:
+        page = urlparse(page_url)
+        link = urlparse(link_url)
+        link_ext = os.path.splitext(link.path)[1].lower()
+
+        if link.scheme not in {"http", "https"}:
+            return False
+
+        if link.netloc.lower() != page.netloc.lower():
+            return False
+
+        if link_ext in {".css", ".js", ".ico"}:
+            return False
+
+        if link_ext and link_ext != ".do":
+            return False
+
+        if page.netloc.lower() in DEPARTMENT_HOSTS:
+            page_section = self.first_path_segment(page_url)
+            link_section = self.first_path_segment(link_url)
+            if page_section and link_section and page_section != link_section:
+                return False
+
+        return True
+
+    def extract_navigation_links(self, soup: BeautifulSoup, page_url: str) -> list[str]:
+        selectors = [
+            "header",
+            "nav",
+            "#gnb",
+            "#mGnb",
+            ".gnb",
+            ".mbGnb",
+        ]
+        urls = []
+        seen_nodes = set()
+
+        for selector in selectors:
+            for node in soup.select(selector):
+                node_id = id(node)
+                if node_id in seen_nodes:
+                    continue
+                seen_nodes.add(node_id)
+                for a_tag in node.find_all("a", href=True):
+                    href = a_tag["href"].strip()
+                    if href.startswith(("javascript:", "mailto:", "tel:", "#")):
+                        continue
+
+                    full_url = self.canonicalize_url(urljoin(page_url, href))
+                    if self.is_navigation_link_allowed(page_url, full_url):
+                        urls.append(full_url)
 
         return sorted(set(urls))
 
@@ -243,7 +360,8 @@ class StaticPageExtractor:
         return None, None
 
     def extract_static_page(self, source_type: str, page_url: str) -> dict:         # 외부에서 호출하는 정적 페이지 추출 메인 함수
-        html = self.fetch(page_url)
+        fetch_result = self.fetch_result(page_url)
+        html = fetch_result.raw_html
         soup = BeautifulSoup(html, "html.parser")
 
         title = self.find_title(soup)       # 제목
@@ -259,7 +377,11 @@ class StaticPageExtractor:
                 for idx, image_url in enumerate(image_urls, start=1)
             ]
         )
-        outgoing_links = self.extract_internal_links(content_node, page_url)
+        outgoing_links = sorted(
+            set(self.extract_internal_links(content_node, page_url))
+            | set(self.extract_navigation_links(soup, page_url))
+        )
+        attachments = self.extract_attachments(content_node, page_url)
         merged_image_text = "\n\n".join(
             item["image_text"] for item in image_texts if item.get("image_text")
         ).strip()
@@ -288,9 +410,10 @@ class StaticPageExtractor:
         views=None,
         image_urls=image_urls,
         image_texts=image_texts,
-        attachments=[],
+        attachments=attachments,
         outgoing_links=outgoing_links,
         content_hash=hash,
         html=html,
+        metadata={"fetch": self.fetch_metadata(fetch_result)},
     )
         return raw_doc.model_dump()

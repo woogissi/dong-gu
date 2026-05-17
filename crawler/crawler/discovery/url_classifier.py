@@ -2,7 +2,7 @@
 
 from urllib.parse import parse_qs, unquote, urlparse
 
-from crawler.config.domains import DOWNLOAD_EXTENSIONS
+from crawler.config.domains import DEPARTMENT_HOSTS, DOWNLOAD_EXTENSIONS
 
 
 class URLClassifier:
@@ -53,11 +53,28 @@ class URLClassifier:
 
     def infer_source_type(self, url: str) -> str:
         lower = url.lower()
+        host = urlparse(url).netloc.lower()
 
         if "deu-notice.do" in lower:
             return "notice"
+        if "deu-scholarship.do" in lower:
+            return "scholarship"
         if "gra-notice.do" in lower:
             return "academic_notice"
+        if "deu-education.do" in lower:
+            return "education"
+        if "deu-job.do" in lower:
+            return "job"
+        if "deu-support-notice.do" in lower:
+            return "disability_support"
+        if "deu-bids.do" in lower:
+            return "bids"
+        if "deu-today.do" in lower:
+            return "news"
+        if "deu-foundation-notices.do" in lower:
+            return "foundation_notice"
+        if "deu-council-notice.do" in lower:
+            return "council_notice"
         if "ipsi" in lower:
             return "admission"
         if "dorm" in lower:
@@ -66,5 +83,7 @@ class URLClassifier:
             return "library"
         if "faq" in lower:
             return "faq"
+        if host in DEPARTMENT_HOSTS:
+            return "department"
 
         return "webpage"

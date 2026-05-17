@@ -1,6 +1,5 @@
--r ../rag/requirements.txt
-
 fastapi
 uvicorn[standard]
 rapidfuzz
 psycopg2-binary==2.9.10
+requests

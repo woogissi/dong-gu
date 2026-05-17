@@ -18,7 +18,7 @@ from backend.app.utils.kakao_ui import (
     get_link_url_by_category,
     get_title_by_category,
 )
-from rag.schemas.query import Query
+from backend.app.services.rag_client import ChatQuery, RagApiClient
 
 
 router = APIRouter(tags=["kakao"])
@@ -30,8 +30,7 @@ chat_pipeline = None
 def get_chat_pipeline():
     global chat_pipeline
     if chat_pipeline is None:
-        from rag.pipeline.chat_pipeline import ChatPipeline
-        chat_pipeline = ChatPipeline()
+        chat_pipeline = RagApiClient()
     return chat_pipeline
 
 
@@ -222,7 +221,7 @@ async def kakao_webhook(request: Request, background_tasks: BackgroundTasks = No
 def process_info_with_callback(callback_url, request_id, user_id, utterance, start_time):
     try:
         pipeline = get_chat_pipeline()
-        result = pipeline.run(Query(text=utterance))
+        result = pipeline.run(ChatQuery(text=utterance))
 
         response_body, final_answer = build_info_response(result, utterance)
 
@@ -263,7 +262,7 @@ def process_info_with_callback(callback_url, request_id, user_id, utterance, sta
 
 def process_info_sync(utterance: str):
     pipeline = get_chat_pipeline()
-    result = pipeline.run(Query(text=utterance))
+    result = pipeline.run(ChatQuery(text=utterance))
     response_body, final_answer = build_info_response(result, utterance)
     success = _result_success(result)
     retrieval_log = resolve_retrieval_log(result, utterance, pipeline)
