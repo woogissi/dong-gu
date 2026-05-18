@@ -16,6 +16,7 @@ from typing import Any
 DEFAULT_INPUT_PATH = Path("rag/tests/integration/test_queries.json")
 DEFAULT_OUTPUT_PATH = Path("rag/evaluation/autorag/data/qa.parquet")
 DEFAULT_TEMPLATE_PATH = Path("rag/evaluation/autorag/data/qa_ground_truth_template.csv")
+DEFAULT_GROUND_TRUTH_PATH = Path("rag/evaluation/autorag/data/ground_truth.json")
 
 
 def parse_args() -> argparse.Namespace:
@@ -24,8 +25,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT_PATH), help="Output QA parquet path.")
     parser.add_argument(
         "--ground-truth",
-        default="",
-        help="Optional JSON mapping query text or qid to answers/retrieval_gt.",
+        default=str(DEFAULT_GROUND_TRUTH_PATH),
+        help=(
+            "Optional JSON mapping query text or qid to answers/retrieval_gt. "
+            "Defaults to rag/evaluation/autorag/data/ground_truth.json when present."
+        ),
     )
     parser.add_argument(
         "--template-output",
@@ -45,7 +49,8 @@ def main() -> None:
     input_path = Path(args.input)
     output_path = Path(args.output)
     template_path = Path(args.template_output)
-    ground_truth = load_ground_truth(Path(args.ground_truth)) if args.ground_truth else {}
+    ground_truth_path = Path(args.ground_truth) if args.ground_truth else None
+    ground_truth = load_ground_truth(ground_truth_path) if ground_truth_path and ground_truth_path.exists() else {}
 
     queries = load_queries(input_path)
     all_rows = [to_qa_row(index, query, ground_truth) for index, query in enumerate(queries)]
@@ -58,6 +63,10 @@ def main() -> None:
     skipped_count = len(all_rows) - len(rows)
     print(f"Wrote {len(rows)} QA rows to {output_path}")
     print(f"Wrote labeling template to {template_path}")
+    if ground_truth_path and ground_truth_path.exists():
+        print(f"Loaded ground-truth labels from {ground_truth_path}")
+    else:
+        print("No ground-truth label file loaded.")
     print(f"Labeled rows with retrieval_gt: {labeled_count}/{len(all_rows)}")
     print(f"Skipped unlabeled rows in qa.parquet: {skipped_count}")
     if args.include_unlabeled:

@@ -106,6 +106,8 @@ AutoRAG validation에서는 `corpus.parquet.doc_id`를 chunk 단위 ID로 설정
 docker compose --profile eval run --rm autorag-eval python -m rag.evaluation.autorag.scripts.convert_test_queries_to_qa
 ```
 
+기본적으로 `rag/evaluation/autorag/data/ground_truth.json` 파일이 있으면 자동으로 읽습니다.
+
 출력 파일:
 
 ```text
@@ -136,7 +138,7 @@ AutoRAG validate는 모든 QA row의 `retrieval_gt`에 최소 1개 이상의 `ch
 }
 ```
 
-이후 다음 명령으로 실행합니다.
+다른 라벨 파일을 사용하려면 다음처럼 명시합니다.
 
 ```bash
 docker compose --profile eval run --rm autorag-eval python -m rag.evaluation.autorag.scripts.convert_test_queries_to_qa --ground-truth rag/evaluation/autorag/data/ground_truth.json
