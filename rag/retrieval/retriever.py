@@ -39,6 +39,9 @@ _HYBRID_SCORE_MODE_ENV_VAR = "HYBRID_SCORE_MODE"
 _HYBRID_LEXICAL_WEIGHT_ENV_VAR = "HYBRID_LEXICAL_WEIGHT"
 _HYBRID_VECTOR_WEIGHT_ENV_VAR = "HYBRID_VECTOR_WEIGHT"
 _HYBRID_SRRF_BETA_ENV_VAR = "HYBRID_SRRF_BETA"
+_RESULT_DEDUPE_ENV_VAR = "RAG_DEDUPE_RESULTS"
+_MAX_RESULTS_PER_DOC_ENV_VAR = "RAG_MAX_RESULTS_PER_DOC"
+_MAX_RESULTS_PER_SOURCE_ENV_VAR = "RAG_MAX_RESULTS_PER_SOURCE"
 
 _DEFAULT_TOP_K = 10
 _MIN_DB_SCORE = 0.5
@@ -50,6 +53,8 @@ _NOISE_PENALTY_CAP = 1.5
 _DEFAULT_HYBRID_LEXICAL_WEIGHT = 0.4
 _DEFAULT_HYBRID_VECTOR_WEIGHT = 0.6
 _DEFAULT_HYBRID_SRRF_BETA = 10.0
+_DEFAULT_MAX_RESULTS_PER_DOC = 2
+_DEFAULT_MAX_RESULTS_PER_SOURCE = 2
 _BM25_K1 = 1.5
 _BM25_B = 0.75
 _TOKEN_PATTERN = re.compile(r"[가-힣A-Za-z0-9]+")
@@ -185,16 +190,16 @@ def retrieve_documents(
             retrieval_mode = _resolve_retrieval_mode(request)
             if retrieval_mode == "vector":
                 documents = _retrieve_documents_from_database_vector(request)
-                return documents
+                return _postprocess_retrieved_docs(documents, request)
 
             if retrieval_mode == "hybrid":
                 documents = _retrieve_documents_from_database_hybrid(request)
                 if documents:
-                    return documents
+                    return _postprocess_retrieved_docs(documents, request)
 
             documents = _retrieve_documents_from_database(request)
             if documents:  # DB에서 검색 결과가 있으면 반환
-                return documents
+                return _postprocess_retrieved_docs(documents, request)
             if request.filters:
                 relaxed_request = request.model_copy(update={"filters": {}, "category": None})
                 documents = _retrieve_documents_from_database(relaxed_request)
@@ -202,7 +207,7 @@ def retrieve_documents(
                     for document in documents:
                         document.metadata["filters_relaxed"] = True
                         document.metadata["original_filters"] = request.filters
-                    return documents
+                    return _postprocess_retrieved_docs(documents, request)
         except Exception as exc:
             logger.exception(
                 "database_retrieval_failed; falling back to file BM25 "
@@ -223,7 +228,9 @@ def retrieve_documents(
         return []
 
     scored_docs = _score_documents(index=index, query_tokens=query_tokens, request=request)
-    return _to_retrieved_docs(scored_docs[: request.top_k or _DEFAULT_TOP_K], request)
+    candidate_limit = max(request.top_k or _DEFAULT_TOP_K, (request.top_k or _DEFAULT_TOP_K) * 3)
+    documents = _to_retrieved_docs(scored_docs[:candidate_limit], request)
+    return _postprocess_retrieved_docs(documents, request)
 
 
 # 테스트 코드에서 인덱스 캐시를 초기화할 수 있도록 lru_cache로 구현된 내부 함수들을 노출
@@ -1057,6 +1064,65 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
 
 def _dict_or_empty(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
+
+
+def _postprocess_retrieved_docs(docs: list[RetrievedDoc], request: RetrievalRequest) -> list[RetrievedDoc]:
+    docs = _dedupe_retrieved_docs(docs) if _result_dedupe_enabled() else docs
+    limit = request.top_k or _DEFAULT_TOP_K
+    return docs[:limit]
+
+
+def _dedupe_retrieved_docs(docs: list[RetrievedDoc]) -> list[RetrievedDoc]:
+    max_per_doc = _int_env(_MAX_RESULTS_PER_DOC_ENV_VAR, _DEFAULT_MAX_RESULTS_PER_DOC)
+    max_per_source = _int_env(_MAX_RESULTS_PER_SOURCE_ENV_VAR, _DEFAULT_MAX_RESULTS_PER_SOURCE)
+    seen_hashes: set[str] = set()
+    doc_counts: dict[str, int] = {}
+    source_counts: dict[tuple[str, str], int] = {}
+    deduped: list[RetrievedDoc] = []
+
+    for doc in docs:
+        content_hash = str(doc.metadata.get("content_hash") or "").strip()
+        if content_hash and content_hash in seen_hashes:
+            continue
+
+        doc_count = doc_counts.get(doc.doc_id, 0)
+        if max_per_doc > 0 and doc_count >= max_per_doc:
+            continue
+
+        source_key = (_normalize_result_key(doc.title), _normalize_result_key(doc.source))
+        source_count = source_counts.get(source_key, 0)
+        if source_key != ("", "") and max_per_source > 0 and source_count >= max_per_source:
+            continue
+
+        if content_hash:
+            seen_hashes.add(content_hash)
+        doc_counts[doc.doc_id] = doc_count + 1
+        source_counts[source_key] = source_count + 1
+        metadata = {
+            **doc.metadata,
+            "result_dedupe_applied": True,
+            "result_dedupe_max_per_doc": max_per_doc,
+            "result_dedupe_max_per_source": max_per_source,
+        }
+        deduped.append(doc.model_copy(update={"metadata": metadata}))
+
+    return deduped
+
+
+def _normalize_result_key(value: str | None) -> str:
+    return re.sub(r"\s+", " ", value or "").casefold().strip()
+
+
+def _result_dedupe_enabled() -> bool:
+    return os.getenv(_RESULT_DEDUPE_ENV_VAR, "1").strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _int_env(name: str, default: int) -> int:
+    try:
+        value = int(os.getenv(name, ""))
+    except ValueError:
+        return default
+    return value if value >= 0 else default
 
 
 # BM25 알고리즘을 사용하여 문서 청크에 점수를 매기는 함수

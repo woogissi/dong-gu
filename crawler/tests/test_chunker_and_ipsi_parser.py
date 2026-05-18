@@ -33,3 +33,48 @@ class ChunkerAndIpsiParserTest(unittest.TestCase):
 
         self.assertEqual([chunk["section_title"] for chunk in chunks], ["a.pdf", "b.pdf"])
         self.assertTrue(all(chunk["section_type"] == "attachment" for chunk in chunks))
+
+    def test_chunk_hash_uses_normalized_text(self) -> None:
+        chunker = DocumentChunker()
+
+        first_hash = chunker.make_chunk_hash("PDF   다운로드\n\nNOTICE |||")
+        second_hash = chunker.make_chunk_hash("pdf 다운로드 NOTICE |")
+
+        self.assertEqual(first_hash, second_hash)
+
+    def test_chunker_skips_short_stub_chunks(self) -> None:
+        chunker = DocumentChunker()
+        doc = {
+            "doc_id": "doc-stub",
+            "version": 1,
+            "source_type": "static_page",
+            "title": "센터 메인",
+            "normalize": "PDF 다운로드",
+        }
+
+        self.assertEqual(chunker.chunk_document(doc), [])
+
+    def test_chunker_keeps_meaningful_short_chunks(self) -> None:
+        chunker = DocumentChunker()
+        doc = {
+            "doc_id": "doc-contact",
+            "version": 1,
+            "source_type": "notice",
+            "title": "문의처",
+            "normalize": "문의: 장학지원팀 051-890-1234",
+        }
+
+        chunks = chunker.chunk_document(doc)
+
+        self.assertEqual(len(chunks), 1)
+        self.assertIn("051-890-1234", chunks[0]["content"])
+
+    def test_chunker_adds_paragraph_overlap_when_enabled(self) -> None:
+        chunker = DocumentChunker(max_chars=60, paragraph_overlap_chars=15)
+        first = "첫 번째 문단입니다. 장학 신청 일정과 제출 서류 안내가 포함되어 있습니다."
+        second = "두 번째 문단입니다. 접수 기간과 담당 부서 연락처를 안내합니다."
+
+        chunks = chunker.split_section_into_chunks(f"{first}\n\n{second}")
+
+        self.assertEqual(len(chunks), 2)
+        self.assertTrue(chunks[1].startswith(chunker.build_paragraph_overlap(first)))

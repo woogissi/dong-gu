@@ -27,6 +27,80 @@ HEADERS = {
 
 KST = timezone(timedelta(hours=9))
 
+STATIC_UI_PHRASES = (
+    "게시물 좌측으로 이동",
+    "게시물 우측으로 이동",
+    "이전 정지 시작 다음",
+    "행사사진 More",
+    "PDF 다운로드",
+    "HWP 다운로드",
+    "전체화면 보기",
+)
+
+STATIC_STUB_LINES = {
+    "More",
+    "NOTICE",
+    "PROGRAM",
+    "SNS",
+    "로그인",
+    "회원가입",
+    "이용문의",
+    "PDF 다운로드",
+    "HWP 다운로드",
+    "전체화면 보기",
+}
+
+MAIN_PAGE_EXCLUDE_SELECTORS = [
+    ".notice",
+    ".notice-list",
+    ".latest",
+    ".latest-list",
+    ".board",
+    ".board-list",
+    ".program",
+    ".program-list",
+    ".gallery",
+    ".photo",
+    ".media",
+    ".sns",
+    ".login",
+    ".member",
+    ".popup",
+    ".quick",
+    "[class*='notice']",
+    "[class*='latest']",
+    "[class*='board']",
+    "[class*='program']",
+    "[class*='gallery']",
+    "[class*='photo']",
+    "[class*='sns']",
+    "[class*='login']",
+    "[class*='popup']",
+    "[id*='notice']",
+    "[id*='latest']",
+    "[id*='board']",
+    "[id*='program']",
+    "[id*='gallery']",
+    "[id*='sns']",
+    "[id*='login']",
+]
+
+STATIC_INCLUDE_SELECTORS = [
+    ".contents",
+    ".content",
+    ".sub-content",
+    ".cont",
+    ".intro",
+    ".greeting",
+    ".overview",
+    ".vision",
+    ".purpose",
+    ".info",
+    "#contents",
+    "#content",
+    "main",
+]
+
 
 class StaticPageExtractor(BaseExtractor):
     name = "static_page"
@@ -74,6 +148,20 @@ class StaticPageExtractor(BaseExtractor):
     def canonicalize_url(self, url: str) -> str:            #url중복처리를 위한 url 정규화
         url, _ = urldefrag(url)
         return url
+
+    def is_main_page_url(self, url: str) -> bool:
+        parsed = urlparse(url)
+        path = parsed.path.strip("/")
+        if not path:
+            return True
+        lowered = path.lower()
+        if lowered.endswith("index.do"):
+            return True
+        if lowered in {"main.do", "main"}:
+            return True
+        if "." not in lowered.rsplit("/", 1)[-1] and len(path.split("/")) <= 2:
+            return True
+        return False
 
     def _response_text(self, res: requests.Response, url: str) -> str:
         content_type = res.headers.get("content-type", "").lower()
@@ -146,7 +234,7 @@ class StaticPageExtractor(BaseExtractor):
 
         return ""
 
-    def remove_noise_nodes(self, node) -> None:         #본문에서 필요없는 거 제거 함수
+    def remove_noise_nodes(self, node, is_main_page: bool = False) -> None:         #본문에서 필요없는 거 제거 함수
         if not node:
             return
 
@@ -164,19 +252,28 @@ class StaticPageExtractor(BaseExtractor):
             ".sns",
             ".share",
         ]
+        if is_main_page:
+            noise_selectors.extend(MAIN_PAGE_EXCLUDE_SELECTORS)
+
         for sel in noise_selectors:
             for tag in node.select(sel):
                 tag.decompose()
 
-    def find_content_node(self, soup: BeautifulSoup):       #본문 찾기
+    def node_noise_score(self, node) -> int:
+        text = self.normalize_text(node.get_text(" ", strip=True))
+        score = 0
+        for phrase in STATIC_UI_PHRASES:
+            if phrase in text:
+                score += 3
+        for phrase in STATIC_STUB_LINES:
+            if phrase in text:
+                score += 1
+        return score
+
+    def find_content_node(self, soup: BeautifulSoup, page_url: str | None = None):       #본문 찾기
+        is_main_page = self.is_main_page_url(page_url or "")
         selectors = [
-            "main",
-            "#contents",
-            "#content",
-            ".contents",
-            ".content",
-            ".sub-content",
-            ".cont",
+            *STATIC_INCLUDE_SELECTORS,
             "#board_skin",
         ]
 
@@ -185,24 +282,58 @@ class StaticPageExtractor(BaseExtractor):
             if node:
                 cloned = BeautifulSoup(str(node), "html.parser")        #필요없는 정보 제거 전 원본 DOM 노드를 문자열로 만든 뒤 다시 파싱해서 복제본을 만듬
                 candidate = cloned.select_one(sel) or cloned
-                self.remove_noise_nodes(candidate)                      #필요없는 거 제거
+                self.remove_noise_nodes(candidate, is_main_page=is_main_page)                      #필요없는 거 제거
                 return candidate
 
         best = None                                                     #fallback
-        best_len = 0
+        best_score = -1
         for div in soup.find_all("div"):                                #제일 긴 div을 본문으로 결정
             text = self.normalize_text(div.get_text(" ", strip=True))
-            if len(text) > best_len:
+            if not text:
+                continue
+            score = len(text) - (self.node_noise_score(div) * 300)
+            if score > best_score:
                 best = div
-                best_len = len(text)
+                best_score = score
 
         if best:
             cloned = BeautifulSoup(str(best), "html.parser")            
             node = cloned.find()
-            self.remove_noise_nodes(node)                               
+            self.remove_noise_nodes(node, is_main_page=is_main_page)                               
             return node
 
         return soup
+
+    def clean_static_text(self, text: str, is_main_page: bool = False) -> tuple[str, dict]:
+        if not text:
+            return "", {"removed_ui_patterns": [], "removed_stub_lines": 0}
+
+        removed_patterns = []
+        cleaned = text
+        for phrase in STATIC_UI_PHRASES:
+            if phrase in cleaned:
+                removed_patterns.append(phrase)
+                cleaned = cleaned.replace(phrase, "\n")
+
+        removed_stub_lines = 0
+        lines = []
+        for line in cleaned.splitlines():
+            normalized = self.normalize_text(line)
+            if not normalized:
+                continue
+            if normalized in STATIC_STUB_LINES:
+                removed_stub_lines += 1
+                continue
+            if is_main_page and normalized in {"NOTICE", "PROGRAM", "행사사진", "SNS"}:
+                removed_stub_lines += 1
+                continue
+            lines.append(line)
+
+        cleaned = "\n".join(lines)
+        return self.normalize_multiline_text(cleaned), {
+            "removed_ui_patterns": sorted(set(removed_patterns)),
+            "removed_stub_lines": removed_stub_lines,
+        }
 
     def extract_table_text(self, content_node) -> str:                  # 표 -> 텍스트
         if not content_node:
@@ -365,9 +496,12 @@ class StaticPageExtractor(BaseExtractor):
         soup = BeautifulSoup(html, "html.parser")
 
         title = self.find_title(soup)       # 제목
-        content_node = self.find_content_node(soup)     # 본문 노드
-        raw_text = self.normalize_multiline_text(content_node.get_text("\n", strip=True)) if content_node else ""
-        table_text = self.extract_table_text(content_node)
+        is_main_page = self.is_main_page_url(page_url)
+        content_node = self.find_content_node(soup, page_url=page_url)     # 본문 노드
+        raw_text_before_filter = self.normalize_multiline_text(content_node.get_text("\n", strip=True)) if content_node else ""
+        raw_text, text_filter_metadata = self.clean_static_text(raw_text_before_filter, is_main_page=is_main_page)
+        table_text_before_filter = self.extract_table_text(content_node)
+        table_text, table_filter_metadata = self.clean_static_text(table_text_before_filter, is_main_page=is_main_page)
         image_urls = self.extract_image_urls(content_node, page_url)
         image_texts = (
             self.image_text_extractor.extract_many(image_urls)
@@ -414,6 +548,17 @@ class StaticPageExtractor(BaseExtractor):
         outgoing_links=outgoing_links,
         content_hash=hash,
         html=html,
-        metadata={"fetch": self.fetch_metadata(fetch_result)},
+        metadata={
+            "fetch": self.fetch_metadata(fetch_result),
+            "static_extraction_policy": "main_page" if is_main_page else "static_page",
+            "quality_filter": {
+                "raw_text_length_before": len(raw_text_before_filter),
+                "raw_text_length_after": len(raw_text),
+                "table_text_length_before": len(table_text_before_filter),
+                "table_text_length_after": len(table_text),
+                "text": text_filter_metadata,
+                "table": table_filter_metadata,
+            },
+        },
     )
         return raw_doc.model_dump()
