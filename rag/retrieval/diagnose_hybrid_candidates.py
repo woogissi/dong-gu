@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 from typing import Any
 
 from rag.embedding.koe5_embedder import KoE5Embedder
 from rag.pipeline.preprocessor import QueryPreprocessor
 from rag.pipeline.state import PipelineState
-from rag.retrieval.retriever import retrieve_documents
+from rag.retrieval.retriever import _open_db_connection, retrieve_documents
 from rag.retrieval.search_strategy import build_retrieval_request
 from rag.schemas.retrieval import RetrievalRequest
 
@@ -71,6 +72,11 @@ def diagnose_query(
     lexical_docs = retrieve_with_mode(lexical_request, "lexical")
 
     query_vector = embedder.embed_query(query)
+    print(
+        "[diagnose] query_vector_generated "
+        f"query={query!r} size={len(query_vector or [])} "
+        f"model={getattr(embedder, 'model_name', None)}"
+    )
     vector_request = lexical_request.model_copy(
         update={
             "strategy": "vector",
@@ -93,6 +99,7 @@ def diagnose_query(
         "normalized_query": lexical_request.query,
         "keywords": lexical_request.keywords,
         "filters": lexical_request.filters,
+        "query_vector_size": len(query_vector or []),
         "lexical_top": [summarize_doc(doc) for doc in lexical_docs[:top_n]],
         "vector_top": [summarize_doc(doc) for doc in vector_docs[:top_n]],
         "hybrid_top": [summarize_doc(doc) for doc in hybrid_docs[:top_n]],
@@ -112,6 +119,8 @@ def retrieve_with_mode(request: RetrievalRequest, mode: str) -> list[Any]:
 
 
 def diagnose(queries: list[str], top_n: int) -> list[dict[str, Any]]:
+    print(json.dumps(environment_summary(), ensure_ascii=False, indent=2))
+    print(json.dumps(database_vector_summary(), ensure_ascii=False, default=str, indent=2))
     preprocessor = QueryPreprocessor()
     embedder = KoE5Embedder()
     return [
@@ -134,7 +143,64 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def environment_summary() -> dict[str, Any]:
+    embedding_model = os.getenv("EMBEDDING_MODEL", "nlpai-lab/KoE5")
+    provider = "sentence_transformer"
+    return {
+        "diagnostic": "environment",
+        "embedding_model": embedding_model,
+        "embedding_provider_inferred": provider,
+        "openai_api_key_present": bool(os.getenv("OPENAI_API_KEY")),
+        "openai_api_used_by_current_embedder": False,
+        "retrieval_mode_env": os.getenv("RETRIEVAL_MODE"),
+        "database_url_present": bool((os.getenv("DATABASE_URL") or "").strip()),
+        "postgres_host": os.getenv("POSTGRES_HOST"),
+    }
+
+
+def database_vector_summary() -> dict[str, Any]:
+    sql = """
+    SELECT
+        (SELECT count(*) FROM chunks) AS chunks,
+        (SELECT count(*) FROM chunk_embeddings) AS embeddings,
+        (
+            SELECT count(*)
+            FROM chunks
+            LEFT JOIN chunk_embeddings ON chunk_embeddings.chunk_id = chunks.chunk_id
+            WHERE chunk_embeddings.chunk_id IS NULL
+        ) AS chunks_missing_embeddings,
+        (
+            SELECT json_agg(model_counts)
+            FROM (
+                SELECT model_name, count(*) AS count
+                FROM chunk_embeddings
+                GROUP BY model_name
+                ORDER BY count DESC
+            ) model_counts
+        ) AS embedding_models
+    """
+    try:
+        with _open_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql)
+                row = cur.fetchone()
+        chunks, embeddings, missing, models = row
+        return {
+            "diagnostic": "database_vectors",
+            "chunks": int(chunks or 0),
+            "embeddings": int(embeddings or 0),
+            "chunks_missing_embeddings": int(missing or 0),
+            "embedding_models": models or [],
+        }
+    except Exception as exc:
+        return {
+            "diagnostic": "database_vectors",
+            "error": str(exc),
+        }
+
+
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
     args = parse_args()
     queries = args.query or DEFAULT_QUERIES
     print(json.dumps(diagnose(queries, args.top_n), ensure_ascii=False, default=str, indent=2))

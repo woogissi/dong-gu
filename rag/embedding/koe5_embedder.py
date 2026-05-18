@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import numpy as np
 from numpy.typing import NDArray
 from sentence_transformers import SentenceTransformer
@@ -21,15 +23,21 @@ class KoE5Embedder:
 
     def __init__(
         self,
-        model_name: str = "nlpai-lab/KoE5",
+        model_name: str | None = None,
         device: str | None = None,
         normalize_embeddings: bool = True,
         validate_input: bool = True,
     ) -> None:
-        self.model_name = model_name
+        self.model_name = model_name or os.getenv("EMBEDDING_MODEL", "nlpai-lab/KoE5")
         self.normalize_embeddings = normalize_embeddings
         self.validate_input = validate_input
-        self.model = SentenceTransformer(model_name, device=device)
+        print(
+            "[KoE5Embedder] provider=sentence_transformer "
+            f"model={self.model_name} "
+            f"openai_api_key_present={bool(os.getenv('OPENAI_API_KEY'))} "
+            "openai_api_used=False"
+        )
+        self.model = SentenceTransformer(self.model_name, device=device)
 
         dimension = self.model.get_sentence_embedding_dimension()
         self.dimension = int(dimension) if dimension is not None else self._infer_dimension()
