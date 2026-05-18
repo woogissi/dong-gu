@@ -32,17 +32,21 @@ rag/evaluation/autorag/
 
 실험은 로컬 호스트가 아닌 Docker Compose 서비스 내부에서 실행해야 합니다.
 
-실험을 실행하는 서비스에는 AutoRAG 및 parquet 지원 패키지가 필요합니다.
-
-Build the dedicated offline evaluation image once:
+실험 전 오프라인 평가 전용 이미지를 1회 빌드합니다.
 
 ```bash
 docker compose --profile eval build autorag-eval
 ```
 
-`ko_reranker` 같은 한국어 AutoRAG 모듈을 사용할 경우, 한국어 extra 패키지를 설치하고 컨테이너 내부에 KoNLPy 실행에 필요한 Java 환경이 준비되어 있어야 합니다.
+실험용 이미지에는 `rag/evaluation/autorag/requirements.txt` 기반 패키지가 설치됩니다.
 
-The image installs `rag/evaluation/autorag/requirements.txt`, including `AutoRAG[ko]`, `pandas`, and `pyarrow`.
+포함 패키지:
+
+* `AutoRAG[ko]`
+* `pandas`
+* `pyarrow`
+
+`ko_reranker` 같은 한국어 AutoRAG 모듈을 사용할 경우, 컨테이너 내부에 KoNLPy 실행에 필요한 Java 환경이 준비되어 있어야 합니다.
 
 ## 1. Corpus Export
 
@@ -52,19 +56,21 @@ The image installs `rag/evaluation/autorag/requirements.txt`, including `AutoRAG
 docker compose --profile eval run --rm autorag-eval python -m rag.evaluation.autorag.scripts.export_corpus_to_autorag
 ```
 
-DB connection check:
+DB 연결 확인:
 
 ```bash
 docker compose --profile eval run --rm autorag-eval python -m rag.evaluation.autorag.scripts.export_corpus_to_autorag --check-connection
 ```
 
-Connection priority:
+DB 연결 우선순위:
 
 ```text
 DATABASE_URL -> CRAWLER_DATABASE_URL -> POSTGRES_HOST/POSTGRES_DB/POSTGRES_USER/POSTGRES_PASSWORD
 ```
 
-The `rag` service loads `.env`, so a Supabase `DATABASE_URL` is used before the local Compose PostgreSQL settings. AutoRAG evaluation itself does not connect to Supabase; it reads the generated `corpus.parquet` and `qa.parquet`.
+`rag` 서비스는 `.env`를 먼저 로드하므로 로컬 Compose PostgreSQL 설정보다 Supabase `DATABASE_URL`이 우선 사용됩니다.
+
+단, AutoRAG 평가 자체는 Supabase에 직접 연결하지 않으며 생성된 `corpus.parquet` 및 `qa.parquet` 파일만 사용합니다.
 
 출력 파일:
 
@@ -86,9 +92,11 @@ rag/evaluation/autorag/data/corpus.parquet
 * `updated_at`
 * `last_modified_datetime`
 
-For AutoRAG validation, `corpus.parquet.doc_id` is set to the chunk-level ID.
-The original source document ID is preserved as `original_doc_id` and `metadata.original_doc_id`.
-This keeps `retrieval_gt` labels aligned with chunk IDs such as `deu_academic_84441_v002_chunk_011`.
+AutoRAG validation에서는 `corpus.parquet.doc_id`를 chunk 단위 ID로 설정합니다.
+
+원본 문서 ID는 `original_doc_id` 및 `metadata.original_doc_id`에 유지됩니다.
+
+이를 통해 `retrieval_gt` 라벨이 `deu_academic_84441_v002_chunk_011` 같은 chunk ID와 정확히 일치하도록 유지합니다.
 
 ## 2. QA 데이터셋 생성
 
@@ -110,8 +118,12 @@ rag/evaluation/autorag/data/qa_ground_truth_template.csv
 기존 `rag/tests/integration/test_queries.json` 파일에는 ground-truth 문서 ID가 포함되어 있지 않습니다.
 
 AutoRAG validate는 모든 QA row의 `retrieval_gt`에 최소 1개 이상의 `chunk_id` 또는 `doc_id`가 있기를 기대합니다.
+
 따라서 기본 변환은 라벨이 없는 질문을 `qa.parquet`에서 제외하고, 수동 라벨링용 `qa_ground_truth_template.csv`에는 계속 남깁니다.
-라벨이 없는 row까지 포함한 초안이 필요할 때만 `--include-unlabeled`를 사용하세요. 이 옵션으로 만든 `qa.parquet`는 AutoRAG validate에 사용할 수 없습니다.
+
+라벨이 없는 row까지 포함한 초안이 필요할 때만 `--include-unlabeled` 옵션을 사용합니다.
+
+이 옵션으로 생성된 `qa.parquet`는 AutoRAG validate에 사용할 수 없습니다.
 
 라벨을 제공하려면 다음과 같은 JSON 파일을 생성합니다.
 
@@ -145,11 +157,12 @@ rag/evaluation/autorag/data/ground_truth.json
 ```
 
 이 파일은 현재 Supabase/PostgreSQL의 `documents`, `chunks` 테이블과 동의대학교 공식 웹페이지 기반으로 생성되었습니다.
+
 `needs_review: true`가 표시된 항목은 초기 라벨링용으로 유용하지만, gold label로 사용하기 전 검토가 필요합니다.
 
 ## 3. AutoRAG 실행
 
-외부 embedding API 호출 없이 parquet 형식과 ground-truth 라벨을 먼저 검증:
+외부 embedding API 호출 없이 parquet 형식과 ground-truth 라벨을 먼저 검증합니다.
 
 ```bash
 docker compose --profile eval run --rm autorag-eval python -m rag.evaluation.autorag.scripts.run_autorag_experiment --config rag/evaluation/autorag/configs/lexical_only.yaml --validate
@@ -157,13 +170,17 @@ docker compose --profile eval run --rm autorag-eval python -m rag.evaluation.aut
 
 `lexical_only.yaml`은 BM25만 사용하므로 OpenAI 등 외부 embedding API를 호출하지 않습니다.
 
-VectorDB, hybrid retrieval까지 포함한 baseline 설정 파일 검증:
+VectorDB 및 hybrid retrieval까지 포함한 baseline 설정 파일 검증:
 
 ```bash
 docker compose --profile eval run --rm autorag-eval python -m rag.evaluation.autorag.scripts.run_autorag_experiment --config rag/evaluation/autorag/configs/baseline.yaml --validate
 ```
 
-주의: `baseline.yaml`, `retrieval_compare.yaml`의 `semantic_retrieval`/`hybrid_retrieval`은 AutoRAG 자체 VectorDB embedding 설정을 사용합니다. KoE5 로컬 embedding 또는 운영 pgvector 경로를 별도로 연결하지 않으면 AutoRAG 기본 embedding API를 호출할 수 있습니다.
+주의:
+
+`baseline.yaml`, `retrieval_compare.yaml`의 `semantic_retrieval` 및 `hybrid_retrieval`은 AutoRAG 자체 VectorDB embedding 설정을 사용합니다.
+
+KoE5 로컬 embedding 또는 운영 pgvector 경로를 별도로 연결하지 않으면 AutoRAG 기본 embedding API를 호출할 수 있습니다.
 
 실험 실행:
 
@@ -203,7 +220,8 @@ rag/evaluation/autorag/results/<timestamp>-<config-name>/
 ## 제한 사항
 
 * `qa.parquet`는 `retrieval_gt`에 실제 `chunk_id` 또는 `doc_id`가 채워진 이후에만 의미 있는 평가가 가능합니다.
-* AutoRAG의 vector retrieval 기본 설정은 운영 환경의 KoE5 + pgvector 경로가 아닌 AutoRAG 자체 vector DB 및 embedding 모델을 사용할 수 있습니다. 외부 embedding API 호출을 피하려면 먼저 `lexical_only.yaml`로 validate하고, vector/hybrid 실험은 KoE5 embedding 경로를 별도로 연결한 뒤 실행하세요.
+* AutoRAG의 vector retrieval 기본 설정은 운영 환경의 KoE5 + pgvector 경로가 아닌 AutoRAG 자체 vector DB 및 embedding 모델을 사용할 수 있습니다.
+* 외부 embedding API 호출을 피하려면 먼저 `lexical_only.yaml`로 validate하고, vector/hybrid 실험은 KoE5 embedding 경로를 별도로 연결한 뒤 실행하세요.
 * YAML 파일은 실험용 템플릿입니다. 팀에서 사용하는 정확한 AutoRAG 버전에 맞춰 validate가 필요합니다.
 * 해당 스크립트들은 `retrieval_policy.yaml`, FastAPI 라우트, Kakao 응답, 운영 pipeline에는 영향을 주지 않습니다.
 
