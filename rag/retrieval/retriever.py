@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 import re
@@ -37,6 +38,10 @@ _RETRIEVAL_MODE_ENV_VAR = "RETRIEVAL_MODE"
 _HYBRID_SCORE_MODE_ENV_VAR = "HYBRID_SCORE_MODE"
 _HYBRID_LEXICAL_WEIGHT_ENV_VAR = "HYBRID_LEXICAL_WEIGHT"
 _HYBRID_VECTOR_WEIGHT_ENV_VAR = "HYBRID_VECTOR_WEIGHT"
+_HYBRID_SRRF_BETA_ENV_VAR = "HYBRID_SRRF_BETA"
+_RESULT_DEDUPE_ENV_VAR = "RAG_DEDUPE_RESULTS"
+_MAX_RESULTS_PER_DOC_ENV_VAR = "RAG_MAX_RESULTS_PER_DOC"
+_MAX_RESULTS_PER_SOURCE_ENV_VAR = "RAG_MAX_RESULTS_PER_SOURCE"
 
 _DEFAULT_TOP_K = 10
 _MIN_DB_SCORE = 0.5
@@ -47,6 +52,9 @@ _SECTION_MATCH_SCORE_CAP = 0.7
 _NOISE_PENALTY_CAP = 1.5
 _DEFAULT_HYBRID_LEXICAL_WEIGHT = 0.4
 _DEFAULT_HYBRID_VECTOR_WEIGHT = 0.6
+_DEFAULT_HYBRID_SRRF_BETA = 10.0
+_DEFAULT_MAX_RESULTS_PER_DOC = 2
+_DEFAULT_MAX_RESULTS_PER_SOURCE = 2
 _BM25_K1 = 1.5
 _BM25_B = 0.75
 _TOKEN_PATTERN = re.compile(r"[가-힣A-Za-z0-9]+")
@@ -71,6 +79,7 @@ _DB_BOOST_STOPWORDS = {
     "\uacf5\uc9c0",
     "\ud559\uc0ac",
 }
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -181,16 +190,16 @@ def retrieve_documents(
             retrieval_mode = _resolve_retrieval_mode(request)
             if retrieval_mode == "vector":
                 documents = _retrieve_documents_from_database_vector(request)
-                return documents
+                return _postprocess_retrieved_docs(documents, request)
 
             if retrieval_mode == "hybrid":
                 documents = _retrieve_documents_from_database_hybrid(request)
                 if documents:
-                    return documents
+                    return _postprocess_retrieved_docs(documents, request)
 
             documents = _retrieve_documents_from_database(request)
             if documents:  # DB에서 검색 결과가 있으면 반환
-                return documents
+                return _postprocess_retrieved_docs(documents, request)
             if request.filters:
                 relaxed_request = request.model_copy(update={"filters": {}, "category": None})
                 documents = _retrieve_documents_from_database(relaxed_request)
@@ -198,10 +207,16 @@ def retrieve_documents(
                     for document in documents:
                         document.metadata["filters_relaxed"] = True
                         document.metadata["original_filters"] = request.filters
-                    return documents
-        except Exception:
-            # DB 연결 실패 시 파일 기반 검색으로 fallback
-            pass
+                    return _postprocess_retrieved_docs(documents, request)
+        except Exception as exc:
+            logger.exception(
+                "database_retrieval_failed; falling back to file BM25 "
+                "mode=%s strategy=%s query_vector_size=%s error=%s",
+                _resolve_retrieval_mode(request),
+                request.strategy,
+                len(request.query_vector or []),
+                exc,
+            )
 
     # 파일 기반 BM25 검색 수행
     index = _load_bm25_index()
@@ -213,7 +228,9 @@ def retrieve_documents(
         return []
 
     scored_docs = _score_documents(index=index, query_tokens=query_tokens, request=request)
-    return _to_retrieved_docs(scored_docs[: request.top_k or _DEFAULT_TOP_K], request)
+    candidate_limit = max(request.top_k or _DEFAULT_TOP_K, (request.top_k or _DEFAULT_TOP_K) * 3)
+    documents = _to_retrieved_docs(scored_docs[:candidate_limit], request)
+    return _postprocess_retrieved_docs(documents, request)
 
 
 # 테스트 코드에서 인덱스 캐시를 초기화할 수 있도록 lru_cache로 구현된 내부 함수들을 노출
@@ -390,6 +407,11 @@ def _to_pg_vector(vector: list[float]) -> str:
 
 def _retrieve_documents_from_database_vector(request: RetrievalRequest) -> list[RetrievedDoc]:
     if not _has_query_vector(request):
+        logger.warning(
+            "vector_retrieval_skipped_missing_query_vector strategy=%s query=%r",
+            request.strategy,
+            request.query,
+        )
         return []
 
     category_bonus_sql, category_bonus_params = _category_bonus_sql(request, "documents.source_type")
@@ -457,10 +479,23 @@ def _retrieve_documents_from_database_vector(request: RetrievalRequest) -> list[
                     ),
                 )
                 rows = cur.fetchall()
-    except (psycopg2.Error, ValueError):
+    except (psycopg2.Error, ValueError) as exc:
+        logger.warning(
+            "vector_retrieval_failed query_vector_size=%s filters=%s error=%s",
+            len(request.query_vector or []),
+            request.filters,
+            exc,
+        )
         return []
 
     retrieved_docs: list[RetrievedDoc] = []
+    logger.info(
+        "vector_retrieval_completed query=%r query_vector_size=%s result_count=%s top_k=%s",
+        request.query,
+        len(request.query_vector or []),
+        len(rows),
+        request.top_k,
+    )
     for row in rows:
         vector_score = float(row["vector_score"] or 0.0)
         document_metadata = _dict_or_empty(row["document_metadata"])
@@ -505,20 +540,38 @@ def _retrieve_documents_from_database_vector(request: RetrievalRequest) -> list[
 
 
 def _retrieve_documents_from_database_hybrid(request: RetrievalRequest) -> list[RetrievedDoc]:
+    if not _has_query_vector(request):
+        logger.warning(
+            "hybrid_retrieval_missing_query_vector; lexical branch only query=%r strategy=%s",
+            request.query,
+            request.strategy,
+        )
     lexical_docs = _retrieve_documents_from_database(request)
     vector_docs = _retrieve_documents_from_database_vector(request)
     candidates = merge_retrieval_candidates(lexical_docs, vector_docs)
-    return _candidates_to_retrieved_docs(candidates, request)
+    docs = _candidates_to_retrieved_docs(candidates, request)
+    for doc in docs:
+        doc.metadata["hybrid_lexical_candidate_count"] = len(lexical_docs)
+        doc.metadata["hybrid_vector_candidate_count"] = len(vector_docs)
+        doc.metadata["hybrid_vector_missing"] = not _has_query_vector(request)
+    logger.info(
+        "hybrid_retrieval_completed query=%r lexical_count=%s vector_count=%s merged_count=%s query_vector_size=%s",
+        request.query,
+        len(lexical_docs),
+        len(vector_docs),
+        len(docs),
+        len(request.query_vector or []),
+    )
+    return docs
 
 
 def merge_retrieval_candidates(
     lexical_docs: list[RetrievedDoc],
     vector_docs: list[RetrievedDoc],
 ) -> list[RetrievalCandidate]:
-    """Merge lexical and vector candidates by chunk_id using RRF.
+    """Merge lexical and vector candidates by chunk_id.
 
     Chunk-level dedupe happens here. Document-level dedupe stays in select_topk.
-    Weighted-sum ranking can be added later without changing the retrieval shape.
     """
     candidates: dict[str, RetrievalCandidate] = {}
 
@@ -585,6 +638,7 @@ def _apply_hybrid_final_scores(candidates: list[RetrievalCandidate]) -> list[Ret
     mode = _hybrid_score_mode()
     lexical_weight = _float_env(_HYBRID_LEXICAL_WEIGHT_ENV_VAR, _DEFAULT_HYBRID_LEXICAL_WEIGHT)
     vector_weight = _float_env(_HYBRID_VECTOR_WEIGHT_ENV_VAR, _DEFAULT_HYBRID_VECTOR_WEIGHT)
+    srrf_scores = _srrf_scores(candidates) if mode == "srrf" else {}
     weight_sum = max(lexical_weight + vector_weight, 0.000001)
     lexical_weight = lexical_weight / weight_sum
     vector_weight = vector_weight / weight_sum
@@ -597,6 +651,8 @@ def _apply_hybrid_final_scores(candidates: list[RetrievalCandidate]) -> list[Ret
             final_score = max(lexical_norm, vector_norm)
         elif mode == "rrf":
             final_score = candidate.rrf_score
+        elif mode == "srrf":
+            final_score = srrf_scores.get(candidate.chunk_id, 0.0)
         else:
             final_score = lexical_norm * lexical_weight + vector_norm * vector_weight
 
@@ -607,6 +663,8 @@ def _apply_hybrid_final_scores(candidates: list[RetrievalCandidate]) -> list[Ret
             "hybrid_lexical_norm_score": lexical_norm,
             "hybrid_vector_norm_score": vector_norm,
             "rrf_score": candidate.rrf_score,
+            "srrf_score": srrf_scores.get(candidate.chunk_id) if mode == "srrf" else None,
+            "srrf_beta": _srrf_beta() if mode == "srrf" else None,
             "final_score": final_score,
             "hybrid_score_mode": mode,
             "hybrid_lexical_weight": lexical_weight,
@@ -642,6 +700,8 @@ def _candidates_to_retrieved_docs(
             "lexical_score": candidate.lexical_score,
             "vector_score": candidate.vector_score,
             "rrf_score": candidate.rrf_score,
+            "srrf_score": candidate.document.metadata.get("srrf_score"),
+            "srrf_beta": candidate.document.metadata.get("srrf_beta"),
             "final_score": candidate.final_score,
         }
         docs.append(
@@ -659,9 +719,55 @@ def _rrf_score(rank: int, k: int = 60) -> float:
     return 1.0 / (k + rank)
 
 
+def _srrf_scores(candidates: list[RetrievalCandidate], k: int = 60) -> dict[str, float]:
+    beta = _srrf_beta()
+    lexical_ranks = _soft_ranks(
+        [(candidate.chunk_id, candidate.lexical_score) for candidate in candidates],
+        beta,
+    )
+    vector_ranks = _soft_ranks(
+        [(candidate.chunk_id, candidate.vector_score) for candidate in candidates],
+        beta,
+    )
+    scores: dict[str, float] = {}
+    for candidate in candidates:
+        score = 0.0
+        lexical_rank = lexical_ranks.get(candidate.chunk_id)
+        vector_rank = vector_ranks.get(candidate.chunk_id)
+        if lexical_rank is not None:
+            score += 1.0 / (k + lexical_rank)
+        if vector_rank is not None:
+            score += 1.0 / (k + vector_rank)
+        scores[candidate.chunk_id] = score
+    return scores
+
+
+def _soft_ranks(items: list[tuple[str, float | None]], beta: float) -> dict[str, float]:
+    scored_items = [(chunk_id, score) for chunk_id, score in items if score is not None]
+    ranks: dict[str, float] = {}
+    for chunk_id, score in scored_items:
+        rank = 0.5
+        for _, other_score in scored_items:
+            rank += _sigmoid(beta * (other_score - score))
+        ranks[chunk_id] = rank
+    return ranks
+
+
+def _sigmoid(value: float) -> float:
+    if value >= 0:
+        exp_value = math.exp(-value) if value < 700 else 0.0
+        return 1.0 / (1.0 + exp_value)
+    exp_value = math.exp(value) if value > -700 else 0.0
+    return exp_value / (1.0 + exp_value)
+
+
 def _hybrid_score_mode() -> str:
     mode = os.getenv(_HYBRID_SCORE_MODE_ENV_VAR, "weighted").strip().lower()
-    return mode if mode in {"weighted", "max", "rrf"} else "weighted"
+    return mode if mode in {"weighted", "max", "rrf", "srrf"} else "weighted"
+
+
+def _srrf_beta() -> float:
+    return _float_env(_HYBRID_SRRF_BETA_ENV_VAR, _DEFAULT_HYBRID_SRRF_BETA)
 
 
 def _float_env(name: str, default: float) -> float:
@@ -958,6 +1064,65 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
 
 def _dict_or_empty(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
+
+
+def _postprocess_retrieved_docs(docs: list[RetrievedDoc], request: RetrievalRequest) -> list[RetrievedDoc]:
+    docs = _dedupe_retrieved_docs(docs) if _result_dedupe_enabled() else docs
+    limit = request.top_k or _DEFAULT_TOP_K
+    return docs[:limit]
+
+
+def _dedupe_retrieved_docs(docs: list[RetrievedDoc]) -> list[RetrievedDoc]:
+    max_per_doc = _int_env(_MAX_RESULTS_PER_DOC_ENV_VAR, _DEFAULT_MAX_RESULTS_PER_DOC)
+    max_per_source = _int_env(_MAX_RESULTS_PER_SOURCE_ENV_VAR, _DEFAULT_MAX_RESULTS_PER_SOURCE)
+    seen_hashes: set[str] = set()
+    doc_counts: dict[str, int] = {}
+    source_counts: dict[tuple[str, str], int] = {}
+    deduped: list[RetrievedDoc] = []
+
+    for doc in docs:
+        content_hash = str(doc.metadata.get("content_hash") or "").strip()
+        if content_hash and content_hash in seen_hashes:
+            continue
+
+        doc_count = doc_counts.get(doc.doc_id, 0)
+        if max_per_doc > 0 and doc_count >= max_per_doc:
+            continue
+
+        source_key = (_normalize_result_key(doc.title), _normalize_result_key(doc.source))
+        source_count = source_counts.get(source_key, 0)
+        if source_key != ("", "") and max_per_source > 0 and source_count >= max_per_source:
+            continue
+
+        if content_hash:
+            seen_hashes.add(content_hash)
+        doc_counts[doc.doc_id] = doc_count + 1
+        source_counts[source_key] = source_count + 1
+        metadata = {
+            **doc.metadata,
+            "result_dedupe_applied": True,
+            "result_dedupe_max_per_doc": max_per_doc,
+            "result_dedupe_max_per_source": max_per_source,
+        }
+        deduped.append(doc.model_copy(update={"metadata": metadata}))
+
+    return deduped
+
+
+def _normalize_result_key(value: str | None) -> str:
+    return re.sub(r"\s+", " ", value or "").casefold().strip()
+
+
+def _result_dedupe_enabled() -> bool:
+    return os.getenv(_RESULT_DEDUPE_ENV_VAR, "1").strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _int_env(name: str, default: int) -> int:
+    try:
+        value = int(os.getenv(name, ""))
+    except ValueError:
+        return default
+    return value if value >= 0 else default
 
 
 # BM25 알고리즘을 사용하여 문서 청크에 점수를 매기는 함수

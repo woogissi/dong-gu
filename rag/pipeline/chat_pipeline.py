@@ -22,7 +22,7 @@ from rag.fallback.fallback_handler import handle_fallback
 from rag.embedding.koe5_embedder import KoE5Embedder
 
 from pprint import pprint
-from threading import Lock, Thread
+from threading import Lock
 
 
 _RETRIEVAL_MODE_ENV_VAR = "RETRIEVAL_MODE"
@@ -30,7 +30,7 @@ _MIN_TOP1_SCORE_ENV_VAR = "RETRIEVAL_MIN_TOP1_SCORE"
 _MIN_AVG_TOPK_SCORE_ENV_VAR = "RETRIEVAL_MIN_AVG_TOPK_SCORE"
 _MIN_CONTEXT_CHARS_ENV_VAR = "RETRIEVAL_MIN_CONTEXT_CHARS"
 _MAX_DUPLICATE_DOC_RATIO_ENV_VAR = "RETRIEVAL_MAX_DUPLICATE_DOC_RATIO"
-_PRELOAD_EMBEDDER_ENV_VAR = "RAG_PRELOAD_EMBEDDER"
+_STARTUP_WARMUP_QUERY = "동의대학교 정보 안내"
 
 
 class NoRetrievalResultsError(Exception):
@@ -42,6 +42,7 @@ class ChatPipeline:
         self.preprocessor = QueryPreprocessor()
         self.intent_classifier = PrimaryIntentClassifier()
         self.embedder: KoE5Embedder | None = None
+        self.embedder_startup_error: str | None = None
         self.embedder_lock = Lock()
         self.last_state: PipelineState | None = None
         # retriever: Retriever = None,
@@ -89,12 +90,20 @@ class ChatPipeline:
         return self.embedder
 
     def initialize(self) -> None:
-        """서버 시작 시 임베딩 모델 로드를 백그라운드로 시작합니다."""
-        if os.getenv(_PRELOAD_EMBEDDER_ENV_VAR, "").strip().lower() not in {"1", "true", "yes"}:
-            print("[ChatPipeline] Embedder preload skipped.")
-            return
-        print("[ChatPipeline] Starting embedder initialization in background...")
-        Thread(target=self._get_embedder, daemon=True).start()
+        """서버 시작 시 KoE5 임베딩 모델을 동기 로드하고 warm-up 합니다."""
+        try:
+            print("[ChatPipeline] Starting embedder initialization at startup...")
+            embedder = self._get_embedder()
+            warmup_vector = embedder.embed_query(_STARTUP_WARMUP_QUERY)
+            self.embedder_startup_error = None
+            print(
+                "[ChatPipeline] Embedder startup warm-up completed. "
+                f"vector_size={len(warmup_vector or [])}"
+            )
+        except Exception as exc:
+            self.embedder_startup_error = str(exc)
+            print(f"[ChatPipeline] Embedder startup warm-up failed: {exc}")
+            raise
 
 
     def _embed_query(self, state: PipelineState) -> None:
@@ -105,7 +114,15 @@ class ChatPipeline:
             or state.normalized_query
             or state.original_query
         )
-        embedder = self._get_embedder()
+        if self.embedder is None:
+            message = (
+                "KoE5 embedder is not initialized. "
+                "Startup warm-up must complete before handling INFO requests."
+            )
+            if self.embedder_startup_error:
+                message += f" startup_error={self.embedder_startup_error}"
+            raise RuntimeError(message)
+        embedder = self.embedder
         state.query_vector = embedder.embed_query(query_text)
 
     def _retrieve(self, state: PipelineState) -> None:

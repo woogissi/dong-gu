@@ -1,7 +1,32 @@
 # crawler/ingestion/chunker.py
 
 import hashlib
+import os
 import re
+
+
+CHUNK_HASH_NORMALIZATION_VERSION = "normalized-v2"
+DEFAULT_PARAGRAPH_OVERLAP_CHARS = 80
+
+STUB_LINE_PATTERNS = (
+    re.compile(r"^(more|notice|program|sns)$", re.IGNORECASE),
+    re.compile(r"^(pdf|hwp)\s*다운로드$", re.IGNORECASE),
+    re.compile(r"^전체화면\s*보기$"),
+    re.compile(r"^웹진호수(?:\s*[|:]\s*\d+)?$"),
+    re.compile(r"^행사사진(?:\s*more)?$", re.IGNORECASE),
+    re.compile(r"^(로그인|회원가입|이용문의)$"),
+    re.compile(r"^(게시물\s*(좌측|우측)으로\s*이동|이전\s*정지\s*시작\s*다음)$"),
+)
+STUB_PHRASE_PATTERN = re.compile(
+    r"(PDF\s*다운로드|HWP\s*다운로드|전체화면\s*보기|웹진호수|"
+    r"게시물\s*좌측으로\s*이동|게시물\s*우측으로\s*이동|이전\s*정지\s*시작\s*다음)",
+    re.IGNORECASE,
+)
+TABLE_SHELL_PATTERN = re.compile(
+    r"^(번호|제목|작성자|작성일|등록일|조회|첨부|내용|파일)(\s*[|/]\s*"
+    r"(번호|제목|작성자|작성일|등록일|조회|첨부|내용|파일))*$"
+)
+DECORATIVE_RUN_PATTERN = re.compile(r"([|ㆍ·\-_=*#])\1{2,}")
 
 
 class DocumentChunker:
@@ -10,18 +35,41 @@ class DocumentChunker:
         max_chars: int = 900,
         overlap_chars: int = 100,
         max_chunks_per_section: int = 80,
+        paragraph_overlap_chars: int | None = None,
+        dedupe_normalized_chunks: bool = True,
+        skip_stub_chunks: bool = True,
     ):
         self.max_chars = max_chars
         self.overlap_chars = overlap_chars
         self.max_chunks_per_section = max_chunks_per_section
+        self.paragraph_overlap_chars = self._resolve_paragraph_overlap_chars(paragraph_overlap_chars)
+        self.dedupe_normalized_chunks = dedupe_normalized_chunks
+        self.skip_stub_chunks = skip_stub_chunks
+
+    def _resolve_paragraph_overlap_chars(self, paragraph_overlap_chars: int | None) -> int:
+        if paragraph_overlap_chars is None:
+            raw_value = os.getenv("CRAWLER_CHUNK_PARAGRAPH_OVERLAP_CHARS", str(DEFAULT_PARAGRAPH_OVERLAP_CHARS))
+            try:
+                paragraph_overlap_chars = int(raw_value)
+            except ValueError:
+                paragraph_overlap_chars = DEFAULT_PARAGRAPH_OVERLAP_CHARS
+        return max(0, min(paragraph_overlap_chars, self.max_chars // 4))
 
     def normalize_text(self, text: str) -> str:
         if not text:
             return ""
         text = text.replace("\xa0", " ")
+        text = DECORATIVE_RUN_PATTERN.sub(r"\1", text)
         text = re.sub(r"[ \t]+", " ", text)
         text = re.sub(r"\n{3,}", "\n\n", text)
         return text.strip()
+
+    def normalize_for_hash(self, text: str) -> str:
+        """Normalize semantically identical chunk text before hashing."""
+        text = self.normalize_text(text)
+        text = re.sub(r"\s+", " ", text)
+        text = re.sub(r"\s*([|:/])\s*", r"\1", text)
+        return text.casefold().strip()
 
     def remove_repeated_lines(self, text: str, max_repeats: int = 3) -> str:
         lines = [line.strip() for line in text.splitlines()]
@@ -137,6 +185,20 @@ class DocumentChunker:
 
         return chunks
 
+    def build_paragraph_overlap(self, text: str) -> str:
+        if self.paragraph_overlap_chars <= 0:
+            return ""
+
+        normalized = re.sub(r"\s+", " ", text).strip()
+        if not normalized:
+            return ""
+
+        sentences = [sentence.strip() for sentence in re.findall(r"[^.!?。]+[.!?。]?", normalized)]
+        candidate = sentences[-1].strip() if sentences else normalized
+        if len(candidate) > self.paragraph_overlap_chars:
+            candidate = normalized[-self.paragraph_overlap_chars :].strip()
+        return candidate
+
     def split_section_into_chunks(self, section_text: str) -> list[str]:
         paragraphs = self.split_paragraphs(section_text)
         merged_chunks = []
@@ -159,7 +221,11 @@ class DocumentChunker:
 
             if buffer:
                 merged_chunks.append(buffer)
-            buffer = para
+                carryover = self.build_paragraph_overlap(buffer)
+                overlapped = f"{carryover}\n\n{para}".strip() if carryover else para
+                buffer = overlapped if len(overlapped) <= self.max_chars else para
+            else:
+                buffer = para
 
         if buffer:
             merged_chunks.append(buffer)
@@ -186,11 +252,49 @@ class DocumentChunker:
         return f"{doc_id}_v{int(version):03d}_chunk_{chunk_index:03d}"
 
     def make_chunk_hash(self, text: str) -> str:
-        return hashlib.sha1(text.encode("utf-8")).hexdigest()
+        normalized = self.normalize_for_hash(text)
+        return hashlib.sha1(normalized.encode("utf-8")).hexdigest()
+
+    def is_meaningful_short_chunk(self, text: str) -> bool:
+        normalized = re.sub(r"\s+", " ", text).strip()
+        if len(normalized) < 8:
+            return False
+
+        has_number = bool(re.search(r"\d", normalized))
+        if has_number and re.search(r"(전화|연락처|문의|담당|내선|fax|tel)", normalized, re.IGNORECASE):
+            return True
+        if has_number and re.search(r"(\d{2,4}[-.]\d{3,4}[-.]\d{4})", normalized):
+            return True
+        if has_number and re.search(r"(기간|일정|신청|접수|마감|부터|까지|월|일)", normalized):
+            return True
+        if has_number and re.search(r"(원|만원|천원|장학금|등록금|지원금|%)", normalized):
+            return True
+        if len(normalized) >= 18 and re.search(r"(대상|자격|조건|제출|신청|모집|선발)", normalized):
+            return True
+        return False
+
+    def is_stub_chunk(self, text: str) -> bool:
+        normalized = re.sub(r"\s+", " ", text).strip()
+        if not normalized:
+            return True
+        if self.is_meaningful_short_chunk(normalized):
+            return False
+
+        lines = [line.strip(" -*ㆍ·|:/") for line in text.splitlines() if line.strip()]
+        if lines and all(any(pattern.search(line) for pattern in STUB_LINE_PATTERNS) for line in lines):
+            return True
+        if len(normalized) <= 80 and STUB_PHRASE_PATTERN.search(normalized):
+            return True
+        if len(normalized) <= 120 and TABLE_SHELL_PATTERN.fullmatch(normalized):
+            return True
+        if len(normalized) <= 40 and re.fullmatch(r"[A-Z\s|/]+", normalized):
+            return True
+        return False
 
     def chunk_document(self, doc: dict) -> list[dict]:
         chunks = []
         chunk_index = 1
+        seen_hashes: set[str] = set()
 
         for section_index, section in enumerate(self.build_chunk_sections(doc), start=1):
             section_text = self.remove_repeated_lines(section["text"])
@@ -199,9 +303,16 @@ class DocumentChunker:
             truncated = total_section_chunks > self.max_chunks_per_section
 
             for section_chunk_text in section_chunks[: self.max_chunks_per_section]:
-                chunk_text = self.build_chunk_content(doc, section, section_chunk_text)
-                if len(chunk_text) < 50:
+                if self.skip_stub_chunks and self.is_stub_chunk(section_chunk_text):
                     continue
+                if len(section_chunk_text) < 50 and not self.is_meaningful_short_chunk(section_chunk_text):
+                    continue
+
+                chunk_text = self.build_chunk_content(doc, section, section_chunk_text)
+                content_hash = self.make_chunk_hash(chunk_text)
+                if self.dedupe_normalized_chunks and content_hash in seen_hashes:
+                    continue
+                seen_hashes.add(content_hash)
 
                 chunks.append(
                     {
@@ -218,7 +329,7 @@ class DocumentChunker:
                         "department": doc.get("department"),
                         "content": chunk_text,
                         "content_length": len(chunk_text),
-                        "content_hash": self.make_chunk_hash(chunk_text),
+                        "content_hash": content_hash,
                         "version": doc.get("version", 1),
                         "metadata": {
                             "section_type": section["section_type"],
@@ -226,6 +337,15 @@ class DocumentChunker:
                             "section_chunk_count": total_section_chunks,
                             "section_truncated": truncated,
                             "max_chunks_per_section": self.max_chunks_per_section,
+                            "content_hash_normalization": CHUNK_HASH_NORMALIZATION_VERSION,
+                            "dedupe_scope": "document",
+                            "paragraph_overlap_chars": self.paragraph_overlap_chars,
+                            "long_document_split_todo": (
+                                "For high section_truncated counts, split attachments/regulations/admissions guides "
+                                "by heading, article, table, or table-of-contents anchors before chunking."
+                            )
+                            if truncated
+                            else None,
                         },
                     }
                 )

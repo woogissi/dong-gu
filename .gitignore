@@ -8,3 +8,7 @@ crawler/data/
 crawler/.hf_cache/
 **/.hf_cache/
 crawler/crawler/data/
+rag/evaluation/autorag/data/*.parquet
+rag/evaluation/autorag/data/qa_ground_truth_template.csv
+rag/evaluation/autorag/results/*
+!rag/evaluation/autorag/results/.gitkeep

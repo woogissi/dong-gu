@@ -30,6 +30,21 @@ services:
       PYTHONPATH: /app
     command: uvicorn rag.app.main:app --host 0.0.0.0 --port 8001 --reload
 
+  autorag-eval:
+    build:
+      context: .
+      dockerfile: ./rag/evaluation/autorag/Dockerfile
+    container_name: donggu-autorag-eval
+    profiles:
+      - eval
+    volumes:
+      - ./rag:/app/rag
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app
+    command: python -m rag.evaluation.autorag.scripts.export_corpus_to_autorag --check-connection
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: donggu-cloudflared

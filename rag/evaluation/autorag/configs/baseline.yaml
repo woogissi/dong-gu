@@ -1,0 +1,58 @@
+# Baseline AutoRAG retrieval comparison.
+# This file is for offline evaluation only and is not imported by production code.
+
+node_lines:
+  - node_line_name: baseline_retrieval
+    nodes:
+      - node_type: lexical_retrieval
+        strategy:
+          metrics:
+            - retrieval_recall
+            - retrieval_precision
+            - retrieval_ndcg
+            - retrieval_mrr
+          speed_threshold: 10
+        top_k:
+          - 5
+          - 10
+          - 20
+        modules:
+          - module_type: bm25
+
+      - node_type: semantic_retrieval
+        strategy:
+          metrics:
+            - retrieval_recall
+            - retrieval_precision
+            - retrieval_ndcg
+            - retrieval_mrr
+          speed_threshold: 10
+        top_k:
+          - 5
+          - 10
+          - 20
+        modules:
+          - module_type: vectordb
+            vectordb: default
+
+      - node_type: hybrid_retrieval
+        strategy:
+          metrics:
+            - retrieval_recall
+            - retrieval_precision
+            - retrieval_ndcg
+            - retrieval_mrr
+          speed_threshold: 10
+        top_k:
+          - 5
+          - 10
+          - 20
+        modules:
+          - module_type: hybrid_rrf
+          - module_type: hybrid_cc
+            normalize_method:
+              - mm
+              - tmm
+              - z
+              - dbsf
+            test_weight_size: 11

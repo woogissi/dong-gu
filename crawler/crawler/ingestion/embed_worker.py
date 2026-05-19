@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
+import os
 from typing import List
 
 from sentence_transformers import SentenceTransformer
 
 
 class EmbeddingWorker:
-    def __init__(self, model_name: str = "nlpai-lab/KoE5"):
-        self.model_name = model_name
+    def __init__(self, model_name: str | None = None):
+        self.model_name = model_name or os.getenv("EMBEDDING_MODEL", "nlpai-lab/KoE5")
+        print(
+            "[EmbeddingWorker] provider=sentence_transformer "
+            f"model={self.model_name} "
+            f"openai_api_key_present={bool(os.getenv('OPENAI_API_KEY'))} "
+            "openai_api_used=False"
+        )
         self.model = SentenceTransformer(self.model_name)
 
     def embed_text(self, text: str) -> List[float]:

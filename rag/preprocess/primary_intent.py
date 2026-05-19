@@ -36,6 +36,21 @@ _INFO_HINTS = {
     "\ubc29\ubc95",
     "\uc704\uce58",
     "\uc694\uac74",
+    "\ub3d9\uc758\ub300",
+    "\ub3d9\uc758\ub300\ud559\uad50",
+    "\uc6b4\uc601",
+    "\ubcf4\uac15",
+    "\uc9c0\uc815\ubcf4\uac15\uc77c",
+    "\uad50\uc218",
+    "\uad50\uc218\ub2d8",
+    "\uc774\uba54\uc77c",
+    "\uba54\uc77c",
+    "\uc5f0\uad6c\uc2e4",
+    "\ud559\uacfc",
+    "\uc804\ud654\ubc88\ud638",
+    "\uc5f0\ub77d\ucc98",
+    "\uac00\ub294 \uae38",
+    "\ud589\uc815\uc2e4",
 }
 
 _QUESTION_HINTS = {
