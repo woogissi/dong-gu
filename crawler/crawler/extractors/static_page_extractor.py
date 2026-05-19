@@ -299,7 +299,7 @@ class StaticPageExtractor(BaseExtractor):
         if best:
             cloned = BeautifulSoup(str(best), "html.parser")            
             node = cloned.find()
-            self.remove_noise_nodes(node, is_main_page=is_main_page)                               
+            self.remove_noise_nodes(node, is_main_page=is_main_page)
             return node
 
         return soup
