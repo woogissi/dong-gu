@@ -204,9 +204,11 @@ def build_curated_document(raw_doc: dict, version: int) -> dict:
         table_text=raw_doc["table_text"],
         attachment_text=attachment_text,
         image_text=image_text,
+        structured_sections=raw_doc.get("structured_sections", []),
         version=version,
         collected_at=raw_doc["collected_at"],
         content_hash=raw_doc["content_hash"],
+        metadata=raw_doc.get("metadata", {}),
     )
 
     return curated_doc.model_dump()
@@ -551,12 +553,23 @@ def run_board_pipeline(
                 if RUNTIME["force_document_recrawl"]
                 else get_existing_processed_doc_ids(source_type, candidate_doc_ids)
             )
+            page_had_dated_items = False
+            page_had_recent_or_undated_items = False
             for item in list_result["items"]:
                 published_at = item.get("published_at_hint")
                 if since_date and published_at and published_at < since_date:
-                    print(f"[STOP] {source_type} reached older post: {published_at} < {since_date}")
-                    stop_crawling = True
-                    break
+                    page_had_dated_items = True
+                    print(
+                        "[BOARD SKIP] "
+                        f"source={source_type} article_no={item.get('article_no')} "
+                        f"reason=older_than_since published_at={published_at} since_date={since_date}"
+                    )
+                    continue
+                if since_date and published_at:
+                    page_had_dated_items = True
+                    page_had_recent_or_undated_items = True
+                elif since_date:
+                    page_had_recent_or_undated_items = True
                 if max_detail_count is not None and processed_count + len(page_items) >= max_detail_count:
                     print(f"[STOP] {source_type} reached max_detail_count={max_detail_count}")
                     stop_crawling = True
@@ -572,6 +585,10 @@ def run_board_pipeline(
                         continue
                     seen_doc_ids.add(candidate_doc_id)
                 page_items.append(item)
+
+            if since_date and page_had_dated_items and not page_had_recent_or_undated_items:
+                print(f"[STOP] {source_type} page={page_no} all dated posts are older than since_date={since_date}")
+                stop_crawling = True
 
             raw_docs = fetch_board_detail_documents(
                 source_type=source_type,

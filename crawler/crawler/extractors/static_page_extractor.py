@@ -15,6 +15,7 @@ from crawler.config.domains import DEPARTMENT_HOSTS
 
 import requests
 from bs4 import BeautifulSoup
+from bs4.element import Tag
 
 
 HEADERS = {
@@ -26,6 +27,21 @@ HEADERS = {
 }
 
 KST = timezone(timedelta(hours=9))
+
+SOCIAL_LINK_HOSTS = {
+    "facebook.com",
+    "m.facebook.com",
+    "www.facebook.com",
+    "instagram.com",
+    "www.instagram.com",
+    "twitter.com",
+    "x.com",
+    "www.youtube.com",
+    "youtube.com",
+    "youtu.be",
+    "pf.kakao.com",
+    "blog.naver.com",
+}
 
 STATIC_UI_PHRASES = (
     "게시물 좌측으로 이동",
@@ -48,6 +64,48 @@ STATIC_STUB_LINES = {
     "PDF 다운로드",
     "HWP 다운로드",
     "전체화면 보기",
+}
+
+GENERIC_SKIP_LINES = {
+    *STATIC_STUB_LINES,
+    "구성원 보기",
+    "바로가기",
+    "홈페이지 새창 열기",
+    "본문 바로가기",
+    "전체메뉴",
+    "로그인",
+    "회원가입",
+}
+
+GENERIC_BLOCK_TAGS = {
+    "address",
+    "article",
+    "aside",
+    "blockquote",
+    "dd",
+    "div",
+    "dl",
+    "dt",
+    "figcaption",
+    "figure",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "li",
+    "main",
+    "ol",
+    "p",
+    "section",
+    "table",
+    "tbody",
+    "td",
+    "th",
+    "thead",
+    "tr",
+    "ul",
 }
 
 MAIN_PAGE_EXCLUDE_SELECTORS = [
@@ -351,6 +409,313 @@ class StaticPageExtractor(BaseExtractor):
 
         return "\n".join(lines).strip()
 
+    def extract_structured_sections(self, content_node) -> list[dict]:
+        if not content_node:
+            return []
+
+        admin_sections = self.extract_administration_sections(content_node)
+        if admin_sections:
+            return admin_sections
+
+        organization_sections = self.extract_organization_sections(content_node)
+        if organization_sections:
+            return organization_sections
+
+        return self.extract_generic_structured_sections(content_node)
+
+    def extract_administration_sections(self, content_node) -> list[dict]:
+        sections = []
+        for group_index, group_node in enumerate(content_node.select(".con-box"), start=1):
+            title_node = group_node.select_one(".h4-tit")
+            group_title = self.normalize_text(title_node.get_text(" ", strip=True)) if title_node else ""
+            for item_index, item_node in enumerate(group_node.select(".img-list"), start=1):
+                subject_node = item_node.select_one(".subject")
+                subject = self.normalize_text(subject_node.get_text(" ", strip=True)) if subject_node else ""
+                if not subject:
+                    continue
+
+                desc_node = item_node.select_one(".con")
+                description = self.normalize_multiline_text(desc_node.get_text("\n", strip=True)) if desc_node else ""
+                details = []
+                for li in item_node.select(".item-sdot li"):
+                    li_copy = BeautifulSoup(str(li), "html.parser").find("li")
+                    label_node = li_copy.find("strong") if li_copy else None
+                    label = self.normalize_text(label_node.get_text(" ", strip=True)) if label_node else ""
+                    if label_node:
+                        label_node.extract()
+                    value = self.normalize_text(li_copy.get_text(" ", strip=True).lstrip(":").strip()) if li_copy else ""
+                    if label and value:
+                        details.append(f"{label}: {value}")
+                    elif value:
+                        details.append(value)
+
+                homepage = ""
+                for link in item_node.select("a[href]"):
+                    text = self.normalize_text(link.get_text(" ", strip=True))
+                    href = link.get("href", "").strip()
+                    if text == "바로가기" and href:
+                        homepage = href
+                        break
+
+                lines = []
+                if group_title:
+                    lines.append(f"상위조직: {group_title}")
+                lines.append(f"기관: {subject}")
+                if description:
+                    lines.append(f"업무: {description}")
+                lines.extend(details)
+                if homepage:
+                    lines.append(f"홈페이지: {homepage}")
+
+                section_title = " > ".join(part for part in (group_title, subject) if part)
+                sections.append(
+                    {
+                        "section_type": "body",
+                        "section_title": section_title or subject,
+                        "text": "\n".join(lines).strip(),
+                        "metadata": {
+                            "structure_type": "administration_office",
+                            "group_title": group_title or None,
+                            "subject": subject,
+                            "group_index": group_index,
+                            "item_index": item_index,
+                        },
+                    }
+                )
+
+        return sections
+
+    def extract_organization_sections(self, content_node) -> list[dict]:
+        org_node = content_node.select_one(".organization-wrap")
+        if not org_node:
+            return []
+
+        paths = []
+
+        def direct_label(li: Tag) -> str:
+            labels = []
+            for child in li.children:
+                if not isinstance(child, Tag):
+                    continue
+                if child.name in {"ul", "ol", "br", "a"}:
+                    continue
+                text = self.normalize_text(child.get_text(" ", strip=True))
+                text = text.replace("홈페이지 새창 열기", "").strip()
+                if text:
+                    labels.append(text)
+            return " / ".join(dict.fromkeys(labels))
+
+        def walk_list(list_node: Tag, parents: list[str]) -> None:
+            for li in list_node.find_all("li", recursive=False):
+                label = direct_label(li)
+                current = parents + ([label] if label else [])
+                child_lists = [
+                    child
+                    for child in li.children
+                    if isinstance(child, Tag) and child.name in {"ul", "ol"}
+                ]
+                if child_lists:
+                    if label and current:
+                        paths.append(current)
+                    for child_list in child_lists:
+                        walk_list(child_list, current)
+                elif current:
+                    paths.append(current)
+
+        for root in org_node.find_all(["ol", "ul"], recursive=False):
+            walk_list(root, [])
+
+        lines = []
+        seen = set()
+        for path in paths:
+            line = " > ".join(part for part in path if part)
+            if not line or line in seen:
+                continue
+            seen.add(line)
+            lines.append(line)
+
+        if not lines:
+            return []
+
+        return [
+            {
+                "section_type": "body",
+                "section_title": "조직도 계층",
+                "text": "\n".join(lines),
+                "metadata": {
+                    "structure_type": "organization_chart",
+                    "path_count": len(lines),
+                },
+            }
+        ]
+
+    def is_generic_heading(self, node: Tag) -> bool:
+        if node.name in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+            return True
+        class_text = " ".join(node.get("class", [])).lower()
+        if not any(token in class_text for token in ("title", "tit", "subject", "heading", "headline")):
+            return False
+        text = self.normalize_text(node.get_text(" ", strip=True))
+        return 2 <= len(text) <= 120
+
+    def direct_text_without_block_children(self, node: Tag) -> str:
+        clone = BeautifulSoup(str(node), "html.parser").find(node.name)
+        if not clone:
+            return ""
+        for child in clone.find_all(True, recursive=False):
+            if child.name in GENERIC_BLOCK_TAGS:
+                child.decompose()
+        return self.normalize_text(clone.get_text(" ", strip=True))
+
+    def is_generic_skip_line(self, text: str) -> bool:
+        normalized = self.normalize_text(text).strip(" -*:/")
+        if not normalized:
+            return True
+        if normalized in GENERIC_SKIP_LINES:
+            return True
+        if normalized in {"<", ">", "|"}:
+            return True
+        if len(normalized) <= 20 and normalized in {"HOME", "TOP", "SNS", "NOTICE", "PROGRAM"}:
+            return True
+        if normalized in {"PDF 다운로드", "HWP 다운로드"}:
+            return True
+        return False
+
+    def is_generic_section_marker(self, line: str) -> str | None:
+        normalized = self.normalize_text(line).lstrip("- ").strip()
+        if not normalized or len(normalized) > 90:
+            return None
+        if ":" in normalized or re.search(r"\d{4}[.-]\d{2}", normalized):
+            return None
+        if re.match(r"^[◈○●□■]?\s*제\s*\d+\s*조", normalized):
+            return normalized
+        if re.match(r"^\d+\s*[.)]\s+\S+", normalized):
+            return normalized
+        if re.search(r"(개요|소개|안내|절차|방법|기준|목표|문의|시간|노선|위치|유의사항)$", normalized):
+            return normalized
+        return None
+
+    def render_table_lines(self, table: Tag) -> list[str]:
+        lines = ["[TABLE]"]
+        for row in table.find_all("tr"):
+            cells = row.find_all(["th", "td"], recursive=False)
+            cell_texts = [self.normalize_text(cell.get_text(" ", strip=True)) for cell in cells]
+            cell_texts = [text for text in cell_texts if text and not self.is_generic_skip_line(text)]
+            if cell_texts:
+                lines.append(" | ".join(cell_texts))
+        return lines if len(lines) > 1 else []
+
+    def render_generic_lines(self, node: Tag, list_depth: int = 0) -> list[str]:
+        if not isinstance(node, Tag):
+            return []
+        if node.name in {"script", "style", "noscript", "svg", "canvas", "form", "button"}:
+            return []
+        if node.name == "table":
+            return self.render_table_lines(node)
+        if self.is_generic_heading(node):
+            text = self.normalize_text(node.get_text(" ", strip=True))
+            return [f"## {text}"] if text and not self.is_generic_skip_line(text) else []
+        if node.name == "li":
+            lines = []
+            direct_text = self.direct_text_without_block_children(node)
+            if direct_text and not self.is_generic_skip_line(direct_text):
+                lines.append(f"{'  ' * list_depth}- {direct_text}")
+            for child in node.find_all(["ul", "ol"], recursive=False):
+                lines.extend(self.render_generic_lines(child, list_depth=list_depth + 1))
+            return lines
+        if node.name in {"ul", "ol"}:
+            lines = []
+            for child in node.find_all("li", recursive=False):
+                lines.extend(self.render_generic_lines(child, list_depth=list_depth))
+            return lines
+        if node.name in {"p", "dt", "dd", "figcaption", "blockquote", "address"}:
+            text = self.normalize_multiline_text(node.get_text("\n", strip=True))
+            return [text] if text and not self.is_generic_skip_line(text) else []
+
+        child_tags = [child for child in node.children if isinstance(child, Tag)]
+        has_block_child = any(child.name in GENERIC_BLOCK_TAGS for child in child_tags)
+        if not has_block_child:
+            text = self.normalize_text(node.get_text(" ", strip=True))
+            return [text] if text and not self.is_generic_skip_line(text) else []
+
+        lines = []
+        for child in child_tags:
+            lines.extend(self.render_generic_lines(child, list_depth=list_depth))
+        return lines
+
+    def split_generic_lines_into_sections(self, lines: list[str]) -> list[dict]:
+        sections = []
+        current_title = "content"
+        current_lines = []
+        section_index = 1
+
+        def flush() -> None:
+            nonlocal section_index, current_lines
+            text = self.normalize_multiline_text("\n".join(current_lines))
+            if len(text) < 20:
+                current_lines = []
+                return
+            sections.append(
+                {
+                    "section_type": "body",
+                    "section_title": current_title,
+                    "text": text,
+                    "metadata": {
+                        "structure_type": "generic_dom",
+                        "section_index": section_index,
+                    },
+                }
+            )
+            section_index += 1
+            current_lines = []
+
+        for line in lines:
+            line = line.strip()
+            if not line or self.is_generic_skip_line(line):
+                continue
+            if line.startswith("## "):
+                flush()
+                current_title = line.removeprefix("## ").strip() or "content"
+                continue
+            section_marker = self.is_generic_section_marker(line)
+            if section_marker:
+                if current_lines:
+                    flush()
+                current_title = section_marker
+                continue
+            current_lines.append(line)
+        flush()
+
+        if sections:
+            return sections
+
+        fallback_text = self.normalize_multiline_text("\n".join(line for line in lines if line.strip()))
+        if len(fallback_text) < 20:
+            return []
+        return [
+            {
+                "section_type": "body",
+                "section_title": "content",
+                "text": fallback_text,
+                "metadata": {
+                    "structure_type": "generic_dom",
+                    "section_index": 1,
+                },
+            }
+        ]
+
+    def extract_generic_structured_sections(self, content_node) -> list[dict]:
+        lines = self.render_generic_lines(content_node)
+        deduped_lines = []
+        previous = None
+        for line in lines:
+            normalized = self.normalize_text(line)
+            if not normalized or normalized == previous:
+                continue
+            deduped_lines.append(line)
+            previous = normalized
+        return self.split_generic_lines_into_sections(deduped_lines)
+
     def extract_image_urls(self, content_node, page_url: str) -> list[str]:         # 본문 안 이미지 URL 수집 함수
         if not content_node:
             return []
@@ -376,16 +741,28 @@ class StaticPageExtractor(BaseExtractor):
             link_text = self.normalize_text(a_tag.get_text(" ", strip=True))
             full_url = urljoin(page_url, href)
             parsed_url = urlparse(full_url)
+            if parsed_url.scheme and parsed_url.scheme not in {"http", "https"}:
+                continue
+            if parsed_url.netloc.lower() in SOCIAL_LINK_HOSTS:
+                continue
             url_ext = os.path.splitext(parsed_url.path)[1].lower()
             mode = parse_qs(parsed_url.query).get("mode", [""])[0].lower()
             if url_ext == ".do" and mode != "download":
                 continue
             is_attachment = (
-                "download" in href_lower
-                or "file" in href_lower
+                mode == "download"
+                or url_ext in file_exts
                 or any(href_lower.endswith(ext) for ext in file_exts)
-                or "첨부" in link_text
-                or "다운로드" in link_text
+                or bool(re.search(r"(^|/)(download|file)(/|\.|$)", parsed_url.path.lower()))
+                or (
+                    urlparse(page_url).netloc.lower() == parsed_url.netloc.lower()
+                    and (
+                        "첨부" in link_text
+                        or "다운로드" in link_text
+                        or "attachment" in link_text.lower()
+                        or "download" in link_text.lower()
+                    )
+                )
             )
             if not is_attachment:
                 continue
@@ -492,17 +869,19 @@ class StaticPageExtractor(BaseExtractor):
 
     def extract_static_page(self, source_type: str, page_url: str) -> dict:         # 외부에서 호출하는 정적 페이지 추출 메인 함수
         fetch_result = self.fetch_result(page_url)
+        canonical_page_url = self.canonicalize_url(fetch_result.final_url or page_url)
         html = fetch_result.raw_html
         soup = BeautifulSoup(html, "html.parser")
 
         title = self.find_title(soup)       # 제목
-        is_main_page = self.is_main_page_url(page_url)
-        content_node = self.find_content_node(soup, page_url=page_url)     # 본문 노드
+        is_main_page = self.is_main_page_url(canonical_page_url)
+        content_node = self.find_content_node(soup, page_url=canonical_page_url)     # 본문 노드
         raw_text_before_filter = self.normalize_multiline_text(content_node.get_text("\n", strip=True)) if content_node else ""
         raw_text, text_filter_metadata = self.clean_static_text(raw_text_before_filter, is_main_page=is_main_page)
         table_text_before_filter = self.extract_table_text(content_node)
         table_text, table_filter_metadata = self.clean_static_text(table_text_before_filter, is_main_page=is_main_page)
-        image_urls = self.extract_image_urls(content_node, page_url)
+        structured_sections = self.extract_structured_sections(content_node)
+        image_urls = self.extract_image_urls(content_node, canonical_page_url)
         image_texts = (
             self.image_text_extractor.extract_many(image_urls)
             if self.enable_image_ocr
@@ -512,10 +891,10 @@ class StaticPageExtractor(BaseExtractor):
             ]
         )
         outgoing_links = sorted(
-            set(self.extract_internal_links(content_node, page_url))
-            | set(self.extract_navigation_links(soup, page_url))
+            set(self.extract_internal_links(content_node, canonical_page_url))
+            | set(self.extract_navigation_links(soup, canonical_page_url))
         )
-        attachments = self.extract_attachments(content_node, page_url)
+        attachments = self.extract_attachments(content_node, canonical_page_url)
         merged_image_text = "\n\n".join(
             item["image_text"] for item in image_texts if item.get("image_text")
         ).strip()
@@ -527,18 +906,19 @@ class StaticPageExtractor(BaseExtractor):
                 )
 
         raw_doc = StaticPageRawDocument(
-        doc_id=self.make_doc_id(page_url),      # 해시기반 id
+        doc_id=self.make_doc_id(canonical_page_url),      # 해시기반 id
         source_type=source_type,                # homepage, library, dormitory 등
         page_kind="static_page",
         department=None,
         title=title,
-        source_url=page_url,
+        source_url=canonical_page_url,
         published_at=None,
         updated_at=None,
         raw_text=raw_text,
         normalize=None,
         table_text=table_text,
         attachment_text=None,
+        structured_sections=structured_sections,
         version=1,
         collected_at=self.now_kst_iso(),
         views=None,
@@ -556,8 +936,19 @@ class StaticPageExtractor(BaseExtractor):
                 "raw_text_length_after": len(raw_text),
                 "table_text_length_before": len(table_text_before_filter),
                 "table_text_length_after": len(table_text),
+                "structured_section_count": len(structured_sections),
                 "text": text_filter_metadata,
                 "table": table_filter_metadata,
+            },
+            "structure": {
+                "section_count": len(structured_sections),
+                "types": sorted(
+                    {
+                        section.get("metadata", {}).get("structure_type")
+                        for section in structured_sections
+                        if section.get("metadata", {}).get("structure_type")
+                    }
+                ),
             },
         },
     )

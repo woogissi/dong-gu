@@ -1,5 +1,18 @@
 # crawler/config/domains.py
 
+from urllib.parse import urlparse
+
+
+def seed_deu_hosts() -> set[str]:
+    from crawler.config.seeds import iter_seed_catalog
+
+    hosts = set()
+    for seed in iter_seed_catalog():
+        host = urlparse(seed.get("url", "")).netloc.lower()
+        if host.endswith(".deu.ac.kr"):
+            hosts.add(host)
+    return hosts
+
 ALLOWED_HOSTS = {           # 정적 탐색에서 광고등등을 막기 위함.(여기 주소가 달려있는곳만 탐색하세요~)
     "www.deu.ac.kr",
     "ipsi.deu.ac.kr",
@@ -69,3 +82,4 @@ DEPARTMENT_HOSTS = {
 }
 
 ALLOWED_HOSTS.update(DEPARTMENT_HOSTS)
+ALLOWED_HOSTS.update(seed_deu_hosts())

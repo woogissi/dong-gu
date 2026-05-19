@@ -376,12 +376,35 @@ class PGVectorLoader:
 
         self._commit_if_needed()
 
+    def get_document_content_ids(self, doc_id: str, document_version_id: int | None) -> dict[str, int]:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT content_type::text, id
+                FROM document_contents
+                WHERE doc_id = %s
+                  AND (document_version_id = %s OR (%s IS NULL AND document_version_id IS NULL))
+                  AND content_type IN ('clean', 'table');
+                """,
+                (doc_id, document_version_id, document_version_id),
+            )
+            return {str(content_type): int(content_id) for content_type, content_id in cur.fetchall()}
+
+    def _content_id_for_chunk(self, chunk: dict[str, Any], content_ids: dict[str, int]) -> int | None:
+        section_type = self._normalize_section_type(chunk.get("section_type"))
+        if section_type == "table":
+            return content_ids.get("table")
+        if section_type == "body":
+            return content_ids.get("clean")
+        return None
+
     def upsert_chunks(self, chunks: list[dict[str, Any]], version: int) -> None:
         if not chunks:
             return
 
         doc_id = chunks[0]["doc_id"]
         document_version_id = self.get_document_version_id(doc_id, version)
+        content_ids = self.get_document_content_ids(doc_id, document_version_id)
         rows = []
 
         for chunk in chunks:
@@ -394,6 +417,7 @@ class PGVectorLoader:
                     "chunk_id": chunk_id,
                     "doc_id": chunk["doc_id"],
                     "document_version_id": document_version_id,
+                    "content_id": self._content_id_for_chunk(chunk, content_ids),
                     "chunk_index": chunk_index,
                     "section_index": chunk.get("section_index"),
                     "section_type": self._normalize_section_type(chunk.get("section_type")),
@@ -423,6 +447,7 @@ class PGVectorLoader:
                     chunk_id,
                     doc_id,
                     document_version_id,
+                    content_id,
                     chunk_index,
                     section_index,
                     section_type,
@@ -438,6 +463,7 @@ class PGVectorLoader:
                     %(chunk_id)s,
                     %(doc_id)s,
                     %(document_version_id)s,
+                    %(content_id)s,
                     %(chunk_index)s,
                     %(section_index)s,
                     %(section_type)s,
@@ -452,6 +478,7 @@ class PGVectorLoader:
                 ON CONFLICT (chunk_id) DO UPDATE SET
                     doc_id = EXCLUDED.doc_id,
                     document_version_id = EXCLUDED.document_version_id,
+                    content_id = EXCLUDED.content_id,
                     chunk_index = EXCLUDED.chunk_index,
                     section_index = EXCLUDED.section_index,
                     section_type = EXCLUDED.section_type,

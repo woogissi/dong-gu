@@ -200,6 +200,26 @@ class BoardExtractorsTest(unittest.TestCase):
         self.assertIn("mode=download", doc["attachments"][0]["file_url"])
         self.assertNotIn("mode=view", doc["attachments"][0]["file_url"])
 
+    def test_board_detail_skips_social_profile_links_as_attachments(self) -> None:
+        html = """
+        <html><body><main>
+          <h2>Notice</h2>
+          <a href="https://m.facebook.com/profile.php?id=1579580098940911/">student council</a>
+          <a href="/www/deu-notice.do?mode=download&articleNo=123&attachNo=1">guide</a>
+        </main></body></html>
+        """
+
+        doc = BoardDetailExtractor().build_raw_document(
+            source_type="notice",
+            detail_url="https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=123",
+            html=html,
+            title_hint=None,
+        )
+
+        self.assertEqual(len(doc["attachments"]), 1)
+        self.assertIn("mode=download", doc["attachments"][0]["file_url"])
+        self.assertNotIn("facebook", doc["attachments"][0]["file_url"].lower())
+
     def test_board_detail_doc_id_uses_non_article_no_query_key(self) -> None:
         doc = BoardDetailExtractor().build_raw_document(
             source_type="notice",

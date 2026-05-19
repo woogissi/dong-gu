@@ -1,5 +1,6 @@
 import unittest
 
+from crawler.config.domains import ALLOWED_HOSTS
 from crawler.config.seeds import iter_enabled_seeds, iter_seed_catalog, normalize_seed
 from crawler.discovery.board_candidate_policy import (
     board_candidate_reason,
@@ -78,6 +79,11 @@ class DiscoveryPolicyTest(unittest.TestCase):
 
         self.assertEqual(classifier.infer_source_type("https://mse.deu.ac.kr"), "department")
         self.assertEqual(classifier.infer_source_type("https://sw.deu.ac.kr/sw"), "department")
+
+    def test_seed_department_hosts_are_allowed_for_static_discovery(self) -> None:
+        self.assertIn("koreanl.deu.ac.kr", ALLOWED_HOSTS)
+        self.assertIn("massmedia.deu.ac.kr", ALLOWED_HOSTS)
+        self.assertIn("kbeauty.deu.ac.kr", ALLOWED_HOSTS)
 
     def test_board_candidate_policy_accepts_board_list_url(self) -> None:
         classifier = URLClassifier()

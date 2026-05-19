@@ -60,7 +60,7 @@ class HybridFusionTest(unittest.TestCase):
         candidates = retriever.merge_retrieval_candidates(lexical_docs, vector_docs)
 
         for candidate in candidates:
-            self.assertAlmostEqual(candidate.final_score, candidate.rrf_score, places=3)
+            self.assertAlmostEqual(candidate.document.metadata["srrf_score"], candidate.rrf_score, places=3)
 
     def test_postprocess_dedupes_hash_and_limits_repeated_document(self) -> None:
         os.environ["RAG_MAX_RESULTS_PER_DOC"] = "2"

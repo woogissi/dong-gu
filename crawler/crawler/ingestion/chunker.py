@@ -127,6 +127,23 @@ class DocumentChunker:
     def build_chunk_sections(self, doc: dict) -> list[dict]:
         sections = []
 
+        structured_sections = doc.get("structured_sections") or []
+        if structured_sections:
+            for section in structured_sections:
+                text = section.get("text")
+                if not text:
+                    continue
+                sections.append(
+                    {
+                        "section_type": section.get("section_type") or "body",
+                        "section_title": section.get("section_title") or "body",
+                        "text": self.remove_repeated_lines(text),
+                        "metadata": section.get("metadata", {}),
+                    }
+                )
+            if sections:
+                return sections
+
         clean_text = doc.get("normalize")
         if clean_text:
             sections.append(
@@ -360,6 +377,7 @@ class DocumentChunker:
                         "metadata": {
                             "section_type": section["section_type"],
                             "section_title": section.get("section_title"),
+                            "source_section_metadata": section.get("metadata", {}),
                             "section_chunk_count": total_section_chunks,
                             "section_truncated": truncated,
                             "max_chunks_per_section": self.max_chunks_per_section,

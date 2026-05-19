@@ -12,6 +12,21 @@ from crawler.schemas.document_models import BoardDetailRawDocument      # JSON �
 from crawler.extractors.base import BaseExtractor
 from crawler.extractors.image_text_extractor import ImageTextExtractor  # 이미지 추출
 
+SOCIAL_LINK_HOSTS = {
+    "facebook.com",
+    "m.facebook.com",
+    "www.facebook.com",
+    "instagram.com",
+    "www.instagram.com",
+    "twitter.com",
+    "x.com",
+    "www.youtube.com",
+    "youtube.com",
+    "youtu.be",
+    "pf.kakao.com",
+    "blog.naver.com",
+}
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -244,6 +259,10 @@ class BoardDetailExtractor(BaseExtractor):
             link_text = self.normalize_text(a.get_text(" ", strip=True))
             href_lower = href.lower()
             parsed_url = urlparse(full_url)
+            if parsed_url.scheme and parsed_url.scheme not in {"http", "https"}:
+                continue
+            if parsed_url.netloc.lower() in SOCIAL_LINK_HOSTS:
+                continue
             url_path = parsed_url.path
             url_ext = Path(url_path).suffix.lower()
             mode = parse_qs(parsed_url.query).get("mode", [""])[0].lower()
@@ -252,11 +271,19 @@ class BoardDetailExtractor(BaseExtractor):
                 continue
 
             is_attachment = (                                           # 링크에 download or file or file_exts 가 있거나 링크 텍스트에 첨부 or 다운로드가 있으면 첨부파일로 분류
-                "download" in href_lower
-                or "file" in href_lower
+                mode == "download"
+                or url_ext in file_exts
                 or any(href_lower.endswith(ext) for ext in file_exts)
-                or "첨부" in link_text
-                or "다운로드" in link_text
+                or bool(re.search(r"(^|/)(download|file)(/|\.|$)", parsed_url.path.lower()))
+                or (
+                    urlparse(page_url).netloc.lower() == parsed_url.netloc.lower()
+                    and (
+                        "첨부" in link_text
+                        or "다운로드" in link_text
+                        or "attachment" in link_text.lower()
+                        or "download" in link_text.lower()
+                    )
+                )
             )
 
             if not is_attachment:

@@ -301,6 +301,70 @@ class CrawlerStateStoreTest(unittest.TestCase):
 
         detail_extractor.extract_detail.assert_not_called()
 
+    def test_run_board_pipeline_does_not_stop_mid_page_when_dates_are_mixed(self) -> None:
+        list_extractor = Mock()
+        list_extractor.extract_list.side_effect = [
+            {
+                "list_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=0",
+                "page_no": 1,
+                "count": 2,
+                "items": [
+                    {
+                        "article_no": "old",
+                        "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=old",
+                        "title_hint": "old title",
+                        "published_at_hint": "2025-11-19",
+                    },
+                    {
+                        "article_no": "new",
+                        "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=new",
+                        "title_hint": "new title",
+                        "published_at_hint": "2026-01-16",
+                    },
+                ],
+            },
+            {
+                "list_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=list&article.offset=10",
+                "page_no": 2,
+                "count": 1,
+                "items": [
+                    {
+                        "article_no": "older",
+                        "detail_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=older",
+                        "title_hint": "older title",
+                        "published_at_hint": "2025-11-18",
+                    },
+                ],
+            },
+        ]
+        attempted_article_nos = []
+
+        def fake_fetch_details(*, source_type, parser_type, items, workers):
+            attempted_article_nos.extend(item["article_no"] for item in items)
+            return [
+                {
+                    "doc_id": f"deu_{source_type}_{item['article_no']}",
+                    "source_type": source_type,
+                    "page_kind": "board_detail",
+                }
+                for item in items
+            ]
+
+        with patch.object(full_pipeline, "BoardListExtractor", return_value=list_extractor), patch.object(
+            full_pipeline, "fetch_board_detail_documents", side_effect=fake_fetch_details
+        ), patch.object(full_pipeline, "save_document_bundle"), patch.object(full_pipeline, "save_json"), patch.object(
+            full_pipeline, "get_existing_processed_doc_ids", return_value=set()
+        ):
+            full_pipeline.run_board_pipeline(
+                source_type="notice",
+                list_url="https://www.deu.ac.kr/www/deu-notice.do?mode=list",
+                pages=5,
+                since_date="2025-11-20",
+            )
+
+        self.assertEqual(list_extractor.extract_list.call_count, 2)
+        self.assertEqual(attempted_article_nos, ["new"])
+
     def test_resolve_since_date_uses_recent_lookback_floor(self) -> None:
         resolved = resolve_since_date(
             explicit_since_date=None,
@@ -415,6 +479,62 @@ class CrawlerStateStoreTest(unittest.TestCase):
         state_store.upsert_document_state.assert_called()
         self.assertEqual(state_store.upsert_document_state.call_args.kwargs["status"], "PARSED")
         state_store.promote_static_seed_candidates.assert_called_once()
+
+    def test_static_discovery_walks_links_per_seed_before_later_seed_roots(self) -> None:
+        extractor = Mock()
+
+        def extract_static_page(source_type: str, page_url: str) -> dict:
+            return {
+                "doc_id": page_url.rsplit("/", 1)[-1] or "root",
+                "source_type": source_type,
+                "page_kind": "static_page",
+                "source_url": page_url,
+                "content_hash": "hash",
+                "outgoing_links": (
+                    ["https://www.deu.ac.kr/www/seed-one-inner.do"]
+                    if page_url == "https://www.deu.ac.kr/www/seed-one.do"
+                    else []
+                ),
+                "extractor_name": "static_page",
+                "extractor_version": "1",
+            }
+
+        extractor.extract_static_page.side_effect = extract_static_page
+
+        with patch.object(static_discovery, "StaticPageExtractor", return_value=extractor), patch.object(
+            static_discovery, "save_static_document"
+        ), patch.object(
+            static_discovery,
+            "iter_enabled_seeds",
+            return_value=[
+                {
+                    "name": "seed_one",
+                    "url": "https://www.deu.ac.kr/www/seed-one.do",
+                    "source_type": "institution",
+                    "source_group": "institution",
+                    "page_kind": "static_page",
+                    "discover_board_candidates": False,
+                },
+                {
+                    "name": "seed_two",
+                    "url": "https://www.deu.ac.kr/www/seed-two.do",
+                    "source_type": "institution",
+                    "source_group": "institution",
+                    "page_kind": "static_page",
+                    "discover_board_candidates": False,
+                },
+            ],
+        ):
+            static_discovery.main(max_pages=2, max_pages_per_seed=2, sleep_seconds=0)
+
+        crawled_urls = [call.kwargs["page_url"] for call in extractor.extract_static_page.call_args_list]
+        self.assertEqual(
+            crawled_urls,
+            [
+                "https://www.deu.ac.kr/www/seed-one.do",
+                "https://www.deu.ac.kr/www/seed-one-inner.do",
+            ],
+        )
 
 
 if __name__ == "__main__":

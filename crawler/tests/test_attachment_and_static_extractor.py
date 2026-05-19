@@ -188,6 +188,68 @@ class AttachmentAndStaticExtractorTest(unittest.TestCase):
         self.assertIn("mode=download", doc["attachments"][0]["file_url"])
         self.assertNotIn("mode=view", doc["attachments"][0]["file_url"])
 
+    def test_static_page_extractor_skips_social_profile_links_as_attachments(self) -> None:
+        html = """
+        <html>
+          <body>
+            <main>
+              <a href="https://m.facebook.com/profile.php?id=1579580098940911/">student council</a>
+              <a href="/www/deu-notice.do?mode=download&articleNo=123&attachNo=1">download</a>
+            </main>
+          </body>
+        </html>
+        """
+        extractor = StaticPageExtractor(allowed_hosts={"www.deu.ac.kr"})
+        extractor.fetch_result = Mock(
+            return_value=type(
+                "Result",
+                (),
+                {
+                    "url": "https://www.deu.ac.kr/www/info.do",
+                    "final_url": "https://www.deu.ac.kr/www/info.do",
+                    "status_code": 200,
+                    "headers": {},
+                    "raw_html": html,
+                },
+            )()
+        )
+
+        doc = extractor.extract_static_page("campus", "https://www.deu.ac.kr/www/info.do")
+
+        self.assertEqual(len(doc["attachments"]), 1)
+        self.assertIn("mode=download", doc["attachments"][0]["file_url"])
+        self.assertNotIn("facebook", doc["attachments"][0]["file_url"].lower())
+
+    def test_static_page_extractor_uses_redirect_final_url_as_identity(self) -> None:
+        html = """
+        <html>
+          <body>
+            <header><a href="/koreanl/sub01_01.do">intro</a></header>
+            <main><p>department body</p></main>
+          </body>
+        </html>
+        """
+        extractor = StaticPageExtractor(allowed_hosts={"koreanl.deu.ac.kr"})
+        extractor.fetch_result = Mock(
+            return_value=type(
+                "Result",
+                (),
+                {
+                    "url": "https://koreanl.deu.ac.kr/",
+                    "final_url": "https://koreanl.deu.ac.kr/koreanl/index.do",
+                    "status_code": 200,
+                    "headers": {},
+                    "raw_html": html,
+                },
+            )()
+        )
+
+        doc = extractor.extract_static_page("department", "https://koreanl.deu.ac.kr/")
+
+        self.assertEqual(doc["source_url"], "https://koreanl.deu.ac.kr/koreanl/index.do")
+        self.assertEqual(doc["doc_id"], extractor.make_doc_id("https://koreanl.deu.ac.kr/koreanl/index.do"))
+        self.assertIn("https://koreanl.deu.ac.kr/koreanl/sub01_01.do", doc["outgoing_links"])
+
     def test_static_page_extractor_collects_department_links_from_ipsi_detail(self) -> None:
         html = """
         <html>
@@ -329,6 +391,151 @@ class AttachmentAndStaticExtractorTest(unittest.TestCase):
 
         self.assertIn("keeping verify=True", str(ctx.exception))
         extractor.session.get.assert_called_once_with("https://has.deu.ac.kr/", timeout=extractor.timeout)
+
+    def test_static_page_extractor_preserves_administration_card_sections(self) -> None:
+        html = """
+        <html>
+          <body>
+            <div id="content">
+              <div class="con-box" id="adm01">
+                <h4 class="h4-tit"><span>교무처</span></h4>
+                <div class="item-img-list">
+                  <div class="img-list">
+                    <div class="txt">
+                      <div class="section">
+                        <div class="subject">교육혁신원</div>
+                        <div class="con"><p>교육혁신 업무를 담당한다.</p></div>
+                      </div>
+                      <div class="section">
+                        <ul class="item-sdot">
+                          <li><strong>위치</strong>: 산학협력관 315호</li>
+                          <li><strong>전화번호</strong>: 051-890-4373</li>
+                        </ul>
+                        <div class="btn-wrap">
+                          <a class="btn-base">구성원 보기</a>
+                          <a class="btn-base btn-w" href="https://inno.deu.ac.kr/">바로가기</a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </body>
+        </html>
+        """
+        extractor = StaticPageExtractor(allowed_hosts={"www.deu.ac.kr"})
+        extractor.fetch_result = Mock(
+            return_value=type(
+                "Result",
+                (),
+                {
+                    "url": "https://www.deu.ac.kr/www/deu-administration-office.do",
+                    "final_url": "https://www.deu.ac.kr/www/deu-administration-office.do",
+                    "status_code": 200,
+                    "headers": {},
+                    "raw_html": html,
+                },
+            )()
+        )
+
+        doc = extractor.extract_static_page("institution", "https://www.deu.ac.kr/www/deu-administration-office.do")
+
+        self.assertEqual(doc["structured_sections"][0]["section_title"], "교무처 > 교육혁신원")
+        self.assertIn("상위조직: 교무처", doc["structured_sections"][0]["text"])
+        self.assertIn("기관: 교육혁신원", doc["structured_sections"][0]["text"])
+        self.assertIn("전화번호: 051-890-4373", doc["structured_sections"][0]["text"])
+        self.assertEqual(doc["metadata"]["structure"]["types"], ["administration_office"])
+
+    def test_static_page_extractor_preserves_organization_paths(self) -> None:
+        html = """
+        <html>
+          <body>
+            <div id="content">
+              <div class="organization-wrap">
+                <ol>
+                  <li>
+                    <div class="txt-one"><span>총장</span></div>
+                    <ul>
+                      <li>
+                        <span class="txt-sub">국책사업본부</span>
+                        <ul>
+                          <li><span class="txt-sub">RISE사업단</span>
+                            <ul><li><span class="txt-sub">RISE지원팀</span></li></ul>
+                          </li>
+                        </ul>
+                      </li>
+                    </ul>
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </body>
+        </html>
+        """
+        extractor = StaticPageExtractor(allowed_hosts={"www.deu.ac.kr"})
+        extractor.fetch_result = Mock(
+            return_value=type(
+                "Result",
+                (),
+                {
+                    "url": "https://www.deu.ac.kr/www/deu-organization.do",
+                    "final_url": "https://www.deu.ac.kr/www/deu-organization.do",
+                    "status_code": 200,
+                    "headers": {},
+                    "raw_html": html,
+                },
+            )()
+        )
+
+        doc = extractor.extract_static_page("institution", "https://www.deu.ac.kr/www/deu-organization.do")
+
+        self.assertEqual(doc["structured_sections"][0]["section_title"], "조직도 계층")
+        self.assertIn("총장 > 국책사업본부 > RISE사업단 > RISE지원팀", doc["structured_sections"][0]["text"])
+        self.assertEqual(doc["metadata"]["structure"]["types"], ["organization_chart"])
+
+    def test_static_page_extractor_builds_generic_dom_sections(self) -> None:
+        html = """
+        <html>
+          <body>
+            <main>
+              <h2>장학 안내</h2>
+              <p>장학금은 성적, 소득, 봉사 기준에 따라 운영됩니다.</p>
+              <ul>
+                <li>신청 기간: 2026.03.01 ~ 2026.03.15</li>
+                <li>문의: 장학지원팀 051-890-1051</li>
+              </ul>
+              <h3>제출 서류</h3>
+              <table>
+                <tr><th>구분</th><th>서류</th></tr>
+                <tr><td>공통</td><td>신청서</td></tr>
+              </table>
+            </main>
+          </body>
+        </html>
+        """
+        extractor = StaticPageExtractor(allowed_hosts={"www.deu.ac.kr"})
+        extractor.fetch_result = Mock(
+            return_value=type(
+                "Result",
+                (),
+                {
+                    "url": "https://www.deu.ac.kr/www/scholarship-info.do",
+                    "final_url": "https://www.deu.ac.kr/www/scholarship-info.do",
+                    "status_code": 200,
+                    "headers": {},
+                    "raw_html": html,
+                },
+            )()
+        )
+
+        doc = extractor.extract_static_page("scholarship", "https://www.deu.ac.kr/www/scholarship-info.do")
+
+        self.assertEqual(doc["metadata"]["structure"]["types"], ["generic_dom"])
+        self.assertEqual(doc["structured_sections"][0]["section_title"], "장학 안내")
+        self.assertIn("- 신청 기간: 2026.03.01 ~ 2026.03.15", doc["structured_sections"][0]["text"])
+        self.assertEqual(doc["structured_sections"][1]["section_title"], "제출 서류")
+        self.assertIn("구분 | 서류", doc["structured_sections"][1]["text"])
 
 
 if __name__ == "__main__":

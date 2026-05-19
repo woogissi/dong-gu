@@ -125,6 +125,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-h", "--help", action="help", help="도움말을 보여주고 종료합니다.")
     parser._optionals.title = "옵션"
     parser.add_argument("--max-pages", type=int, default=50, help="수집할 정적 페이지 최대 개수입니다.")
+    parser.add_argument("--max-pages-per-seed", type=int, default=5, help="seed 하나에서 discovery로 수집할 최대 페이지 수입니다.")
     parser.add_argument("--max-depth", type=int, default=2, help="링크 discovery 최대 깊이입니다.")
     parser.add_argument("--enable-image-ocr", action="store_true", help="이미지 OCR을 켭니다. 기본값은 꺼짐입니다.")
     parser.add_argument("--skip-image-ocr", action="store_true", help="호환성용 옵션입니다. 이미지 OCR은 기본적으로 건너뜁니다.")
@@ -162,6 +163,7 @@ def parse_args() -> argparse.Namespace:
 
 def main(
     max_pages: int = 50,
+    max_pages_per_seed: int = 5,
     max_depth: int = 2,
     enable_image_ocr: bool = False,
     timeout: tuple[float, float] = (5, 30),
@@ -179,7 +181,6 @@ def main(
             "pass --closed-loop-discovery or --promote-discovery-results to persist dynamic board seeds."
         )
 
-    frontier = FrontierManager(ALLOWED_HOSTS, max_depth=max_depth)
     extractor = StaticPageExtractor(
         allowed_hosts=ALLOWED_HOSTS,
         enable_image_ocr=enable_image_ocr,
@@ -195,156 +196,178 @@ def main(
         state_store = CrawlerStateStore()
         state_store.ensure_tables()
 
-    # static seed만 넣기
-    for seed in iter_enabled_seeds():
-        if seed["page_kind"] in {"static_page", "seed"}:
-            if frontier.add_url(seed["url"], depth=0, discovered_from="seed"):
-                canonical_url = frontier.canonicalize_url(seed["url"])
-                source_type_by_url[canonical_url] = seed["source_type"]
-                source_group_by_url[canonical_url] = seed.get("source_group")
-                discover_candidates_by_url[canonical_url] = seed.get("discover_board_candidates", False)
-                if state_store:
-                    state_store.upsert_discovered_url(
-                        url=seed["url"],
-                        source_type=seed["source_type"],
-                        page_kind=seed["page_kind"],
-                        discovered_from="seed",
-                        discovery_depth=0,
-                        seed_status="seeded",
-                    )
+    static_seeds = [seed for seed in iter_enabled_seeds() if seed["page_kind"] in {"static_page", "seed"}]
+    visited_global = set()
+    aggregate_stats = {
+        "seed_count": len(static_seeds),
+        "visited": 0,
+        "max_depth": max_depth,
+        "max_pages_per_seed": max_pages_per_seed,
+    }
 
     crawled_count = 0
 
-    while frontier.has_next() and crawled_count < max_pages:        # frontier에 방문할 URL이 남아있고, 최대 수집 페이지 수를 넘지 않으면 
-        item = frontier.pop_next()      # 큐에서 다음 URL을 꺼내서 정보를 꺼냄
-        if not item:
+    for seed in static_seeds:
+        if crawled_count >= max_pages:
             break
 
-        url, depth, discovered_from = item
-        frontier.mark_visited(url)      # 방문한 곳인지
+        frontier = FrontierManager(ALLOWED_HOSTS, max_depth=max_depth)
+        seed_crawled_count = 0
 
-        try:
-            url_type = url_classifier.classify(url)     # 정적페이지인지 다시 확인
-            canonical_url = frontier.canonicalize_url(url)
-            source_type = source_type_by_url.get(canonical_url) or url_classifier.infer_source_type(url)
-            source_group = source_group_by_url.get(canonical_url) or source_type
-            discover_board_candidates = discover_candidates_by_url.get(canonical_url, False)
-            if state_store:
-                state_store.upsert_discovered_url(
-                    url=url,
-                    source_type=source_type,
-                    page_kind=url_type,
-                    discovered_from=discovered_from,
-                    discovery_depth=depth,
-                    seed_status="candidate",
-                )
+        if not frontier.add_url(seed["url"], depth=0, discovered_from="seed"):
+            continue
 
-            # 현재 static discovery는 정적 페이지만 대상으로 삼음
-            if url_type != "static_page":
-                candidate = build_board_candidate_record(
-                    url=url,
-                    page_kind=url_type,
-                    discovered_from=discovered_from or "unknown",
-                    source_type=source_type,
-                    source_group=source_group,
-                    depth=depth,
-                )
-                if discover_board_candidates and candidate and url not in candidate_urls:
-                    candidate_urls.add(url)
-                    manifest_writer.append_jsonl("candidate_boards.jsonl", candidate)
-                    if state_store:
-                        state_store.upsert_dynamic_seed(candidate)
-                continue
-
-            raw_doc = extractor.extract_static_page(source_type=source_type, page_url=url)  # 실제 페이지를 가져와서 raw 문서 dict로 만듬
-            save_static_document(raw_doc)
-            if state_store:
-                state_store.upsert_document_state(
-                    url=url,
-                    doc_id=raw_doc.get("doc_id"),
-                    status="PARSED",
-                    final_url=raw_doc.get("final_url"),
-                    source_type=source_type,
-                    page_kind="static_page",
-                    checksum=raw_doc.get("content_hash"),
-                    artifact_paths={
-                        "raw_json": (RAW_DOC_DIR / source_type / f"{raw_doc['doc_id']}.json").as_posix(),
-                        "curated_json": (CURATED_DOC_DIR / source_type / f"{raw_doc['doc_id']}.json").as_posix(),
-                    },
-                    extractor_name=raw_doc.get("extractor_name"),
-                    extractor_version=raw_doc.get("extractor_version"),
-                    fetch_status="FETCHED",
-                    parse_status="PARSED",
-                )
-
-            manifest_writer.append_jsonl("discovery_edges.jsonl", {
-                "url": url,
-                "depth": depth,
-                "discovered_from": discovered_from,
-                "source_type": source_type,
-                "outgoing_link_count": len(raw_doc.get("outgoing_links", [])),
-            })
-
-            # 내부 링크 확장
-            for next_url in raw_doc.get("outgoing_links", []):
-                next_type = url_classifier.classify(next_url)
-                candidate = build_board_candidate_record(
-                    url=next_url,
-                    page_kind=next_type,
-                    discovered_from=url,
-                    source_type=source_type,
-                    source_group=source_group,
-                    depth=depth + 1,
-                )
-                if discover_board_candidates and candidate and next_url not in candidate_urls:
-                    candidate_urls.add(next_url)
-                    manifest_writer.append_jsonl("candidate_boards.jsonl", candidate)
-                    if state_store:
-                        state_store.upsert_dynamic_seed(candidate)
-
-                # 정적 페이지만 계속 확장
-                if next_type == "static_page":
-                    if frontier.add_url(next_url, depth=depth + 1, discovered_from=url):
-                        next_canonical_url = frontier.canonicalize_url(next_url)
-                        inferred_source_type = url_classifier.infer_source_type(next_url)
-                        source_type_by_url[next_canonical_url] = (
-                            inferred_source_type if inferred_source_type != "webpage" else source_type
-                        )
-                        source_group_by_url[next_canonical_url] = source_group
-                        discover_candidates_by_url[next_canonical_url] = discover_board_candidates
-                        if state_store:
-                            state_store.upsert_discovered_url(
-                                url=next_url,
-                                source_type=source_type_by_url[next_canonical_url],
-                                page_kind="static_page",
-                                discovered_from=url,
-                                discovery_depth=depth + 1,
-                                seed_status="candidate",
-                            )
-
-            crawled_count += 1
-            print(f"[DISCOVERY OK] depth={depth} source={source_type} url={url}")
-            if sleep_seconds > 0:
-                time.sleep(sleep_seconds)
-
-        except Exception as e:
-            message = f"[DISCOVERY ERROR] url={url} depth={depth} error={e}"
-            log_error(message)
-            if state_store:
-                state_store.upsert_document_state(
-                    url=url,
-                    status="FAILED",
-                    source_type=source_type_by_url.get(frontier.canonicalize_url(url)),
-                    page_kind=url_classifier.classify(url),
-                    error=str(e),
-                    error_stage="static_discovery",
-                    fetch_status="FAILED",
-                )
-            manifest_writer.write_error_record(
-                stage="static_discovery",
-                message=message,
-                extra={"url": url, "depth": depth},
+        canonical_seed_url = frontier.canonicalize_url(seed["url"])
+        source_type_by_url[canonical_seed_url] = seed["source_type"]
+        source_group_by_url[canonical_seed_url] = seed.get("source_group")
+        discover_candidates_by_url[canonical_seed_url] = seed.get("discover_board_candidates", False)
+        if state_store:
+            state_store.upsert_discovered_url(
+                url=seed["url"],
+                source_type=seed["source_type"],
+                page_kind=seed["page_kind"],
+                discovered_from="seed",
+                discovery_depth=0,
+                seed_status="seeded",
             )
+
+        while (
+            frontier.has_next()
+            and crawled_count < max_pages
+            and seed_crawled_count < max_pages_per_seed
+        ):
+            item = frontier.pop_next()      # 큐에서 다음 URL을 꺼내서 정보를 꺼냄
+            if not item:
+                break
+
+            url, depth, discovered_from = item
+            canonical_url = frontier.canonicalize_url(url)
+            if canonical_url in visited_global:
+                continue
+            visited_global.add(canonical_url)
+            frontier.mark_visited(url)      # 방문한 곳인지
+
+            try:
+                url_type = url_classifier.classify(url)
+                source_type = source_type_by_url.get(canonical_url) or url_classifier.infer_source_type(url)
+                source_group = source_group_by_url.get(canonical_url) or source_type
+                discover_board_candidates = discover_candidates_by_url.get(canonical_url, False)
+                if state_store:
+                    state_store.upsert_discovered_url(
+                        url=url,
+                        source_type=source_type,
+                        page_kind=url_type,
+                        discovered_from=discovered_from,
+                        discovery_depth=depth,
+                        seed_status="candidate",
+                    )
+
+                if url_type != "static_page":
+                    candidate = build_board_candidate_record(
+                        url=url,
+                        page_kind=url_type,
+                        discovered_from=discovered_from or "unknown",
+                        source_type=source_type,
+                        source_group=source_group,
+                        depth=depth,
+                    )
+                    if discover_board_candidates and candidate and url not in candidate_urls:
+                        candidate_urls.add(url)
+                        manifest_writer.append_jsonl("candidate_boards.jsonl", candidate)
+                        if state_store:
+                            state_store.upsert_dynamic_seed(candidate)
+                    continue
+
+                raw_doc = extractor.extract_static_page(source_type=source_type, page_url=url)
+                if raw_doc.get("source_url"):
+                    visited_global.add(frontier.canonicalize_url(raw_doc["source_url"]))
+                save_static_document(raw_doc)
+                if state_store:
+                    state_store.upsert_document_state(
+                        url=url,
+                        doc_id=raw_doc.get("doc_id"),
+                        status="PARSED",
+                        final_url=raw_doc.get("final_url") or raw_doc.get("source_url"),
+                        source_type=source_type,
+                        page_kind="static_page",
+                        checksum=raw_doc.get("content_hash"),
+                        artifact_paths={
+                            "raw_json": (RAW_DOC_DIR / source_type / f"{raw_doc['doc_id']}.json").as_posix(),
+                            "curated_json": (CURATED_DOC_DIR / source_type / f"{raw_doc['doc_id']}.json").as_posix(),
+                        },
+                        extractor_name=raw_doc.get("extractor_name"),
+                        extractor_version=raw_doc.get("extractor_version"),
+                        fetch_status="FETCHED",
+                        parse_status="PARSED",
+                    )
+
+                manifest_writer.append_jsonl("discovery_edges.jsonl", {
+                    "url": url,
+                    "depth": depth,
+                    "discovered_from": discovered_from,
+                    "source_type": source_type,
+                    "outgoing_link_count": len(raw_doc.get("outgoing_links", [])),
+                })
+
+                for next_url in raw_doc.get("outgoing_links", []):
+                    next_type = url_classifier.classify(next_url)
+                    candidate = build_board_candidate_record(
+                        url=next_url,
+                        page_kind=next_type,
+                        discovered_from=url,
+                        source_type=source_type,
+                        source_group=source_group,
+                        depth=depth + 1,
+                    )
+                    if discover_board_candidates and candidate and next_url not in candidate_urls:
+                        candidate_urls.add(next_url)
+                        manifest_writer.append_jsonl("candidate_boards.jsonl", candidate)
+                        if state_store:
+                            state_store.upsert_dynamic_seed(candidate)
+
+                    if next_type == "static_page":
+                        if frontier.add_url(next_url, depth=depth + 1, discovered_from=url):
+                            next_canonical_url = frontier.canonicalize_url(next_url)
+                            inferred_source_type = url_classifier.infer_source_type(next_url)
+                            source_type_by_url[next_canonical_url] = (
+                                inferred_source_type if inferred_source_type != "webpage" else source_type
+                            )
+                            source_group_by_url[next_canonical_url] = source_group
+                            discover_candidates_by_url[next_canonical_url] = discover_board_candidates
+                            if state_store:
+                                state_store.upsert_discovered_url(
+                                    url=next_url,
+                                    source_type=source_type_by_url[next_canonical_url],
+                                    page_kind="static_page",
+                                    discovered_from=url,
+                                    discovery_depth=depth + 1,
+                                    seed_status="candidate",
+                                )
+
+                crawled_count += 1
+                seed_crawled_count += 1
+                print(f"[DISCOVERY OK] depth={depth} source={source_type} url={url}")
+                if sleep_seconds > 0:
+                    time.sleep(sleep_seconds)
+
+            except Exception as e:
+                message = f"[DISCOVERY ERROR] url={url} depth={depth} error={e}"
+                log_error(message)
+                if state_store:
+                    state_store.upsert_document_state(
+                        url=url,
+                        status="FAILED",
+                        source_type=source_type_by_url.get(frontier.canonicalize_url(url)),
+                        page_kind=url_classifier.classify(url),
+                        error=str(e),
+                        error_stage="static_discovery",
+                        fetch_status="FAILED",
+                    )
+                manifest_writer.write_error_record(
+                    stage="static_discovery",
+                    message=message,
+                    extra={"url": url, "depth": depth},
+                )
 
     print("[DONE] static discovery finished")
     if state_store:
@@ -366,13 +389,16 @@ def main(
         print(f"[DYNAMIC SEEDS] promoted={promoted_count} min_confidence={min_discovery_confidence}")
         if not dry_run_promotion_preview:
             print(f"[STATIC SEEDS] promoted={promoted_static_count}")
-    print(frontier.stats())
+    aggregate_stats["visited"] = len(visited_global)
+    aggregate_stats["crawled"] = crawled_count
+    print(aggregate_stats)
 
 
 if __name__ == "__main__":
     args = parse_args()
     main(
         max_pages=args.max_pages,
+        max_pages_per_seed=args.max_pages_per_seed,
         max_depth=args.max_depth,
         enable_image_ocr=bool(args.enable_image_ocr and not args.skip_image_ocr),
         timeout=(args.connect_timeout, args.read_timeout),

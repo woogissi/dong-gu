@@ -78,3 +78,33 @@ class ChunkerAndIpsiParserTest(unittest.TestCase):
 
         self.assertEqual(len(chunks), 2)
         self.assertTrue(chunks[1].startswith(chunker.build_paragraph_overlap(first)))
+
+    def test_chunker_prefers_structured_sections(self) -> None:
+        chunker = DocumentChunker()
+        doc = {
+            "doc_id": "static-admin",
+            "version": 1,
+            "source_type": "institution",
+            "title": "행정기관",
+            "source_url": "https://www.deu.ac.kr/www/deu-administration-office.do",
+            "normalize": "납작한 본문은 구조화 섹션이 있으면 청킹에 쓰지 않는다.",
+            "structured_sections": [
+                {
+                    "section_type": "body",
+                    "section_title": "교무처 > 교육혁신원",
+                    "text": "상위조직: 교무처\n기관: 교육혁신원\n업무: 교육혁신 업무를 담당한다.\n전화번호: 051-890-4373",
+                    "metadata": {"structure_type": "administration_office"},
+                }
+            ],
+        }
+
+        chunks = chunker.chunk_document(doc)
+
+        self.assertEqual(len(chunks), 1)
+        self.assertEqual(chunks[0]["section_title"], "교무처 > 교육혁신원")
+        self.assertIn("기관: 교육혁신원", chunks[0]["content"])
+        self.assertNotIn("납작한 본문", chunks[0]["content"])
+        self.assertEqual(
+            chunks[0]["metadata"]["source_section_metadata"]["structure_type"],
+            "administration_office",
+        )

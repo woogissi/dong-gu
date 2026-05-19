@@ -26,7 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--max-pages",
         type=int,
-        default=200,
+        default=2000,
         help="static discovery에서 수집할 정적 페이지 최대 개수입니다.",
     )
     parser.add_argument(
@@ -34,6 +34,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=2,
         help="static discovery의 내부 링크 탐색 최대 깊이입니다.",
+    )
+    parser.add_argument(
+        "--max-pages-per-seed",
+        type=int,
+        default=5,
+        help="static discovery seed별 최대 수집 페이지 수입니다.",
     )
     parser.add_argument(
         "--since-date",
@@ -99,6 +105,8 @@ def main() -> None:
             "--closed-loop-discovery",
             "--max-pages",
             str(args.max_pages),
+            "--max-pages-per-seed",
+            str(args.max_pages_per_seed),
             "--max-depth",
             str(args.max_depth),
         ]
