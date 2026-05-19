@@ -33,9 +33,20 @@ except ImportError:  # pragma: no cover - psycopg2가 없는 환경에서는 파
 
 _DB_USE_ENV_VAR = "RAG_USE_DB"
 _DB_URL_ENV_VAR = "DATABASE_URL"
+_RETRIEVAL_MODE_ENV_VAR = "RETRIEVAL_MODE"
+_HYBRID_SCORE_MODE_ENV_VAR = "HYBRID_SCORE_MODE"
+_HYBRID_LEXICAL_WEIGHT_ENV_VAR = "HYBRID_LEXICAL_WEIGHT"
+_HYBRID_VECTOR_WEIGHT_ENV_VAR = "HYBRID_VECTOR_WEIGHT"
 
 _DEFAULT_TOP_K = 10
 _MIN_DB_SCORE = 0.5
+_CATEGORY_SCORE_BONUS = 0.1
+_ILIKE_SCORE_CAP = 0.6
+_TITLE_MATCH_SCORE_CAP = 0.9
+_SECTION_MATCH_SCORE_CAP = 0.7
+_NOISE_PENALTY_CAP = 1.5
+_DEFAULT_HYBRID_LEXICAL_WEIGHT = 0.4
+_DEFAULT_HYBRID_VECTOR_WEIGHT = 0.6
 _BM25_K1 = 1.5
 _BM25_B = 0.75
 _TOKEN_PATTERN = re.compile(r"[가-힣A-Za-z0-9]+")
@@ -48,6 +59,17 @@ _DB_SEARCH_STOPWORDS = {
     "어떻게",
     "싶어",
     "필요해",
+}
+_DB_BOOST_STOPWORDS = {
+    "\uc6b4\uc601",
+    "\uc2dc\uac04",
+    "\uae30\uac04",
+    "\uc2e0\uccad",
+    "\ubc29\ubc95",
+    "\uc77c\uc815",
+    "\uc548\ub0b4",
+    "\uacf5\uc9c0",
+    "\ud559\uc0ac",
 }
 
 
@@ -75,8 +97,21 @@ class IndexedChunk: # BM25 검색을 위해 토큰화되고 통계가 계산된 
 @dataclass(frozen=True)
 class BM25Index: # 전체 인덱스 구조를 나타내는 데이터 클래스
     chunks: tuple[IndexedChunk, ...]
+    chunks: tuple[IndexedChunk, ...]
     document_frequencies: dict[str, int]
     average_document_length: float
+
+
+@dataclass(frozen=True)
+class RetrievalCandidate:
+    chunk_id: str
+    doc_id: str
+    document: RetrievedDoc
+    lexical_score: float | None = None
+    vector_score: float | None = None
+    rrf_score: float = 0.0
+    final_score: float = 0.0
+    search_mode: str = "hybrid_rrf"
 
 # 한국어 텍스트를 BM25 검색에 적합한 토큰으로 변환하는 클래스
 class KoreanBM25Tokenizer: 
@@ -143,6 +178,16 @@ def retrieve_documents(
 
     if _use_database_retriever():
         try:
+            retrieval_mode = _resolve_retrieval_mode(request)
+            if retrieval_mode == "vector":
+                documents = _retrieve_documents_from_database_vector(request)
+                return documents
+
+            if retrieval_mode == "hybrid":
+                documents = _retrieve_documents_from_database_hybrid(request)
+                if documents:
+                    return documents
+
             documents = _retrieve_documents_from_database(request)
             if documents:  # DB에서 검색 결과가 있으면 반환
                 return documents
@@ -203,6 +248,17 @@ def _use_database_retriever() -> bool:
     return True
 
 
+def _resolve_retrieval_mode(request: RetrievalRequest) -> str:
+    configured_mode = os.getenv(_RETRIEVAL_MODE_ENV_VAR, "").strip().lower()
+    if configured_mode in {"lexical", "vector", "hybrid"}:
+        return configured_mode
+    if request.strategy in {"dense", "vector"}:
+        return "vector"
+    if request.strategy == "hybrid":
+        return "hybrid"
+    return "hybrid"
+
+
 def _normalize_database_url(database_url: str) -> str:
     normalized = database_url.strip()
     if normalized.startswith("postgresql+psycopg2://"):
@@ -251,6 +307,26 @@ def _build_db_search_terms(request: RetrievalRequest) -> list[str]:
     return terms[:12]
 
 
+def _build_exact_phrase_patterns(request: RetrievalRequest) -> list[str]:
+    phrases: list[str] = []
+    for text in [request.query, *(request.query_variants or [])]:
+        phrase = " ".join((text or "").split())
+        if len(phrase) < 2:
+            continue
+        if phrase not in phrases:
+            phrases.append(phrase)
+    return [f"%{phrase}%" for phrase in phrases[:4]] or ["__NO_EXACT_PHRASE_MATCH__"]
+
+
+def _build_boost_patterns(search_terms: list[str]) -> tuple[list[str], bool]:
+    boost_terms = [
+        term
+        for term in search_terms
+        if term not in _DB_BOOST_STOPWORDS and not (len(term) == 1 and not term.isdigit())
+    ]
+    return [f"%{term}%" for term in boost_terms] or ["__NO_BOOST_TERM_MATCH__"], bool(boost_terms)
+
+
 def _is_weak_db_search_term(term: str) -> bool:
     if term in _DB_SEARCH_STOPWORDS:
         return True
@@ -268,11 +344,6 @@ def _build_db_filter_conditions(request: RetrievalRequest) -> tuple[str, list[An
     conditions: list[str] = []
     parameters: list[Any] = []
 
-    document_categories = request.filters.get("document_category", [])
-    if document_categories:
-        conditions.append("documents.source_type = ANY(%s)")
-        parameters.append(document_categories)
-
     departments = request.filters.get("department", [])
     if departments:
         conditions.append("documents.department = ANY(%s)")
@@ -281,16 +352,361 @@ def _build_db_filter_conditions(request: RetrievalRequest) -> tuple[str, list[An
     return " AND ".join(conditions), parameters
 
 
+def _category_bonus_sql(request: RetrievalRequest, source_expression: str) -> tuple[str, list[Any]]:
+    document_categories = request.filters.get("document_category", [])
+    if not document_categories:
+        return "0", []
+    return f"CASE WHEN {source_expression} = ANY(%s) THEN %s ELSE 0 END", [
+        document_categories,
+        _CATEGORY_SCORE_BONUS,
+    ]
+
+
+def _category_bonus_for_source(source_type: str, request: RetrievalRequest) -> float:
+    document_categories = request.filters.get("document_category", [])
+    if document_categories and source_type in document_categories:
+        return _CATEGORY_SCORE_BONUS
+    return 0.0
+
+
+def _lexical_norm_score(score: float) -> float:
+    score = max(float(score or 0.0), 0.0)
+    return round(score / (score + 1.0), 6)
+
+
+def _has_query_vector(request: RetrievalRequest) -> bool:
+    return bool(request.query_vector)
+
+
+def _to_pg_vector(vector: list[float]) -> str:
+    values: list[str] = []
+    for item in vector:
+        value = float(item)
+        if not math.isfinite(value):
+            raise ValueError("query_vector contains a non-finite value")
+        values.append(str(value))
+    return "[" + ",".join(values) + "]"
+
+
+def _retrieve_documents_from_database_vector(request: RetrievalRequest) -> list[RetrievedDoc]:
+    if not _has_query_vector(request):
+        return []
+
+    category_bonus_sql, category_bonus_params = _category_bonus_sql(request, "documents.source_type")
+    sql = """
+    WITH latest_document_versions AS (
+        SELECT doc_id, max(version) AS latest_version
+        FROM document_versions
+        GROUP BY doc_id
+    )
+    SELECT
+        chunks.chunk_id,
+        chunks.doc_id,
+        chunks.chunk_index,
+        chunks.section_index,
+        chunks.section_type,
+        chunks.section_title,
+        chunks.content,
+        chunks.content_length,
+        chunks.content_hash,
+        document_versions.version,
+        chunks.document_version_id,
+        chunks.metadata AS chunk_metadata,
+        documents.title,
+        documents.source_url,
+        documents.source_type,
+        documents.department,
+        documents.published_at,
+        documents.metadata AS document_metadata,
+        1 - (chunk_embeddings.embedding <=> %s::vector) + {category_bonus_sql} AS vector_score
+    FROM chunk_embeddings
+    JOIN chunks ON chunks.chunk_id = chunk_embeddings.chunk_id
+    JOIN documents ON documents.doc_id = chunks.doc_id
+    LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
+    LEFT JOIN latest_document_versions
+      ON latest_document_versions.doc_id = chunks.doc_id
+    WHERE (
+        chunks.document_version_id IS NULL
+        OR document_versions.version = latest_document_versions.latest_version
+    )
+    """.format(category_bonus_sql=category_bonus_sql)
+
+    filter_clause, filter_params = _build_db_filter_conditions(request)
+    if filter_clause:
+        sql += "\n      AND " + filter_clause
+
+    sql += """
+    ORDER BY chunk_embeddings.embedding <=> %s::vector,
+             documents.published_at DESC NULLS LAST,
+             chunks.chunk_id ASC
+    LIMIT %s
+    """
+
+    try:
+        pg_vector = _to_pg_vector(request.query_vector)
+        with _open_db_connection() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute(
+                    sql,
+                    (
+                        pg_vector,
+                        *category_bonus_params,
+                        *filter_params,
+                        pg_vector,
+                        max(request.top_k or _DEFAULT_TOP_K, (request.top_k or _DEFAULT_TOP_K) * 3),
+                    ),
+                )
+                rows = cur.fetchall()
+    except (psycopg2.Error, ValueError):
+        return []
+
+    retrieved_docs: list[RetrievedDoc] = []
+    for row in rows:
+        vector_score = float(row["vector_score"] or 0.0)
+        document_metadata = _dict_or_empty(row["document_metadata"])
+        chunk_metadata = _dict_or_empty(row["chunk_metadata"])
+        retrieved_docs.append(
+            RetrievedDoc(
+                doc_id=row["doc_id"],
+                chunk_id=row["chunk_id"],
+                content=row["content"],
+                score=vector_score,
+                title=row["title"] or "",
+                source=row["source_url"] or row["source_type"] or "",
+                category=request.category or row["source_type"],
+                metadata={
+                    **document_metadata,
+                    **chunk_metadata,
+                    **request.log_fields,
+                    "strategy": _resolve_retrieval_mode(request),
+                    "query": request.query,
+                    "keywords": request.keywords,
+                    "filters": request.filters,
+                    "search_mode": "vector_cosine",
+                    "lexical_score": None,
+                    "vector_score": vector_score,
+                    "rrf_score": None,
+                    "final_score": vector_score,
+                    "source_type": row["source_type"],
+                    "department": row["department"],
+                    "published_at": row["published_at"],
+                    "chunk_index": row["chunk_index"],
+                    "section_index": row["section_index"],
+                    "section_type": row["section_type"],
+                    "section_title": row["section_title"],
+                    "content_length": row["content_length"],
+                    "content_hash": row["content_hash"],
+                    "version": row["version"],
+                    "document_version_id": row["document_version_id"],
+                },
+            )
+        )
+    return retrieved_docs
+
+
+def _retrieve_documents_from_database_hybrid(request: RetrievalRequest) -> list[RetrievedDoc]:
+    lexical_docs = _retrieve_documents_from_database(request)
+    vector_docs = _retrieve_documents_from_database_vector(request)
+    candidates = merge_retrieval_candidates(lexical_docs, vector_docs)
+    return _candidates_to_retrieved_docs(candidates, request)
+
+
+def merge_retrieval_candidates(
+    lexical_docs: list[RetrievedDoc],
+    vector_docs: list[RetrievedDoc],
+) -> list[RetrievalCandidate]:
+    """Merge lexical and vector candidates by chunk_id using RRF.
+
+    Chunk-level dedupe happens here. Document-level dedupe stays in select_topk.
+    Weighted-sum ranking can be added later without changing the retrieval shape.
+    """
+    candidates: dict[str, RetrievalCandidate] = {}
+
+    for rank, doc in enumerate(lexical_docs, start=1):
+        rrf_score = _rrf_score(rank)
+        lexical_score = _optional_float(doc.metadata.get("lexical_norm_score")) or doc.score
+        candidates[doc.chunk_id] = RetrievalCandidate(
+            chunk_id=doc.chunk_id,
+            doc_id=doc.doc_id,
+            document=doc,
+            lexical_score=lexical_score,
+            vector_score=_optional_float(doc.metadata.get("vector_score")),
+            rrf_score=rrf_score,
+            final_score=rrf_score,
+        )
+
+    for rank, doc in enumerate(vector_docs, start=1):
+        previous = candidates.get(doc.chunk_id)
+        vector_score = _optional_float(doc.metadata.get("vector_score")) or doc.score
+        vector_rrf_score = _rrf_score(rank)
+        if previous is None:
+            candidates[doc.chunk_id] = RetrievalCandidate(
+                chunk_id=doc.chunk_id,
+                doc_id=doc.doc_id,
+                document=doc,
+                lexical_score=_optional_float(doc.metadata.get("lexical_norm_score"))
+                or _optional_float(doc.metadata.get("lexical_score")),
+                vector_score=vector_score,
+                rrf_score=vector_rrf_score,
+                final_score=vector_rrf_score,
+            )
+            continue
+
+        rrf_score = previous.rrf_score + vector_rrf_score
+        metadata = {
+            **previous.document.metadata,
+            "lexical_score": previous.lexical_score,
+            "vector_score": vector_score,
+            "rrf_score": rrf_score,
+            "final_score": rrf_score,
+            "search_mode": "hybrid_rrf",
+        }
+        candidates[doc.chunk_id] = RetrievalCandidate(
+            chunk_id=previous.chunk_id,
+            doc_id=previous.doc_id,
+            document=previous.document.model_copy(update={"metadata": metadata}),
+            lexical_score=previous.lexical_score,
+            vector_score=vector_score,
+            rrf_score=rrf_score,
+            final_score=rrf_score,
+        )
+
+    scored_candidates = _apply_hybrid_final_scores(list(candidates.values()))
+    return sorted(
+        scored_candidates,
+        key=lambda candidate: (candidate.final_score, candidate.rrf_score),
+        reverse=True,
+    )
+
+
+def _apply_hybrid_final_scores(candidates: list[RetrievalCandidate]) -> list[RetrievalCandidate]:
+    lexical_max = max((candidate.lexical_score or 0.0 for candidate in candidates), default=0.0)
+    vector_max = max((candidate.vector_score or 0.0 for candidate in candidates), default=0.0)
+    mode = _hybrid_score_mode()
+    lexical_weight = _float_env(_HYBRID_LEXICAL_WEIGHT_ENV_VAR, _DEFAULT_HYBRID_LEXICAL_WEIGHT)
+    vector_weight = _float_env(_HYBRID_VECTOR_WEIGHT_ENV_VAR, _DEFAULT_HYBRID_VECTOR_WEIGHT)
+    weight_sum = max(lexical_weight + vector_weight, 0.000001)
+    lexical_weight = lexical_weight / weight_sum
+    vector_weight = vector_weight / weight_sum
+
+    scored: list[RetrievalCandidate] = []
+    for candidate in candidates:
+        lexical_norm = _normalized_score(candidate.lexical_score, lexical_max)
+        vector_norm = _normalized_score(candidate.vector_score, vector_max)
+        if mode == "max":
+            final_score = max(lexical_norm, vector_norm)
+        elif mode == "rrf":
+            final_score = candidate.rrf_score
+        else:
+            final_score = lexical_norm * lexical_weight + vector_norm * vector_weight
+
+        metadata = {
+            **candidate.document.metadata,
+            "lexical_score": candidate.lexical_score,
+            "vector_score": candidate.vector_score,
+            "hybrid_lexical_norm_score": lexical_norm,
+            "hybrid_vector_norm_score": vector_norm,
+            "rrf_score": candidate.rrf_score,
+            "final_score": final_score,
+            "hybrid_score_mode": mode,
+            "hybrid_lexical_weight": lexical_weight,
+            "hybrid_vector_weight": vector_weight,
+            "search_mode": "hybrid",
+        }
+        scored.append(
+            RetrievalCandidate(
+                chunk_id=candidate.chunk_id,
+                doc_id=candidate.doc_id,
+                document=candidate.document.model_copy(update={"metadata": metadata}),
+                lexical_score=candidate.lexical_score,
+                vector_score=candidate.vector_score,
+                rrf_score=candidate.rrf_score,
+                final_score=final_score,
+                search_mode="hybrid",
+            )
+        )
+    return scored
+
+
+def _candidates_to_retrieved_docs(
+    candidates: list[RetrievalCandidate],
+    request: RetrievalRequest,
+) -> list[RetrievedDoc]:
+    limit = max(request.top_k or _DEFAULT_TOP_K, (request.top_k or _DEFAULT_TOP_K) * 3)
+    docs: list[RetrievedDoc] = []
+    for candidate in candidates[:limit]:
+        metadata = {
+            **candidate.document.metadata,
+            "strategy": "hybrid",
+            "search_mode": candidate.search_mode,
+            "lexical_score": candidate.lexical_score,
+            "vector_score": candidate.vector_score,
+            "rrf_score": candidate.rrf_score,
+            "final_score": candidate.final_score,
+        }
+        docs.append(
+            candidate.document.model_copy(
+                update={
+                    "score": candidate.final_score,
+                    "metadata": metadata,
+                }
+            )
+        )
+    return docs
+
+
+def _rrf_score(rank: int, k: int = 60) -> float:
+    return 1.0 / (k + rank)
+
+
+def _hybrid_score_mode() -> str:
+    mode = os.getenv(_HYBRID_SCORE_MODE_ENV_VAR, "weighted").strip().lower()
+    return mode if mode in {"weighted", "max", "rrf"} else "weighted"
+
+
+def _float_env(name: str, default: float) -> float:
+    try:
+        value = float(os.getenv(name, ""))
+    except ValueError:
+        return default
+    return value if math.isfinite(value) and value >= 0 else default
+
+
+def _normalized_score(value: float | None, max_value: float) -> float:
+    if value is None or max_value <= 0:
+        return 0.0
+    return max(min(value / max_value, 1.0), 0.0)
+
+
+def _optional_float(value: Any) -> float | None:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
+
+
 def _retrieve_documents_from_database(request: RetrievalRequest) -> list[RetrievedDoc]:
     search_terms = _build_db_search_terms(request)
     tsquery = _build_tsquery_or_expression(search_terms)
     if not search_terms:
         return []
 
+    # TODO: Move search_text/search_vector to generated columns with a GIN index
+    # in a separate migration. Keep this rollout read-only and behavior-preserving.
     ilike_patterns = [f"%{term}%" for term in search_terms]
-    ilike_score_sql = " + ".join(
-        ["CASE WHEN search_text ILIKE %s THEN 0.2 ELSE 0 END" for _ in ilike_patterns]
+    phrase_patterns = _build_exact_phrase_patterns(request)
+    boost_patterns, has_boost_terms = _build_boost_patterns(search_terms)
+    term_match_sql = " + ".join(
+        ["CASE WHEN search_text ILIKE %s THEN 0.15 ELSE 0 END" for _ in ilike_patterns]
     ) or "0"
+    title_match_sql = " + ".join(
+        ["CASE WHEN title_text ILIKE %s THEN 0.35 ELSE 0 END" for _ in boost_patterns]
+    ) or "0"
+    section_match_sql = " + ".join(
+        ["CASE WHEN section_text ILIKE %s THEN 0.25 ELSE 0 END" for _ in boost_patterns]
+    ) or "0"
+    category_bonus_sql, category_bonus_params = _category_bonus_sql(request, "source_type")
 
     sql = f"""
     WITH latest_document_versions AS (
@@ -318,7 +734,10 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
             documents.department,
             documents.published_at,
             documents.metadata AS document_metadata,
-            coalesce(documents.title, '') || ' ' || coalesce(chunks.content, '') AS search_text,
+            coalesce(documents.title, '') AS title_text,
+            coalesce(chunks.section_title, '') AS section_text,
+            coalesce(chunks.content, '') AS content_text,
+            coalesce(documents.title, '') || ' ' || coalesce(chunks.section_title, '') || ' ' || coalesce(chunks.content, '') AS search_text,
             to_tsvector('simple', coalesce(documents.title, '') || ' ' || coalesce(chunks.content, '')) AS search_vector
         FROM chunks
         JOIN documents ON documents.doc_id = chunks.doc_id
@@ -336,6 +755,39 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
         sql += "\n          AND " + filter_clause
 
     sql += f"""
+    ),
+    score_components AS (
+        SELECT
+            *,
+            CASE
+                WHEN %s <> '' THEN ts_rank_cd(search_vector, to_tsquery('simple', %s))
+                ELSE 0
+            END AS ts_rank_score,
+            CASE
+                WHEN title_text ILIKE ANY(%s) THEN 0.8
+                WHEN section_text ILIKE ANY(%s) THEN 0.6
+                WHEN content_text ILIKE ANY(%s) THEN 0.35
+                ELSE 0
+            END AS exact_phrase_score,
+            LEAST(({term_match_sql}), %s) AS term_match_score,
+            LEAST(({title_match_sql}), %s) AS title_match_score,
+            LEAST(({section_match_sql}), %s) AS section_match_score,
+            {category_bonus_sql} AS category_bonus,
+            LEAST(
+                CASE WHEN search_text ~* %s THEN 1.10 ELSE 0 END
+                + CASE WHEN search_text ~* %s THEN 0.55 ELSE 0 END
+                + CASE WHEN title_text ~* %s THEN 0.80 ELSE 0 END
+                + CASE WHEN search_text ~* %s THEN 0.35 ELSE 0 END
+                + CASE WHEN search_text ~* %s THEN 0.30 ELSE 0 END
+                + CASE WHEN %s AND NOT (search_text ILIKE ANY(%s)) THEN 0.45 ELSE 0 END
+                + CASE WHEN char_length(content_text) < 80 THEN 0.20 ELSE 0 END,
+                %s
+            ) AS noise_penalty
+        FROM searchable
+        WHERE (
+            (%s <> '' AND search_vector @@ to_tsquery('simple', %s))
+            OR search_text ILIKE ANY(%s)
+        )
     )
     SELECT
         chunk_id,
@@ -356,22 +808,57 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
         department,
         published_at,
         document_metadata,
+        ts_rank_score,
+        exact_phrase_score,
+        term_match_score,
+        title_match_score,
+        section_match_score,
+        category_bonus,
+        noise_penalty,
         (
-            CASE
-                WHEN %s <> '' THEN ts_rank_cd(search_vector, to_tsquery('simple', %s))
-                ELSE 0
-            END
-            + {ilike_score_sql}
-        ) AS score
-    FROM searchable
-    WHERE (
-        (%s <> '' AND search_vector @@ to_tsquery('simple', %s))
-        OR search_text ILIKE ANY(%s)
-    )
+            ts_rank_score
+            + exact_phrase_score
+            + term_match_score
+            + title_match_score
+            + section_match_score
+            + category_bonus
+        ) AS raw_lexical_score,
+        GREATEST(
+            ts_rank_score
+            + exact_phrase_score
+            + term_match_score
+            + title_match_score
+            + section_match_score
+            + category_bonus
+            - noise_penalty,
+            0
+        ) AS lexical_score,
+        GREATEST(
+            ts_rank_score
+            + exact_phrase_score
+            + term_match_score
+            + title_match_score
+            + section_match_score
+            + category_bonus
+            - noise_penalty,
+            0
+        ) / (
+            GREATEST(
+                ts_rank_score
+                + exact_phrase_score
+                + term_match_score
+                + title_match_score
+                + section_match_score
+                + category_bonus
+                - noise_penalty,
+                0
+            ) + 1
+        ) AS lexical_norm_score
+    FROM score_components
     """
 
     sql += (
-        "\n    ORDER BY score DESC, published_at DESC NULLS LAST, chunk_id ASC"
+        "\n    ORDER BY lexical_score DESC, published_at DESC NULLS LAST, chunk_id ASC"
         "\n    LIMIT %s"
     )
 
@@ -379,7 +866,24 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
         *filter_params,
         tsquery,
         tsquery,
+        phrase_patterns,
+        phrase_patterns,
+        phrase_patterns,
         *ilike_patterns,
+        _ILIKE_SCORE_CAP,
+        *boost_patterns,
+        _TITLE_MATCH_SCORE_CAP,
+        *boost_patterns,
+        _SECTION_MATCH_SCORE_CAP,
+        *category_bonus_params,
+        "\uc785\ucc30|\uad6c\ub9e4|\uc6a9\uc5ed|\uacf5\uace0\ubc88\ud638",
+        "\uc804\ud654|\uc5f0\ub77d\ucc98|\ub2f4\ub2f9\ubd80\uc11c|\ub2f4\ub2f9\uc790",
+        "\uc804\ud654|\uc5f0\ub77d\ucc98|\ub2f4\ub2f9\ubd80\uc11c|\ub2f4\ub2f9\uc790",
+        "\ub300\ud45c \ud398\uc774\uc9c0|\ubcf8\ubb38\ubc14\ub85c\uac00\uae30|\uba54\ub274|\uc0ac\uc774\ud2b8\ub9f5|footer|navigation",
+        "\uae30\uad00\uc18c\uac1c|\ubd80\uc11c\uc18c\uac1c|\uc18c\uac1c",
+        has_boost_terms,
+        boost_patterns,
+        _NOISE_PENALTY_CAP,
         tsquery,
         tsquery,
         ilike_patterns,
@@ -396,8 +900,10 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
 
     retrieved_docs: list[RetrievedDoc] = []
     for row in rows:
-        score = float(row["score"] or 0.0)
-        if score < _MIN_DB_SCORE:
+        raw_lexical_score = float(row["raw_lexical_score"] or 0.0)
+        lexical_score = float(row["lexical_score"] or 0.0)
+        lexical_norm_score = float(row["lexical_norm_score"] or 0.0)
+        if lexical_score < _MIN_DB_SCORE:
             continue
         document_metadata = _dict_or_empty(row["document_metadata"])
         chunk_metadata = _dict_or_empty(row["chunk_metadata"])
@@ -406,7 +912,7 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
                 doc_id=row["doc_id"],
                 chunk_id=row["chunk_id"],
                 content=row["content"],
-                score=score,
+                score=lexical_norm_score,
                 title=row["title"] or "",
                 source=row["source_url"] or row["source_type"] or "",
                 category=request.category or row["source_type"],
@@ -420,6 +926,20 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
                     "filters": request.filters,
                     "matched_terms": search_terms,
                     "search_mode": "keyword_or_tsquery_ilike",
+                    "ts_rank_score": float(row["ts_rank_score"] or 0.0),
+                    "exact_phrase_score": float(row["exact_phrase_score"] or 0.0),
+                    "term_match_score": float(row["term_match_score"] or 0.0),
+                    "ilike_score": float(row["term_match_score"] or 0.0),
+                    "title_match_score": float(row["title_match_score"] or 0.0),
+                    "section_match_score": float(row["section_match_score"] or 0.0),
+                    "category_bonus": float(row["category_bonus"] or 0.0),
+                    "noise_penalty": float(row["noise_penalty"] or 0.0),
+                    "raw_lexical_score": raw_lexical_score,
+                    "lexical_score": lexical_score,
+                    "lexical_norm_score": lexical_norm_score,
+                    "vector_score": None,
+                    "rrf_score": None,
+                    "final_score": lexical_norm_score,
                     "source_type": row["source_type"],
                     "department": row["department"],
                     "published_at": row["published_at"],
@@ -469,6 +989,7 @@ def _score_documents(
             )
 
         if score > 0:
+            score += _category_bonus_for_source(chunk.record.source_type, request)
             scored_docs.append((score, chunk, matched_tokens))
 
     scored_docs.sort(
@@ -506,12 +1027,15 @@ def _to_retrieved_docs(
     retrieved_docs: list[RetrievedDoc] = []
     for score, chunk, matched_tokens in scored_docs:
         record = chunk.record
+        lexical_score = round(score, 6)
+        lexical_norm_score = _lexical_norm_score(lexical_score)
+        category_bonus = _category_bonus_for_source(record.source_type, request)
         retrieved_docs.append(
             RetrievedDoc(
                 doc_id=record.doc_id,
                 chunk_id=record.chunk_id,
                 content=record.content,
-                score=round(score, 6),
+                score=lexical_norm_score,
                 source=record.source_url or record.source_type,
                 title=record.title,
                 category=request.category or record.source_type,
@@ -522,6 +1046,21 @@ def _to_retrieved_docs(
                     "keywords": request.keywords,
                     "filters": request.filters,
                     "matched_tokens": matched_tokens,
+                    "search_mode": "file_bm25",
+                    "ts_rank_score": 0.0,
+                    "exact_phrase_score": 0.0,
+                    "term_match_score": round(max(lexical_score - category_bonus, 0.0), 6),
+                    "ilike_score": 0.0,
+                    "title_match_score": 0.0,
+                    "section_match_score": 0.0,
+                    "category_bonus": category_bonus,
+                    "noise_penalty": 0.0,
+                    "raw_lexical_score": lexical_score,
+                    "lexical_score": lexical_score,
+                    "lexical_norm_score": lexical_norm_score,
+                    "vector_score": None,
+                    "rrf_score": None,
+                    "final_score": lexical_norm_score,
                     "source_type": record.source_type,
                     "published_at": record.published_at,
                 },
@@ -533,10 +1072,6 @@ def _to_retrieved_docs(
 def _matches_filters(record: ChunkRecord, filters: dict[str, list[str]]) -> bool:
     if not filters:
         return True
-
-    document_categories = filters.get("document_category", [])
-    if document_categories and record.source_type not in document_categories:
-        return False
 
     departments = filters.get("department", [])
     if departments and not _matches_any_value(record.department, departments):
