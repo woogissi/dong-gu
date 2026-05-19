@@ -83,7 +83,7 @@ class PipelineStageOutputTest(unittest.TestCase):
         self._debug_print("after_retrieve", self._snapshot_after_retrieve(state))
 
         self.assertEqual(state.retrieval_strategy, "hybrid")
-        self.assertEqual(state.retrieval_top_k, 10)
+        self.assertEqual(state.retrieval_top_k, 20)
         self.assertIn("retrieval_request", state.metadata)
         self.assertIn("retrieval_strategy_log", state.metadata)
         self.assertGreaterEqual(len(state.retrieved_docs), 1)

@@ -10,7 +10,7 @@ from rag.schemas.answer import Answer
 
 from rag.retrieval.retriever import retrieve_documents
 from rag.retrieval.search_strategy import build_retrieval_request
-from rag.selection.topk_selector import select_topk
+from rag.selection.topk_selector import select_topk_with_diagnostics
 from rag.selection.context_builder import build_context
 from rag.selection.reranker import rerank_documents
 
@@ -30,6 +30,8 @@ _MIN_TOP1_SCORE_ENV_VAR = "RETRIEVAL_MIN_TOP1_SCORE"
 _MIN_AVG_TOPK_SCORE_ENV_VAR = "RETRIEVAL_MIN_AVG_TOPK_SCORE"
 _MIN_CONTEXT_CHARS_ENV_VAR = "RETRIEVAL_MIN_CONTEXT_CHARS"
 _MAX_DUPLICATE_DOC_RATIO_ENV_VAR = "RETRIEVAL_MAX_DUPLICATE_DOC_RATIO"
+_MAX_TOP_NOISE_SCORE_ENV_VAR = "RETRIEVAL_MAX_TOP_NOISE_SCORE"
+_MIN_TOP_STRONG_MATCH_ENV_VAR = "RETRIEVAL_MIN_TOP_STRONG_MATCH"
 _STARTUP_WARMUP_QUERY = "동의대학교 정보 안내"
 
 
@@ -135,6 +137,9 @@ class ChatPipeline:
         retrieval_request_log["effective_strategy"] = effective_strategy
         state.metadata["retrieval_request"] = retrieval_request_log
         state.metadata["retrieval_strategy_log"] = {**request.log_fields, "effective_strategy": effective_strategy}
+        branch_log = self._collect_branch_candidates(request)
+        if branch_log:
+            state.metadata["retrieval_branch_candidates"] = branch_log
         state.retrieved_docs = retrieve_documents(
             request=request,
         )
@@ -173,6 +178,13 @@ class ChatPipeline:
         avg_topk_score = sum(scores) / len(scores) if scores else 0.0
         context_chars = sum(len(doc.content or "") for doc in top_docs)
         duplicate_ratio = 1.0 - (len({doc.doc_id for doc in top_docs}) / len(top_docs))
+        top_signals = top_docs[0].metadata.get("rerank_signals") if top_docs else {}
+        if not isinstance(top_signals, dict):
+            top_signals = {}
+        top_noise = self._metadata_float(top_signals, "noise_score")
+        top_strong_match = self._metadata_float(top_signals, "strong_term_match")
+        top_doc_noise = self._doc_noise_score(top_docs[0]) if top_docs else 0.0
+        exact_or_title_match_count = sum(1 for doc in top_docs[:5] if self._has_retrieval_evidence(doc))
 
         if top1_score < self._float_env(_MIN_TOP1_SCORE_ENV_VAR, 0.05):
             reason = "low_top1_score"
@@ -182,6 +194,10 @@ class ChatPipeline:
             reason = "short_context"
         elif duplicate_ratio > self._float_env(_MAX_DUPLICATE_DOC_RATIO_ENV_VAR, 0.8):
             reason = "excessive_duplicate_doc_ids"
+        elif top_doc_noise >= self._float_env(_MAX_TOP_NOISE_SCORE_ENV_VAR, 1.2):
+            reason = "top_candidate_noise"
+        elif exact_or_title_match_count == 0 and top_strong_match < self._float_env(_MIN_TOP_STRONG_MATCH_ENV_VAR, 0.05):
+            reason = "no_exact_or_strong_keyword_match"
         else:
             reason = ""
 
@@ -192,11 +208,29 @@ class ChatPipeline:
             "avg_topk_score": avg_topk_score,
             "context_chars": context_chars,
             "duplicate_doc_ratio": duplicate_ratio,
+            "top_noise_score": max(top_noise, top_doc_noise),
+            "top_strong_term_match": top_strong_match,
+            "exact_or_title_match_count": exact_or_title_match_count,
         }
 
     def _fallback_retrieve(self, request, reason: str) -> tuple[list, dict]:
+        original_query = ""
+        variants = list(request.query_variants or [])
+        if variants:
+            original_query = variants[-1]
         attempts = [
-            ("remove_category_filter", request.model_copy(update={"filters": {}, "category": None})),
+            (
+                "original_query_no_rewrite",
+                request.model_copy(
+                    update={
+                        "query": original_query or request.query,
+                        "query_variants": [original_query or request.query],
+                        "filters": {},
+                        "category": None,
+                    }
+                ),
+            ),
+            ("relaxed_filters", request.model_copy(update={"filters": {}, "category": None})),
             ("increase_top_k", request.model_copy(update={"top_k": max((request.top_k or 10) * 2, 20)})),
             ("lexical_only_retry", request),
             ("vector_only_retry", request),
@@ -210,6 +244,51 @@ class ChatPipeline:
             if docs and quality["ok"]:
                 return docs, {"used": True, "fallback_reason": reason, "selected_strategy": name, "attempts": tried}
         return [], {"used": False, "fallback_reason": reason, "attempts": tried}
+
+    def _collect_branch_candidates(self, request) -> dict:
+        if os.getenv("RAG_LOG_BRANCH_CANDIDATES", "1").strip().lower() in {"0", "false", "off"}:
+            return {}
+        branches = {}
+        for name, mode in (("lexical", "lexical"), ("vector", "vector")):
+            docs = self._retrieve_with_mode(request, mode)[:5]
+            branches[name] = [self._candidate_log_item(rank, doc) for rank, doc in enumerate(docs, start=1)]
+        return branches
+
+    def _candidate_log_item(self, rank: int, doc) -> dict:
+        metadata = doc.metadata or {}
+        return {
+            "rank": rank,
+            "doc_id": doc.doc_id,
+            "chunk_id": doc.chunk_id,
+            "title": doc.title,
+            "score": doc.score,
+            "lexical_score": metadata.get("lexical_score"),
+            "vector_score": metadata.get("vector_score"),
+            "final_score": metadata.get("final_score"),
+            "source_type": metadata.get("source_type"),
+            "section_type": metadata.get("section_type"),
+        }
+
+    def _doc_noise_score(self, doc) -> float:
+        metadata = doc.metadata or {}
+        source_type = str(metadata.get("source_type") or "").lower()
+        source = (doc.source or "").lower()
+        content_length = int(metadata.get("content_length") or len(doc.content or ""))
+        score = float(metadata.get("noise_penalty") or 0.0)
+        if source_type in {"static", "index", "menu"}:
+            score += 0.8
+        if any(marker in source for marker in ("index.do", "main.do", "/main", "sitemap")):
+            score += 0.4
+        if content_length and content_length < 120:
+            score += 0.4
+        return score
+
+    def _has_retrieval_evidence(self, doc) -> bool:
+        metadata = doc.metadata or {}
+        return any(
+            float(metadata.get(key) or 0.0) > 0.0
+            for key in ("exact_phrase_score", "title_match_score", "section_match_score", "lexical_score")
+        )
 
     def _retrieve_with_mode(self, request, mode: str) -> list:
         previous_mode = os.getenv(_RETRIEVAL_MODE_ENV_VAR)
@@ -242,8 +321,93 @@ class ChatPipeline:
             category=state.category,
             filters=state.filters,
         )
-        state.selected_docs = select_topk(state.reranked_docs or state.retrieved_docs)
+        selection_result = select_topk_with_diagnostics(state.reranked_docs or state.retrieved_docs)
+        state.selected_docs = selection_result["selected"]
+        state.metadata["selection_diagnostics"] = selection_result
+        state.metadata["rerank_comparison"] = self._build_rerank_comparison(state.retrieved_docs, state.reranked_docs, state.selected_docs)
+        selection_quality = self._evaluate_selection_quality(state.selected_docs)
+        state.metadata["selection_quality"] = selection_quality
+        retrieval_quality = state.metadata.get("retrieval_quality")
+        if isinstance(retrieval_quality, dict):
+            retrieval_quality["selection_quality"] = selection_quality
         state.context = build_context(state.selected_docs)
+
+    def _evaluate_selection_quality(self, docs: list) -> dict:
+        if not docs:
+            return {
+                "selected_context_contamination": False,
+                "attachment_ratio": 0.0,
+                "noise_ratio": 0.0,
+                "top_heading_query_match": False,
+                "doc_signals": [],
+            }
+
+        doc_signals = []
+        contaminated_count = 0
+        attachment_count = 0
+        for rank, doc in enumerate(docs, start=1):
+            signals = doc.metadata.get("rerank_signals") or {}
+            if not isinstance(signals, dict):
+                signals = {}
+            section_type = str(doc.metadata.get("section_type") or "").lower()
+            is_attachment = section_type == "attachment"
+            noise_score = self._metadata_float(signals, "noise_score")
+            heading_match = (
+                self._metadata_float(signals, "title_match")
+                + self._metadata_float(signals, "section_title_match")
+            )
+            is_contamination_candidate = noise_score >= 1.5 and heading_match <= 0.0
+            attachment_count += 1 if is_attachment else 0
+            contaminated_count += 1 if is_contamination_candidate else 0
+            doc_signals.append(
+                {
+                    "rank": rank,
+                    "doc_id": doc.doc_id,
+                    "chunk_id": doc.chunk_id,
+                    "title": doc.title,
+                    "section_title": doc.metadata.get("section_title"),
+                    "source_type": doc.metadata.get("source_type"),
+                    "is_attachment": is_attachment,
+                    "noise_score": noise_score,
+                    "heading_query_match": heading_match > 0.0,
+                    "rerank_score": doc.metadata.get("rerank_score", doc.score),
+                    "rerank_signals": signals,
+                }
+            )
+
+        return {
+            "selected_context_contamination": contaminated_count > 0,
+            "attachment_ratio": attachment_count / len(docs),
+            "noise_ratio": contaminated_count / len(docs),
+            "top_heading_query_match": doc_signals[0]["heading_query_match"],
+            "doc_signals": doc_signals,
+        }
+
+    def _build_rerank_comparison(self, before_docs: list, after_docs: list, selected_docs: list) -> list[dict]:
+        before_rank = {doc.chunk_id: rank for rank, doc in enumerate(before_docs, start=1)}
+        selected_ids = {doc.chunk_id for doc in selected_docs}
+        rows = []
+        for rank_after, doc in enumerate(after_docs[:20], start=1):
+            rank_before = before_rank.get(doc.chunk_id)
+            rows.append(
+                {
+                    "chunk_id": doc.chunk_id,
+                    "doc_id": doc.doc_id,
+                    "title": doc.title,
+                    "rank_before": rank_before,
+                    "rank_after": rank_after,
+                    "rank_delta": None if rank_before is None else rank_before - rank_after,
+                    "rerank_score": doc.metadata.get("rerank_score", doc.score),
+                    "selected": doc.chunk_id in selected_ids,
+                }
+            )
+        return rows
+
+    def _metadata_float(self, values: dict, key: str) -> float:
+        try:
+            return float(values.get(key) or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
 
     def _generate(self, state: PipelineState) -> None:
         state.prompt = build_prompt(

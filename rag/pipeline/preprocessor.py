@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+import re
 
 from rag.pipeline.state import PipelineState
 from rag.preprocess.domain_knowledge import ENTITY_LEXICON, ENTITY_SYNONYMS
@@ -124,6 +125,35 @@ for entity, lexemes in ENTITY_LEXICON.items():
         )))
 
 _KEYWORD_AUTOMATON = _build_aho_automaton(set(_LEXICON_PATTERN_TO_KEYWORDS))
+_PROTECTED_QUERY_TOKEN_PATTERN = re.compile(
+    r"[가-힣A-Za-z0-9]+(?:[-ㆍ·][가-힣A-Za-z0-9]+)*"
+)
+_PROTECTED_SUFFIXES = (
+    "관",
+    "호관",
+    "학과",
+    "학부",
+    "대학원",
+    "장학금",
+    "버스",
+    "식당",
+    "라운지",
+    "센터",
+    "팀",
+    "실",
+)
+_PROTECTED_KEYWORDS = {
+    "정보관",
+    "정보공학관",
+    "지천관",
+    "콜라보라운지",
+    "셔틀버스",
+    "통학버스",
+    "학생식당",
+    "학식",
+    "기말시험",
+    "보강일정",
+}
 
 
 def _extract_aho_keywords(query: str) -> list[str]:
@@ -155,6 +185,34 @@ def _drop_subsumed_terms(terms: list[str]) -> list[str]:
             continue
         kept.append(term)
     return sorted(kept, key=terms.index)
+
+
+def _protected_query_terms(query: str, keywords: list[str]) -> list[str]:
+    protected: dict[str, None] = {}
+    for value in [*keywords, *(_PROTECTED_QUERY_TOKEN_PATTERN.findall(query or ""))]:
+        term = value.strip()
+        if not term:
+            continue
+        if term in _PROTECTED_KEYWORDS:
+            protected[term] = None
+            continue
+        if re.search(r"\d", term):
+            protected[term] = None
+            continue
+        if any(term.endswith(suffix) and len(term) >= max(3, len(suffix) + 1) for suffix in _PROTECTED_SUFFIXES):
+            protected[term] = None
+    return list(protected)
+
+
+def _missing_protected_terms(text: str, protected_terms: list[str]) -> list[str]:
+    normalized = text or ""
+    return [term for term in protected_terms if term and term not in normalized]
+
+
+def _append_missing_terms(text: str, missing_terms: list[str]) -> str:
+    if not missing_terms:
+        return text
+    return " ".join([text, *missing_terms]).strip()
 
 
 class QueryPreprocessor:
@@ -247,8 +305,22 @@ class QueryPreprocessor:
             query=normalized_query,
             analysis=analysis,
         )
+        protected_terms = _protected_query_terms(normalized_query, keywords)
+        missing_in_rewrite = _missing_protected_terms(query_bundle.keyword_query or "", protected_terms)
+        rewrite_quality = {
+            "protected_terms": protected_terms,
+            "missing_protected_terms": missing_in_rewrite,
+            "original_len": len(normalized_query),
+            "rewrite_len": len(query_bundle.keyword_query or ""),
+            "rewrite_preserved": not missing_in_rewrite,
+        }
+        if missing_in_rewrite:
+            protected_rewrite = _append_missing_terms(query_bundle.keyword_query or normalized_query, missing_in_rewrite)
+            rewritten_queries = [normalized_query, protected_rewrite, *rewritten_queries]
+            query_bundle = replace(query_bundle, keyword_query=normalized_query)
         if lexical_query != normalized_query:
             rewritten_queries = list(dict.fromkeys([query_bundle.keyword_query, lexical_query, *rewritten_queries]))
+        rewritten_queries = list(dict.fromkeys([*rewritten_queries, normalized_query, state.original_query]))
 
         embedding_query = normalized_query
         state.normalized_query = normalized_query
@@ -275,6 +347,7 @@ class QueryPreprocessor:
             "keywords": keywords,
             "extracted_entities": extracted_entities,
             "rewrite_entities": query_bundle.entities,
+            "rewrite_quality": rewrite_quality,
             "entities": extracted_entities,
             "filters": state.filters,
             "primary_category": state.category,

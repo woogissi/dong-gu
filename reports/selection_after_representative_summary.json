@@ -1,0 +1,26 @@
+[
+  {
+    "query": "지천관 위치가 어떻게 돼?",
+    "primary_intent": "INFO",
+    "retrieved_doc_count": 20,
+    "selected_top1": "캠퍼스맵 | 캠퍼스안내 | DEU",
+    "selected_source_type": "campus",
+    "selected_score": 2.566321
+  },
+  {
+    "query": "정보공학관 위치",
+    "primary_intent": "INFO",
+    "retrieved_doc_count": 20,
+    "selected_top1": "학과사무실 위치 및 연락처 | 학과소개 | 컴퓨터공학과",
+    "selected_source_type": "department",
+    "selected_score": 4.956358
+  },
+  {
+    "query": "셔틀 버스 정보",
+    "primary_intent": "INFO",
+    "retrieved_doc_count": 20,
+    "selected_top1": "셔틀버스 안내 | 캠퍼스안내 | DEU",
+    "selected_source_type": "campus",
+    "selected_score": 5.683333
+  }
+]

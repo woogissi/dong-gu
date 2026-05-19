@@ -9,9 +9,10 @@ CHUNK_HASH_NORMALIZATION_VERSION = "normalized-v2"
 DEFAULT_PARAGRAPH_OVERLAP_CHARS = 80
 
 STUB_LINE_PATTERNS = (
-    re.compile(r"^(more|notice|program|sns)$", re.IGNORECASE),
+    re.compile(r"^(more|notice|program|sns|home|top|quick\s*menu)$", re.IGNORECASE),
     re.compile(r"^(pdf|hwp)\s*다운로드$", re.IGNORECASE),
     re.compile(r"^전체화면\s*보기$"),
+    re.compile(r"^(본문\s*바로가기|전체메뉴|사이트맵|로그인|회원가입|목록)$"),
     re.compile(r"^웹진호수(?:\s*[|:]\s*\d+)?$"),
     re.compile(r"^행사사진(?:\s*more)?$", re.IGNORECASE),
     re.compile(r"^(로그인|회원가입|이용문의)$"),
@@ -19,6 +20,7 @@ STUB_LINE_PATTERNS = (
 )
 STUB_PHRASE_PATTERN = re.compile(
     r"(PDF\s*다운로드|HWP\s*다운로드|전체화면\s*보기|웹진호수|"
+    r"본문\s*바로가기|전체메뉴|사이트맵|로그인|회원가입|SNS\s*공유|"
     r"게시물\s*좌측으로\s*이동|게시물\s*우측으로\s*이동|이전\s*정지\s*시작\s*다음)",
     re.IGNORECASE,
 )
@@ -59,6 +61,7 @@ class DocumentChunker:
         if not text:
             return ""
         text = text.replace("\xa0", " ")
+        text = STUB_PHRASE_PATTERN.sub(" ", text)
         text = DECORATIVE_RUN_PATTERN.sub(r"\1", text)
         text = re.sub(r"[ \t]+", " ", text)
         text = re.sub(r"\n{3,}", "\n\n", text)
@@ -289,7 +292,30 @@ class DocumentChunker:
             return True
         if len(normalized) <= 40 and re.fullmatch(r"[A-Z\s|/]+", normalized):
             return True
+        if self.ui_noise_ratio(normalized) >= 0.35 and len(normalized) <= 220:
+            return True
         return False
+
+    def ui_noise_ratio(self, text: str) -> float:
+        tokens = re.findall(r"[가-힣A-Za-z0-9]+", text.lower())
+        if not tokens:
+            return 1.0
+        noise_terms = {
+            "home",
+            "top",
+            "more",
+            "sns",
+            "로그인",
+            "회원가입",
+            "사이트맵",
+            "전체메뉴",
+            "목록",
+            "이전",
+            "다음",
+            "바로가기",
+        }
+        hits = sum(1 for token in tokens if token in noise_terms)
+        return hits / len(tokens)
 
     def chunk_document(self, doc: dict) -> list[dict]:
         chunks = []

@@ -18,10 +18,21 @@ class TextCleaner:                                          # raw데이터 -> cl
 
         noise_patterns = [                                  # 노이즈 패턴 목록
             r"본문 바로가기",
+            r"메뉴\s*열기",
+            r"전체\s*메뉴",
+            r"사이트맵",
+            r"로그인",
+            r"회원가입",
+            r"SNS\s*공유",
+            r"페이스북|트위터|카카오스토리",
+            r"게시물\s*(좌측|우측)으로\s*이동",
+            r"이전\s*정지\s*시작\s*다음",
             r"이전글\s*다음글",
             r"목록\s*$",
             r"인쇄\s*$",
             r"공유\s*$",
+            r"More\s*$",
+            r"Quick\s*Menu",
             r"저작권자.*",
             r"작성일\s*:\s*\d{4}-\d{2}-\d{2}",
             r"작성자\s*:\s*[^\n]*",
@@ -40,8 +51,25 @@ class TextCleaner:                                          # raw데이터 -> cl
             return ""
 
         lines = [line.strip() for line in text.splitlines()]                # 텍스트를 줄 단위로 나눈 뒤, 각 줄 앞뒤 공백 제거 ex) "안내\n \n가\n수강신청" -> ["안내", "", "가", "수강신청"]
-        lines = [line for line in lines if len(line) >= min_len]            # 길이 2 미만 줄은 제거 ex) ["안내", "", "가", "수강신청"] -> ["안내", "수강신청"]
+        lines = [
+            line
+            for line in lines
+            if len(line) >= min_len and not self._is_navigation_only_line(line)
+        ]            # 길이 2 미만 줄은 제거 ex) ["안내", "", "가", "수강신청"] -> ["안내", "수강신청"]
         return "\n".join(lines).strip()                                     # 남은 줄들을 줄바꿈으로 다시 이어붙임
+
+    def _is_navigation_only_line(self, line: str) -> bool:
+        normalized = re.sub(r"\s+", " ", line).strip()
+        if not normalized:
+            return True
+        return bool(
+            re.fullmatch(
+                r"(HOME|TOP|More|SNS|전체메뉴|사이트맵|로그인|회원가입|목록|이전|다음|처음|마지막|"
+                r"본문 바로가기|게시물 좌측으로 이동|게시물 우측으로 이동)",
+                normalized,
+                flags=re.IGNORECASE,
+            )
+        )
 
     def build_clean_text(self, raw_text: str, table_text: str | None = None) -> str:        # 메인 함수
         # 정리 공백/줄바꿈 제거, 노이즈 제거, 짧은 줄 제거

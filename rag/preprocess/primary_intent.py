@@ -24,7 +24,13 @@ _INFO_HINTS = {
     "\uc131\uc801",
     "\ub4f1\ub85d\uae08",
     "\ud1b5\ud559\ubc84\uc2a4",
+    "\uc154\ud2c0",
+    "\uc154\ud2c0\ubc84\uc2a4",
+    "\ubc84\uc2a4",
     "\ub3c4\uc11c\uad00",
+    "\ud559\uc2dd",
+    "\uc2dd\ub2f9",
+    "\ud559\uc0dd\uc2dd\ub2f9",
     "\ud559\uc0ac",
     "\ud734\ud559",
     "\ubcf5\ud559",
@@ -47,6 +53,18 @@ _INFO_HINTS = {
     "\uba54\uc77c",
     "\uc5f0\uad6c\uc2e4",
     "\ud559\uacfc",
+    "\uac74\ubb3c",
+    "\ud638\uad00",
+    "\uc815\ubcf4\uad00",
+    "\uc815\ubcf4\uacf5\ud559\uad00",
+    "\uc9c0\ucc9c\uad00",
+    "\ub77c\uc6b4\uc9c0",
+    "\uac15\uc758\uc2e4",
+    "\ucea0\ud37c\uc2a4",
+    "\uc774\ub984",
+    "\ucd1d\uc7a5",
+    "\ud559\uc7a5",
+    "\uc5ed\ub300",
     "\uc804\ud654\ubc88\ud638",
     "\uc5f0\ub77d\ucc98",
     "\uac00\ub294 \uae38",
@@ -61,6 +79,9 @@ _QUESTION_HINTS = {
     "\uc5b4\ub5bb\uac8c",
     "\ubb34\uc5c7",
     "\ubb50",
+    "\uba87\uc2dc",
+    "\uc5f4\uc5b4",
+    "\uc6b4\uc601",
     "\uac00\ub2a5",
 }
 
@@ -73,6 +94,10 @@ class PrimaryIntentClassifier:
         if any(term in text for term in _PROFANITY_TERMS):
             return "PROFANITY"
         if any(term in text for term in _INFO_HINTS):
+            return "INFO"
+        if re.search(r"\d+\s*[-]?\s*\d*\s*번\s*버스", text):
+            return "INFO"
+        if re.search(r"\d+\s*호관|\d{2,4}[-.]\d{3,4}[-.]\d{4}", text):
             return "INFO"
         if any(term in text for term in _QUESTION_HINTS) and re.search(r"\d|\?", text):
             return "INFO"

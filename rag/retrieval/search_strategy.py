@@ -10,7 +10,7 @@ from typing import Any
 from rag.pipeline.state import PipelineState
 from rag.schemas.retrieval import RetrievalRequest
 
-DEFAULT_TOP_K = 10
+DEFAULT_TOP_K = 20
 SUPPORTED_FILTER_FIELDS = ("category", "target", "department", "time", "time_scope")
 KEYWORD_STRATEGY = "lexical"
 

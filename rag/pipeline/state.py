@@ -29,7 +29,7 @@ class PipelineState:
     query_vector: list[float] = field(default_factory=list)
 
     retrieval_strategy: str = "lexical"
-    retrieval_top_k: int = 10
+    retrieval_top_k: int = 20
     fallback_used: bool = False
 
     retrieved_docs: list[RetrievedDoc] = field(default_factory=list)

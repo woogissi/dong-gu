@@ -89,11 +89,11 @@ class HybridFusionTest(unittest.TestCase):
         return RetrievedDoc(
             doc_id=doc_id or f"doc-{chunk_id}",
             chunk_id=chunk_id,
-            content=f"content {chunk_id}",
+            content=f"content {chunk_id} " * 30,
             score=score,
             title="title",
             source="https://example.test/source",
-            metadata={score_key: score, "content_hash": content_hash or chunk_id},
+            metadata={score_key: score, "content_hash": content_hash or chunk_id, "content_length": 300},
         )
 
     def _restore_env(self, key: str, previous_value: str | None) -> None:

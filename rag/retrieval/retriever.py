@@ -50,8 +50,8 @@ _ILIKE_SCORE_CAP = 0.6
 _TITLE_MATCH_SCORE_CAP = 0.9
 _SECTION_MATCH_SCORE_CAP = 0.7
 _NOISE_PENALTY_CAP = 1.5
-_DEFAULT_HYBRID_LEXICAL_WEIGHT = 0.4
-_DEFAULT_HYBRID_VECTOR_WEIGHT = 0.6
+_DEFAULT_HYBRID_LEXICAL_WEIGHT = 0.55
+_DEFAULT_HYBRID_VECTOR_WEIGHT = 0.45
 _DEFAULT_HYBRID_SRRF_BETA = 10.0
 _DEFAULT_MAX_RESULTS_PER_DOC = 2
 _DEFAULT_MAX_RESULTS_PER_SOURCE = 2
@@ -79,6 +79,11 @@ _DB_BOOST_STOPWORDS = {
     "\uacf5\uc9c0",
     "\ud559\uc0ac",
 }
+_HYBRID_GENERIC_TERMS = _DB_SEARCH_STOPWORDS | _DB_BOOST_STOPWORDS | {"정보", "안내", "학교", "동의대", "동의대학교"}
+_STATIC_SOURCE_TYPES = {"static", "index", "menu"}
+_NOISY_SOURCE_TYPES = {"bids", "council_notice", "external_notice"}
+_EXPLICIT_NOTICE_TERMS = {"모집공고", "채용공고", "신청서", "회의자료", "첨부", "첨부파일", "서식", "입찰", "공고"}
+_UI_NOISE_TERMS = ("본문 바로가기", "게시물 좌측으로 이동", "게시물 우측으로 이동", "사이트맵", "로그인", "회원가입", "more", "sns")
 logger = logging.getLogger(__name__)
 
 
@@ -655,6 +660,8 @@ def _apply_hybrid_final_scores(candidates: list[RetrievalCandidate]) -> list[Ret
             final_score = srrf_scores.get(candidate.chunk_id, 0.0)
         else:
             final_score = lexical_norm * lexical_weight + vector_norm * vector_weight
+        adjustment = _hybrid_relevance_adjustment(candidate)
+        final_score = max(final_score + float(adjustment["bonus"]) - float(adjustment["penalty"]), 0.0)
 
         metadata = {
             **candidate.document.metadata,
@@ -666,6 +673,7 @@ def _apply_hybrid_final_scores(candidates: list[RetrievalCandidate]) -> list[Ret
             "srrf_score": srrf_scores.get(candidate.chunk_id) if mode == "srrf" else None,
             "srrf_beta": _srrf_beta() if mode == "srrf" else None,
             "final_score": final_score,
+            "hybrid_adjustment": adjustment,
             "hybrid_score_mode": mode,
             "hybrid_lexical_weight": lexical_weight,
             "hybrid_vector_weight": vector_weight,
@@ -782,6 +790,74 @@ def _normalized_score(value: float | None, max_value: float) -> float:
     if value is None or max_value <= 0:
         return 0.0
     return max(min(value / max_value, 1.0), 0.0)
+
+
+def _hybrid_relevance_adjustment(candidate: RetrievalCandidate) -> dict[str, float | list[str]]:
+    doc = candidate.document
+    metadata = doc.metadata or {}
+    keywords = [str(value).lower() for value in metadata.get("keywords") or [] if value]
+    strong_terms = [
+        term
+        for term in keywords
+        if len(term) >= 2 and term not in _HYBRID_GENERIC_TERMS and not (len(term) == 1 and not term.isdigit())
+    ]
+    title = (doc.title or "").lower()
+    content = (doc.content or "").lower()
+    source = (doc.source or "").lower()
+    source_type = str(metadata.get("source_type") or "").lower()
+    section_type = str(metadata.get("section_type") or "").lower()
+    content_length = _safe_int(metadata.get("content_length"), len(doc.content or ""))
+    explicit_notice_query = _is_explicit_notice_query(keywords)
+
+    title_hits = sum(1 for term in strong_terms if term in title)
+    content_hits = sum(1 for term in strong_terms if term in content)
+    bonus = min(title_hits * 0.10 + content_hits * 0.035, 0.30)
+    if candidate.lexical_score and title_hits:
+        bonus += 0.08
+    if candidate.lexical_score and candidate.vector_score:
+        bonus += 0.04
+
+    penalty = 0.0
+    reasons: list[str] = []
+    if source_type in _STATIC_SOURCE_TYPES:
+        penalty += 0.10
+        reasons.append("static_source_type")
+    if any(marker in source for marker in ("index.do", "main.do", "/main", "sitemap")):
+        penalty += 0.08
+        reasons.append("index_or_main_url")
+    if section_type == "attachment" and not explicit_notice_query and title_hits == 0:
+        penalty += 0.12
+        reasons.append("weak_attachment_match")
+    if source_type in _NOISY_SOURCE_TYPES and not explicit_notice_query and title_hits == 0:
+        penalty += 0.12
+        reasons.append("noisy_source_type")
+    if 0 < content_length < 120:
+        penalty += 0.08
+        reasons.append("short_chunk")
+    ui_hits = sum(1 for term in _UI_NOISE_TERMS if term.lower() in content)
+    if ui_hits >= 3:
+        penalty += 0.12
+        reasons.append("ui_noise")
+
+    return {
+        "bonus": round(bonus, 6),
+        "penalty": round(min(penalty, 0.45), 6),
+        "title_keyword_hits": float(title_hits),
+        "content_keyword_hits": float(content_hits),
+        "reasons": reasons,
+    }
+
+
+def _is_explicit_notice_query(keywords: list[str]) -> bool:
+    joined = " ".join(keywords)
+    return any(term in joined for term in _EXPLICIT_NOTICE_TERMS)
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _optional_float(value: Any) -> float | None:
@@ -1306,7 +1382,7 @@ def _load_chunk_records() -> tuple[ChunkRecord, ...]:
 
     records: list[ChunkRecord] = []
     for file_path in sorted(base_dir.rglob("*.json")):
-        with file_path.open("r", encoding="utf-8") as file:
+        with file_path.open("r", encoding="utf-8-sig") as file:
             payload = json.load(file)
 
         items = payload if isinstance(payload, list) else [payload]
