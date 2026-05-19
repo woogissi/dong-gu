@@ -16,6 +16,7 @@ from rag.schemas.retrieved_doc import RetrievedDoc
 @dataclass
 class PipelineState:
     original_query: str
+    primary_intent: str = "INFO"
 
     normalized_query: str = ""
     rewritten_query: str = ""
@@ -51,6 +52,7 @@ class PipelineState:
     def to_log_dict(self) -> dict[str, Any]:
         return {
             "original_query": self.original_query,
+            "primary_intent": self.primary_intent,
             "normalized_query": self.normalized_query,
             "rewritten_query": self.rewritten_query,
             "rewritten_queries": self.rewritten_queries,

@@ -8,12 +8,14 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app/backend
-      - ./rag:/app/rag
     env_file:
       - .env
     environment:
       PYTHONPATH: /app
+      RAG_API_URL: http://rag:8001
     command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      - rag
 
   rag:
     build:
@@ -26,7 +28,22 @@ services:
       - .env
     environment:
       PYTHONPATH: /app
-    command: tail -f /dev/null
+    command: uvicorn rag.app.main:app --host 0.0.0.0 --port 8001 --reload
+
+  autorag-eval:
+    build:
+      context: .
+      dockerfile: ./rag/evaluation/autorag/Dockerfile
+    container_name: donggu-autorag-eval
+    profiles:
+      - eval
+    volumes:
+      - ./rag:/app/rag
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app
+    command: python -m rag.evaluation.autorag.scripts.export_corpus_to_autorag --check-connection
 
   cloudflared:
     image: cloudflare/cloudflared:latest

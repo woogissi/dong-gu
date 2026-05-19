@@ -4,13 +4,9 @@ import json
 from pathlib import Path
 
 from crawler.parsers.file_text_router import FileTextRouter
+from crawler.paths import CURATED_DOC_DIR, LOG_DIR, RAW_DOC_DIR, RAW_FILE_DIR
 from crawler.utils.content_hash import build_content_hash
 
-
-RAW_DOC_DIR = Path("crawler/data/raw/documents")
-CURATED_DOC_DIR = Path("crawler/data/curated/documents")
-RAW_FILE_DIR = Path("crawler/data/raw/files")
-LOG_DIR = Path("crawler/data/logs")
 
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 

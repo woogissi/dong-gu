@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import mimetypes
 import re                                   # 파일 정규식(ex /\: -> _)
+import time
 from pathlib import Path                    # Path(base) / subdir / filename 형식으로 경로를 만들기 위함
 from urllib.parse import urlparse, unquote
 
-import requests                             # 첨부파일 다운을 위한 http 라이브러리
+import requests
+
+from crawler.paths import RAW_FILE_DIR
+from crawler.utils.http_client import build_retry_session
 
 
 HEADERS = {                                 # 봇차단을 방지하기 위한 USER-Agent 채워주기 용도
@@ -20,17 +24,26 @@ HEADERS = {                                 # 봇차단을 방지하기 위한 U
 
 
 class AttachmentDownloader:
+    SUPPORTED_EXTENSIONS = {
+        ".pdf", ".hwp", ".hwpx", ".doc", ".docx",
+        ".xls", ".xlsx", ".ppt", ".pptx",
+        ".zip", ".jpg", ".jpeg", ".png",
+    }
+
     def __init__(
         self,
-        base_save_dir: str = "crawler/data/raw/files",
+        base_save_dir: str | Path | None = None,
         max_file_size: int = 100 * 1024 * 1024,
         timeout: tuple[float, float] = (5, 30),
+        max_download_attempts: int = 3,
+        retry_backoff_factor: float = 0.5,
     ):
-        self.session = requests.Session()                               # 요청 세션
-        self.session.headers.update(HEADERS)                            # USER-agent 헤더로 적용
-        self.base_save_dir = Path(base_save_dir)                        # 저장 기본 위치를 Path 객체로 바꾼다.
+        self.session = build_retry_session(HEADERS)                     # 요청 세션
+        self.base_save_dir = Path(base_save_dir) if base_save_dir is not None else RAW_FILE_DIR
         self.max_file_size = max_file_size
         self.timeout = timeout
+        self.max_download_attempts = max(1, max_download_attempts)
+        self.retry_backoff_factor = max(0.0, retry_backoff_factor)
         self.base_save_dir.mkdir(parents=True, exist_ok=True)           # 폴더가 없으면 생성한다. parents=True: 상위 폴더도 같이 생성 exist_ok=True: 이미 있어도 에러 안 냄
 
     def sanitize_filename(self, text: str, max_len: int = 150) -> str:  # 파일명으로 저장안되는 문자들 _로 변환
@@ -41,16 +54,12 @@ class AttachmentDownloader:
     def guess_extension(self, file_url: str, file_name: str) -> str:
         parsed_path = urlparse(file_url).path.lower()                   # url의 path만 뽑는다.
 
-        for ext in [
-            ".pdf", ".hwp", ".hwpx", ".doc", ".docx",
-            ".xls", ".xlsx", ".ppt", ".pptx",
-            ".zip", ".jpg", ".jpeg", ".png"
-        ]:
+        for ext in sorted(self.SUPPORTED_EXTENSIONS):
             if parsed_path.endswith(ext) or file_name.lower().endswith(ext):    # url이 확장자로 끝나거나 파일명이 확장자로 끝날시 그 확장자 반환
                 return ext
 
         return ""
-    
+
     def extract_filename_from_content_disposition(self, content_disposition: str | None) -> str | None:
         if not content_disposition:
             return None
@@ -71,7 +80,6 @@ class AttachmentDownloader:
             return match.group(1).strip().strip('"')
 
         return None
-
 
     def guess_extension_from_content_type(self, content_type: str | None) -> str:
         if not content_type:
@@ -102,21 +110,34 @@ class AttachmentDownloader:
 
         return mimetypes.guess_extension(content_type) or ""
 
+    def supported_extension(self, extension: str | None) -> str:
+        if not extension:
+            return ""
+        normalized = extension.strip().lower()
+        return normalized if normalized in self.SUPPORTED_EXTENSIONS else ""
+
+    def supported_suffix(self, text: str | None) -> str:
+        if not text:
+            return ""
+        return self.supported_extension(Path(text).suffix)
 
     def ensure_extension(self, file_name: str, file_url: str, content_disposition: str | None, content_type: str | None) -> tuple[str, str]:
         """
         파일명에 확장자가 없으면
         Content-Disposition -> URL -> Content-Type 순서로 확장자를 보정
         """
-        current_ext = Path(file_name).suffix
+        current_suffix = Path(file_name).suffix
+        current_ext = self.supported_extension(current_suffix)
+        if current_suffix and not current_ext:
+            file_name = str(Path(file_name).with_suffix(""))
 
         cd_filename = self.extract_filename_from_content_disposition(content_disposition)
-        cd_ext = Path(cd_filename).suffix if cd_filename else ""
+        cd_ext = self.supported_suffix(cd_filename)
 
         url_path = unquote(urlparse(file_url).path)
-        url_ext = Path(url_path).suffix
+        url_ext = self.supported_suffix(url_path)
 
-        type_ext = self.guess_extension_from_content_type(content_type)
+        type_ext = self.supported_extension(self.guess_extension_from_content_type(content_type))
 
         final_ext = current_ext or cd_ext or url_ext or type_ext
 
@@ -125,7 +146,40 @@ class AttachmentDownloader:
 
         return file_name, final_ext
 
+    def _sleep_before_retry(self, attempt: int) -> None:
+        if self.retry_backoff_factor <= 0:
+            return
+        time.sleep(self.retry_backoff_factor * (2 ** (attempt - 1)))
+
+    def _is_retryable_download_error(self, error: Exception) -> bool:
+        return isinstance(
+            error,
+            (
+                requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.ReadTimeout,
+                requests.exceptions.Timeout,
+            ),
+        )
+
     def download(self, source_type: str, parent_doc_id: str, attachment: dict) -> dict:
+        last_error: Exception | None = None
+        for attempt in range(1, self.max_download_attempts + 1):
+            try:
+                return self._download_once(source_type, parent_doc_id, attachment)
+            except Exception as error:
+                last_error = error
+                if attempt >= self.max_download_attempts or not self._is_retryable_download_error(error):
+                    raise
+                print(
+                    f"[ATTACH RETRY] attempt={attempt + 1}/{self.max_download_attempts} "
+                    f"url={attachment.get('file_url')} error={error}"
+                )
+                self._sleep_before_retry(attempt)
+
+        raise last_error if last_error else RuntimeError("attachment download failed")
+
+    def _download_once(self, source_type: str, parent_doc_id: str, attachment: dict) -> dict:
         file_url = attachment["file_url"]                                                           #다운로드 주소
         file_name = attachment["file_name"]                                                         #원래 파일명
         attachment_index = attachment["attachment_index"]                                           #몇번째 첨부파일인지
@@ -149,23 +203,32 @@ class AttachmentDownloader:
             content_type=content_type,
         )
 
+        normalized_ext = ext.lower() if ext else ""
+        if normalized_ext and normalized_ext not in self.SUPPORTED_EXTENSIONS:
+            raise ValueError(f"Unsupported attachment extension: {normalized_ext} url={file_url}")
+        if content_type and content_type.split(";")[0].strip().lower() == "text/html" and normalized_ext not in {".html", ".htm"}:
+            raise ValueError(f"Attachment content-type mismatch: text/html url={file_url}")
+
         save_dir = self.base_save_dir / source_type / parent_doc_id                                 #crawler/data/raw/files / source_type / id 경로로 파일 생성
         save_dir.mkdir(parents=True, exist_ok=True)
 
         save_path = save_dir / safe_name
-
-        
+        temp_path = save_dir / f"{safe_name}.part"
 
         file_size = 0
-        with open(save_path, "wb") as f:                                                            #첨부파일 바이너리로 저장
-            for chunk in res.iter_content(chunk_size=1024 * 1024):
-                if not chunk:
-                    continue
-                file_size += len(chunk)
-                if file_size > self.max_file_size:
-                    save_path.unlink(missing_ok=True)
-                    raise ValueError(f"Attachment too large: {file_size} bytes url={file_url}")
-                f.write(chunk)
+        try:
+            with open(temp_path, "wb") as f:                                                        #첨부파일 바이너리로 저장
+                for chunk in res.iter_content(chunk_size=1024 * 1024):
+                    if not chunk:
+                        continue
+                    file_size += len(chunk)
+                    if file_size > self.max_file_size:
+                        raise ValueError(f"Attachment too large: {file_size} bytes url={file_url}")
+                    f.write(chunk)
+            temp_path.replace(save_path)
+        except Exception:
+            temp_path.unlink(missing_ok=True)
+            raise
 
         print(
             f"[ATTACH DEBUG] url={file_url} "

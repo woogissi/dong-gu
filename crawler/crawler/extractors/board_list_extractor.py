@@ -1,10 +1,12 @@
 # crawler/extractors/board_list_extractor.py
 
 import re
-from urllib.parse import urljoin, urlparse, parse_qs        # urljoin <- 절대경로 base : https://www.deu.ac.kr/www/deu-notice.do?mode=list + href : ?mode=view&articleNo=123
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-import requests
 from bs4 import BeautifulSoup
+
+from crawler.utils.http_client import build_retry_session
+from crawler.extractors.board_adapters import adapter_for_url
 
 
 HEADERS = {
@@ -18,8 +20,7 @@ HEADERS = {
 
 class BoardListExtractor:
     def __init__(self, timeout: tuple[float, float] = (5, 30)):
-        self.session = requests.Session()
-        self.session.headers.update(HEADERS)
+        self.session = build_retry_session(HEADERS)
         self.timeout = timeout
 
     def fetch(self, url: str, params: dict | None = None) -> str:       #html 가져오기
@@ -27,15 +28,32 @@ class BoardListExtractor:
         res.raise_for_status()
         return res.text
 
-    def extract_article_no(self, url: str) -> str | None:               #게시글 번호 뽑기
-        parsed = urlparse(url)                                          
-        qs = parse_qs(parsed.query)                                     
-        article_no = qs.get("articleNo", [None])[0]                     #url에서 article 번호 뽑기
-        if article_no:
-            return article_no
+    def normalize_list_request(
+        self,
+        list_url: str,
+        page_no: int = 1,
+        page_size: int = 10,
+    ) -> tuple[str, dict[str, str | int]]:
+        parsed = urlsplit(list_url)
+        base_url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+        params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        params.update(
+            {
+                "article.offset": (page_no - 1) * page_size,
+                "articleLimit": page_size,
+                "mode": "list",
+            }
+        )
+        return base_url, params
 
-        match = re.search(r"articleNo=(\d+)", url)                      #fallback 못 찾으면 articleNo 다시 찾기
-        return match.group(1) if match else None
+    def extract_article_no(self, url: str) -> str | None:               #게시글 번호 뽑기
+        return adapter_for_url(url).article_no_from_url(url)
+
+    def extraction_strategy_for(self, full_url: str, href: str, onclick: str | None) -> str | None:
+        return adapter_for_url(full_url).strategy_for(full_url, href, onclick)
+
+    def detail_url_from_link(self, base_url: str, href: str, onclick: str | None = None) -> str:
+        return adapter_for_url(base_url).normalize_detail_url(base_url, href, onclick).url
 
     def parse_rows(self, html: str, base_url: str) -> list[dict]:       #목록에서 각 게시글 뽑기
         soup = BeautifulSoup(html, "html.parser")
@@ -51,9 +69,11 @@ class BoardListExtractor:
                 continue
 
             href = a_tag["href"]
-            full_url = urljoin(base_url, href)
+            onclick = a_tag.get("onclick") or row.get("onclick")
+            full_url = self.detail_url_from_link(base_url, href, onclick)
+            extraction_strategy = self.extraction_strategy_for(full_url, href, onclick)
 
-            if "articleNo=" not in full_url:                            #articleNo가 있는 링크만 찾기(아니면 광고성 링크일 가능성)
+            if not extraction_strategy:
                 continue
 
             title = a_tag.get_text(" ", strip=True)                     #제목 뽑기
@@ -68,6 +88,7 @@ class BoardListExtractor:
                 "detail_url": full_url,
                 "published_at_hint": published_at,
                 "row_text": row_text,
+                "extraction_strategy": extraction_strategy,
             })
 
         # 중복 제거
@@ -75,21 +96,20 @@ class BoardListExtractor:
         for item in items:
             if item["article_no"]:
                 dedup[item["article_no"]] = item                        #같은 article_no가 있으면 마지막 받은걸로 덮어쓰기
+            else:
+                dedup[item["detail_url"]] = item
 
         return list(dedup.values())
 
     def extract_list(self, list_url: str, page_no: int = 1, page_size: int = 10) -> dict:   #목록 추출 메인 함수
-        params = {
-            "article.offset": (page_no - 1) * page_size,                                    # 몇번째 게시글부터
-            "articleLimit": page_size,                                                      # 한페이지에 몇개씩
-            "mode": "list",
-        }
+        base_url, params = self.normalize_list_request(list_url, page_no, page_size)
 
-        html = self.fetch(list_url, params)
-        items = self.parse_rows(html, list_url)
+        html = self.fetch(base_url, params)
+        request_url = f"{base_url}?{urlencode(params)}"
+        items = self.parse_rows(html, request_url)
 
         return {
-            "list_url": list_url,               #어떤 URL을 요청했는지
+            "list_url": request_url,            #어떤 URL을 요청했는지
             "page_no": page_no,                 #몇 페이지인지
             "page_size": page_size,             #페이지 크기
             "count": len(items),                #몇 개 찾았는지

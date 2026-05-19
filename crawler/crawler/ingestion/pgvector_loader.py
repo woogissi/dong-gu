@@ -8,6 +8,8 @@ from typing import Any
 import psycopg2
 from psycopg2.extras import Json
 
+from crawler.utils.text_quality import strip_nul_value
+
 
 class PGVectorLoader:
     def __init__(self, autocommit_writes: bool = True):
@@ -40,15 +42,7 @@ class PGVectorLoader:
 
     @classmethod
     def _strip_nul(cls, value: Any) -> Any:
-        if isinstance(value, str):
-            return value.replace("\x00", "")
-        if isinstance(value, dict):
-            return {cls._strip_nul(key): cls._strip_nul(item) for key, item in value.items()}
-        if isinstance(value, list):
-            return [cls._strip_nul(item) for item in value]
-        if isinstance(value, tuple):
-            return tuple(cls._strip_nul(item) for item in value)
-        return value
+        return strip_nul_value(value)
 
     def _json(self, value: Any) -> Json:
         return Json(self._strip_nul(value))
@@ -505,6 +499,43 @@ class PGVectorLoader:
             )
 
         self._commit_if_needed()
+
+    def find_reusable_embedding_chunk_ids(
+        self,
+        chunks: list[dict[str, Any]],
+        model_name: str,
+    ) -> set[str]:
+        candidates = [
+            (chunk.get("chunk_id"), chunk.get("content_hash"))
+            for chunk in chunks
+            if chunk.get("chunk_id") and chunk.get("content_hash")
+        ]
+        if not candidates:
+            return set()
+
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                WITH incoming(chunk_id, content_hash) AS (
+                    SELECT *
+                    FROM unnest(%s::text[], %s::text[])
+                )
+                SELECT i.chunk_id
+                FROM incoming i
+                JOIN chunks c
+                  ON c.chunk_id = i.chunk_id
+                 AND c.content_hash = i.content_hash
+                JOIN chunk_embeddings e
+                  ON e.chunk_id = i.chunk_id
+                 AND e.model_name = %s;
+                """,
+                (
+                    [chunk_id for chunk_id, _ in candidates],
+                    [content_hash for _, content_hash in candidates],
+                    model_name,
+                ),
+            )
+            return {row[0] for row in cur.fetchall()}
 
     def insert_crawl_job_error(
         self,

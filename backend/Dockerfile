@@ -4,7 +4,6 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
-ARG PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
 
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -14,12 +13,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY ./backend/requirements.txt /app/backend/requirements.txt
-COPY ./rag/requirements.txt /app/rag/requirements.txt
-RUN pip install --no-cache-dir --index-url ${PYTORCH_INDEX_URL} torch
 RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 
 COPY ./backend /app/backend
-COPY ./rag /app/rag
 
 ENV PYTHONPATH=/app
 

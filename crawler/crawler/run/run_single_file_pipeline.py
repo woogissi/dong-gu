@@ -5,26 +5,52 @@ import json
 import os
 from pathlib import Path
 
-os.environ.setdefault("HF_HOME", str(Path("crawler/.hf_cache").resolve()))
-os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(Path("crawler/.hf_cache/hub").resolve()))
+from crawler.paths import CHUNK_DIR, CURATED_DOC_DIR, HF_CACHE_DIR, LOG_DIR, RAW_DOC_DIR
+
+os.environ.setdefault("HF_HOME", str(HF_CACHE_DIR.resolve()))
+os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str((HF_CACHE_DIR / "hub").resolve()))
 
 from crawler.storage.manifest_writer import ManifestWriter
-from crawler.utils.text_quality import document_quality_report, text_quality_report
+from crawler.state.crawler_state_store import CrawlerStateStore
+from crawler.utils.text_quality import document_quality_report, strip_nul_value, text_quality_report
 
 
-RAW_DIR = Path("crawler/data/raw/documents")
-CURATED_DIR = Path("crawler/data/curated/documents")
-CHUNK_DIR = Path("crawler/data/rag_ready/chunks")
-LOG_DIR = Path("crawler/data/logs")
+RAW_DIR = RAW_DOC_DIR
+CURATED_DIR = CURATED_DOC_DIR
 
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 manifest_writer = ManifestWriter()
 
 
+def record_document_state_safe(doc: dict, status: str, artifact_paths: dict | None = None, error: Exception | None = None) -> None:
+    url = doc.get("source_url") or doc.get("url")
+    if not url:
+        return
+    try:
+        state_store = CrawlerStateStore()
+        try:
+            state_store.ensure_tables()
+            state_store.upsert_document_state(
+                url=url,
+                doc_id=doc.get("doc_id"),
+                status=status,
+                source_type=doc.get("source_type"),
+                page_kind=doc.get("page_kind"),
+                checksum=doc.get("content_hash"),
+                artifact_paths=artifact_paths or {},
+                error=str(error) if error else None,
+                error_stage=None if error is None else status.lower(),
+            )
+        finally:
+            state_store.close()
+    except Exception as exc:
+        log_error(f"[STATE WRITE ERROR] doc_id={doc.get('doc_id')} status={status} error={exc}")
+
+
 def load_json(path: Path) -> dict | list:
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        return strip_nul_value(json.load(f))
 
 
 def save_json(path: Path, data: dict | list) -> None:
@@ -100,6 +126,14 @@ def chunk_curated_file(curated_file: Path, chunker=None) -> Path | None:
     chunks = chunker.chunk_document(doc)
     chunk_path = CHUNK_DIR / source_type / f"{doc_id}.json"
     save_json(chunk_path, chunks)
+    record_document_state_safe(
+        doc,
+        "CHUNKED",
+        artifact_paths={
+            "curated_json": curated_file.as_posix(),
+            "chunks_json": chunk_path.as_posix(),
+        },
+    )
 
     manifest_writer.append_jsonl("chunking.jsonl", {
         "doc_id": doc_id,
@@ -184,6 +218,15 @@ def vector_ingest_chunk_file(chunk_file: Path, embed_worker=None, loader=None) -
 
         embedded_chunks = embed_worker.embed_chunks(chunks)
         loader.upsert_embeddings(embedded_chunks)
+        record_document_state_safe(
+            curated_doc,
+            "EMBEDDED",
+            artifact_paths={
+                "curated_json": curated_path.as_posix(),
+                "chunks_json": chunk_file.as_posix(),
+                "raw_json": raw_path.as_posix() if raw_path.exists() else None,
+            },
+        )
 
         manifest_writer.append_jsonl("vector_ingestion.jsonl", {
             "chunk_file": chunk_file.as_posix(),
@@ -198,6 +241,10 @@ def vector_ingest_chunk_file(chunk_file: Path, embed_worker=None, loader=None) -
 
     except Exception:
         loader.conn.rollback()
+        try:
+            record_document_state_safe(curated_doc if "curated_doc" in locals() else {"doc_id": doc_id, "source_type": source_type}, "FAILED", error=Exception("vector_ingestion_failed"))
+        except Exception:
+            pass
         raise
     finally:
         if owns_loader:
@@ -206,23 +253,26 @@ def vector_ingest_chunk_file(chunk_file: Path, embed_worker=None, loader=None) -
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run chunking and/or vector ingestion for one selected JSON file."
+        description="선택한 JSON 파일 하나 이상에 대해 chunking 또는 vector ingestion을 실행합니다.",
+        add_help=False,
     )
+    parser.add_argument("-h", "--help", action="help", help="도움말을 보여주고 종료합니다.")
+    parser._optionals.title = "옵션"
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
         "--curated-file",
         nargs="+",
-        help="Path to one curated document JSON. Creates crawler/data/rag_ready/chunks/<source_type>/<doc_id>.json.",
+        help="curated 문서 JSON 경로입니다. crawler/data/rag_ready/chunks/<source_type>/<doc_id>.json을 생성합니다.",
     )
     group.add_argument(
         "--chunk-file",
         nargs="+",
-        help="Path to one chunk JSON. Runs only vector ingestion for that chunk file.",
+        help="chunk JSON 경로입니다. 해당 chunk 파일에 대해서만 vector ingestion을 실행합니다.",
     )
     parser.add_argument(
         "--skip-vector",
         action="store_true",
-        help="Only create chunks when --curated-file is used.",
+        help="--curated-file 사용 시 chunk 생성만 하고 vector ingestion은 건너뜁니다.",
     )
     return parser.parse_args()
 

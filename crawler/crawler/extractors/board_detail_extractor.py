@@ -6,10 +6,10 @@ from datetime import datetime, timezone, timedelta              # 수집시간�
 from pathlib import Path                                        # fallback시 path명을 얻기 위함
 from urllib.parse import urljoin, urlparse, parse_qs
 
-import requests
 from bs4 import BeautifulSoup                                   # html 파싱용
 
 from crawler.schemas.document_models import BoardDetailRawDocument      # JSON 구조
+from crawler.extractors.base import BaseExtractor
 from crawler.extractors.image_text_extractor import ImageTextExtractor  # 이미지 추출
 
 HEADERS = {
@@ -23,15 +23,16 @@ HEADERS = {
 KST = timezone(timedelta(hours=9))                              # 한국 시간대 객체
 
 
-class BoardDetailExtractor:
+class BoardDetailExtractor(BaseExtractor):
+    name = "board_detail"
+    version = "1"
+
     def __init__(
         self,
         enable_image_ocr: bool = False,
         timeout: tuple[float, float] = (5, 30),
     ):
-        self.session = requests.Session()
-        self.session.headers.update(HEADERS)
-        self.timeout = timeout
+        super().__init__(headers=HEADERS, timeout=timeout)
         self.enable_image_ocr = enable_image_ocr
         self.image_text_extractor = ImageTextExtractor()
 
@@ -58,20 +59,19 @@ class BoardDetailExtractor:
     def extract_article_no(self, url: str) -> str | None:       # 게시글 번호 뽑기
         parsed = urlparse(url)
         qs = parse_qs(parsed.query)
-        article_no = qs.get("articleNo", [None])[0]             # ex) mode=view&articleNo=79040 -> mode=view&articleNo=79040
-        if article_no:
-            return article_no
+        for key in ("articleNo", "id", "seq", "post", "post_id", "articleId", "boardId"):
+            value = qs.get(key, [None])[0]
+            if value:
+                return value
 
-        match = re.search(r"articleNo=(\d+)", url)
+        match = re.search(r"(?:articleNo|id|seq|post|post_id|articleId|boardId)=([A-Za-z0-9_-]+)", url)
         return match.group(1) if match else None
 
     def make_doc_id(self, source_type: str, article_no: str) -> str:    # 문서 고유 ID 생성 = source_type + article_no
         return f"deu_{source_type}_{article_no}"
 
     def fetch(self, url: str) -> str:                           # 상세 페이지 html을 그대로 가져옴
-        res = self.session.get(url, timeout=self.timeout)
-        res.raise_for_status()
-        return res.text
+        return self.fetch_result(url).raw_html
 
     def clean_title(self, title: str) -> str:
         title = self.normalize_text(title)
@@ -243,6 +243,13 @@ class BoardDetailExtractor:
             full_url = urljoin(page_url, href)
             link_text = self.normalize_text(a.get_text(" ", strip=True))
             href_lower = href.lower()
+            parsed_url = urlparse(full_url)
+            url_path = parsed_url.path
+            url_ext = Path(url_path).suffix.lower()
+            mode = parse_qs(parsed_url.query).get("mode", [""])[0].lower()
+
+            if url_ext == ".do" and mode != "download":
+                continue
 
             is_attachment = (                                           # 링크에 download or file or file_exts 가 있거나 링크 텍스트에 첨부 or 다운로드가 있으면 첨부파일로 분류
                 "download" in href_lower
@@ -385,5 +392,7 @@ class BoardDetailExtractor:
         return raw_doc.model_dump()
 
     def extract_detail(self, source_type: str, detail_url: str, title_hint: str | None = None) -> dict:
-        html = self.fetch(detail_url)
-        return self.build_raw_document(source_type, detail_url, html, title_hint=title_hint)
+        fetch_result = self.fetch_result(detail_url)
+        raw_doc = self.build_raw_document(source_type, detail_url, fetch_result.raw_html, title_hint=title_hint)
+        raw_doc["metadata"]["fetch"] = self.fetch_metadata(fetch_result)
+        return raw_doc

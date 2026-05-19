@@ -10,7 +10,7 @@ from backend.app.utils.intent_classifier import PrimaryIntentClassifier
 from backend.app.utils.user_lock import acquire_user_lock, release_user_lock
 from backend.app.utils.kakao_template import (
     kakao_response,
-    kakao_mixed_response,
+    kakao_text_card,
 )
 from backend.app.utils.kakao_ui import (
     get_category_from_utterance,
@@ -18,7 +18,7 @@ from backend.app.utils.kakao_ui import (
     get_link_url_by_category,
     get_title_by_category,
 )
-from rag.schemas.query import Query
+from backend.app.services.rag_client import ChatQuery, RagApiClient
 
 
 router = APIRouter(tags=["kakao"])
@@ -30,8 +30,7 @@ chat_pipeline = None
 def get_chat_pipeline():
     global chat_pipeline
     if chat_pipeline is None:
-        from rag.pipeline.chat_pipeline import ChatPipeline
-        chat_pipeline = ChatPipeline()
+        chat_pipeline = RagApiClient()
     return chat_pipeline
 
 
@@ -75,6 +74,33 @@ def safe_save_retrieval_log(request_id, log_data):
         save_retrieval_log(request_id, log_data)
     except Exception as e:
         print(f"[ERROR] save_retrieval_log: {e}")
+
+
+def log_response_flow(
+    *,
+    request_id,
+    user_id,
+    utterance,
+    intent,
+    route,
+    selected_response_path,
+    rag_called,
+    callback_mode=False,
+    answer_preview=None,
+):
+    preview = (answer_preview or "").replace("\n", " ")[:120]
+    print(
+        "[kakao flow] "
+        f"request_id={request_id} "
+        f"user_id={user_id} "
+        f"intent={intent} "
+        f"route={route} "
+        f"selected_response_path={selected_response_path} "
+        f"rag_called={rag_called} "
+        f"callback_mode={callback_mode} "
+        f"utterance={utterance!r} "
+        f"answer_preview={preview!r}"
+    )
 
 
 def extract_retrieval_log(result):
@@ -153,6 +179,16 @@ async def kakao_webhook(request: Request, background_tasks: BackgroundTasks = No
 
         if intent == "PROFANITY":
             answer = "부적절한 표현은 사용할 수 없어요."
+            log_response_flow(
+                request_id=request_id,
+                user_id=user_id,
+                utterance=utterance,
+                intent=intent,
+                route="profanity",
+                selected_response_path="rule_profanity",
+                rag_called=False,
+                answer_preview=answer,
+            )
 
             save_response_log(
                 request_id=request_id,
@@ -169,6 +205,16 @@ async def kakao_webhook(request: Request, background_tasks: BackgroundTasks = No
                 utterance=utterance,
                 user_id=user_id,
             )
+            log_response_flow(
+                request_id=request_id,
+                user_id=user_id,
+                utterance=utterance,
+                intent=intent,
+                route="general",
+                selected_response_path="rule_general",
+                rag_called=False,
+                answer_preview=answer,
+            )
             save_response_log(
                 request_id=request_id,
                 answer_text=answer,
@@ -180,6 +226,18 @@ async def kakao_webhook(request: Request, background_tasks: BackgroundTasks = No
 
         if callback_url:
             callback_mode = True
+            placeholder = "답변을 생성 중입니다. 잠시만 기다려주세요."
+            log_response_flow(
+                request_id=request_id,
+                user_id=user_id,
+                utterance=utterance,
+                intent=intent,
+                route="information",
+                selected_response_path="rag_callback_placeholder",
+                rag_called=True,
+                callback_mode=True,
+                answer_preview=placeholder,
+            )
 
             background_tasks.add_task(
                 process_info_with_callback,
@@ -194,12 +252,23 @@ async def kakao_webhook(request: Request, background_tasks: BackgroundTasks = No
                 "version": "2.0",
                 "useCallback": True,
                 "data": {
-                    "text": "답변을 생성 중입니다. 잠시만 기다려주세요."
+                    "text": placeholder
                 },
             }
 
         # 콜백 URL이 없는 경우에도 RAG -> Ollama 파이프라인을 동기로 실행해 응답합니다.
         response_body, final_answer, success, retrieval_log = process_info_sync(utterance)
+        log_response_flow(
+            request_id=request_id,
+            user_id=user_id,
+            utterance=utterance,
+            intent=intent,
+            route="information",
+            selected_response_path="rag_sync",
+            rag_called=True,
+            callback_mode=False,
+            answer_preview=final_answer,
+        )
         add_retrieval_log_task(background_tasks, request_id, retrieval_log)
         add_response_log_task(
             background_tasks,
@@ -222,7 +291,7 @@ async def kakao_webhook(request: Request, background_tasks: BackgroundTasks = No
 def process_info_with_callback(callback_url, request_id, user_id, utterance, start_time):
     try:
         pipeline = get_chat_pipeline()
-        result = pipeline.run(Query(text=utterance))
+        result = pipeline.run(ChatQuery(text=utterance))
 
         response_body, final_answer = build_info_response(result, utterance)
 
@@ -244,10 +313,13 @@ def process_info_with_callback(callback_url, request_id, user_id, utterance, sta
     except Exception as e:
         print(f"[ERROR] callback: {e}") 
 
-        kakao_callback(
-            callback_url,
-            kakao_response("답변 생성 중 오류가 발생했습니다."),
-        )
+        try:
+            kakao_callback(
+                callback_url,
+                kakao_response("답변 생성 중 오류가 발생했습니다."),
+            )
+        except Exception as callback_error:
+            print(f"[ERROR] callback error response failed: {callback_error}")
 
         save_response_log(
             request_id=request_id,
@@ -263,7 +335,7 @@ def process_info_with_callback(callback_url, request_id, user_id, utterance, sta
 
 def process_info_sync(utterance: str):
     pipeline = get_chat_pipeline()
-    result = pipeline.run(Query(text=utterance))
+    result = pipeline.run(ChatQuery(text=utterance))
     response_body, final_answer = build_info_response(result, utterance)
     success = _result_success(result)
     retrieval_log = resolve_retrieval_log(result, utterance, pipeline)
@@ -313,11 +385,11 @@ def build_info_response(result, utterance):
     final = f"{answer}\n\n사이트 바로가기: {link}"
 
     return (
-    kakao_mixed_response(
-        text=answer,
-        title=title,
-        link_url=link,
-        quick_replies=quick,
-    ),
-    final,
-)
+        kakao_text_card(
+            title=title,
+            description=final,
+            link_url=link,
+            quick_replies=quick,
+        ),
+        final,
+    )

@@ -4,13 +4,15 @@ import json
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
+from crawler.paths import MANIFEST_DIR
+
 
 KST = timezone(timedelta(hours=9))
 
 
 class ManifestWriter:
-    def __init__(self, base_dir: str = "crawler/data/manifest"):
-        self.base_dir = Path(base_dir)
+    def __init__(self, base_dir: str | Path | None = None):
+        self.base_dir = Path(base_dir) if base_dir is not None else MANIFEST_DIR
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
     def now_kst_iso(self) -> str:           # 현재 시각을 KST ISO 문자열로 반환

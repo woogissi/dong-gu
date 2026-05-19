@@ -14,6 +14,9 @@ DEFAULT_TOP_K = 10
 SUPPORTED_FILTER_FIELDS = ("category", "target", "department", "time", "time_scope")
 KEYWORD_STRATEGY = "lexical"
 
+# TODO: Improve category/source hints for scholarship, shuttle bus, and library
+# queries separately from the vector/hybrid retrieval rollout.
+
 _CATEGORY_DOCUMENT_HINTS: dict[str, list[str]] = {
     "학사": ["academic_notice"],
     "수강": ["academic_notice"],
@@ -61,6 +64,7 @@ def build_retrieval_request(state: PipelineState) -> RetrievalRequest:
         query=query,
         query_variants=query_variants,
         keywords=_dedupe(state.keywords),
+        query_vector=list(state.query_vector or []),
         filters=filters,
         category=category,
         strategy=KEYWORD_STRATEGY,
