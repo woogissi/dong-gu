@@ -1,0 +1,5239 @@
+{
+  "diagnostic": "operational_retrieval_eval",
+  "retrieval_stack": "KoE5 + pgvector",
+  "embedding_model": "nlpai-lab/KoE5",
+  "openai_api_key_present": true,
+  "openai_api_used_for_embedding": false,
+  "top_k": 10,
+  "query_count": 23,
+  "summary": {
+    "lexical": {
+      "query_count": 23,
+      "hit_rate": 0.26087,
+      "mean_recall_at_k": 0.137681,
+      "mean_precision_at_k": 0.030435,
+      "mrr": 0.118961
+    },
+    "vector": {
+      "query_count": 23,
+      "hit_rate": 0.73913,
+      "mean_recall_at_k": 0.384058,
+      "mean_precision_at_k": 0.091304,
+      "mrr": 0.276915
+    },
+    "hybrid": {
+      "query_count": 23,
+      "hit_rate": 0.608696,
+      "mean_recall_at_k": 0.304348,
+      "mean_precision_at_k": 0.073913,
+      "mrr": 0.208747
+    }
+  },
+  "rows": [
+    {
+      "qid": "donggu-0000",
+      "query": "휴학 어떻게 해?",
+      "label": "휴학 방법",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "deu_academic_84441_v002_chunk_011",
+        "deu_academic_84441_v002_chunk_012"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_002",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.714285715258851,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.50000001192093,
+          "vector_score": null,
+          "final_score": 0.714285715258851
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_001",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.710144928037006,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.45000000596046,
+          "vector_score": null,
+          "final_score": 0.710144928037006
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_007",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.710144927536232,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.45,
+          "vector_score": null,
+          "final_score": 0.710144927536232
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_009",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.69696969710653,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.30000000149012,
+          "vector_score": null,
+          "final_score": 0.69696969710653
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_005",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.696969696969697,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.3,
+          "vector_score": null,
+          "final_score": 0.696969696969697
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0000",
+      "query": "휴학 어떻게 해?",
+      "label": "휴학 방법",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "deu_academic_84441_v002_chunk_011",
+        "deu_academic_84441_v002_chunk_012"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 4,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.25,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_021",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.753174439261821,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.753174439261821,
+          "final_score": 0.753174439261821
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_022",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.752558167355006,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.752558167355006,
+          "final_score": 0.752558167355006
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_council_notice_79841_v001_chunk_077",
+          "doc_id": "deu_council_notice_79841",
+          "title": "제138차 대학평의원회 회의록",
+          "score": 0.567900674578568,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.567900674578568,
+          "final_score": 0.567900674578568
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_84441_v002_chunk_012",
+          "doc_id": "deu_academic_84441",
+          "title": "학칙 개정안 공고(제2026-1호)",
+          "score": 0.562552928924561,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.562552928924561,
+          "final_score": 0.562552928924561
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_79216_v001_chunk_013",
+          "doc_id": "deu_academic_79216",
+          "title": "학칙 개정안 공고(제2025-3호)",
+          "score": 0.561404910003847,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.561404910003847,
+          "final_score": 0.561404910003847
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0000",
+      "query": "휴학 어떻게 해?",
+      "label": "휴학 방법",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "deu_academic_84441_v002_chunk_011",
+        "deu_academic_84441_v002_chunk_012"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_003",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.8611950107231634,
+          "search_mode": "hybrid",
+          "lexical_score": 0.672131147540984,
+          "vector_score": 0.608566915988922,
+          "final_score": 0.8611950107231634
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_004",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.85602596840699,
+          "search_mode": "hybrid",
+          "lexical_score": 0.672131147540984,
+          "vector_score": 0.602078265075581,
+          "final_score": 0.85602596840699
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_notice_81016_v001_chunk_002",
+          "doc_id": "deu_notice_81016",
+          "title": "2026-1학기 등록금 납부 안내",
+          "score": 0.739949208587166,
+          "search_mode": "hybrid",
+          "lexical_score": 0.615384617148066,
+          "vector_score": 0.49625888466835,
+          "final_score": 0.739949208587166
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_021",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.6,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.753174439261821,
+          "final_score": 0.6
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_022",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.599509060418392,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.752558167355006,
+          "final_score": 0.599509060418392
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0001",
+      "query": "수강신청 기간은 언제야?",
+      "label": "수강신청 기간",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "deu_academic_notice_84385_v001_chunk_003",
+        "deu_academic_notice_84385_v001_chunk_004",
+        "deu_academic_notice_84378_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_008",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.782608697905658,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.60000004768372,
+          "vector_score": null,
+          "final_score": 0.782608697905658
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.777777778955153,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.50000002384186,
+          "vector_score": null,
+          "final_score": 0.777777778955153
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_notice_80708_v001_chunk_005",
+          "doc_id": "deu_notice_80708",
+          "title": "2026학년도 1학기 재입학 합격 안내",
+          "score": 0.761904770014237,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.20000014305115,
+          "vector_score": null,
+          "final_score": 0.761904770014237
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_011",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.7619047659595,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.20000007152557,
+          "vector_score": null,
+          "final_score": 0.7619047659595
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_bhcoss_84383_v001_chunk_001",
+          "doc_id": "deu_bhcoss_84383",
+          "title": "[혁신융합대학] 2026학년도 하계계절수업 수강신청을 위한 마이크로디그리 신청 안내",
+          "score": 0.750000002980232,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.00000004768372,
+          "vector_score": null,
+          "final_score": 0.750000002980232
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0001",
+      "query": "수강신청 기간은 언제야?",
+      "label": "수강신청 기간",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "deu_academic_notice_84385_v001_chunk_003",
+        "deu_academic_notice_84385_v001_chunk_004",
+        "deu_academic_notice_84378_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 7,
+      "recall_at_k": 0.3333333333333333,
+      "precision_at_k": 0.1,
+      "mrr": 0.14285714285714285,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_013",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.691240657942178,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.691240657942178,
+          "final_score": 0.691240657942178
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_008",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.689274371309617,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.689274371309617,
+          "final_score": 0.689274371309617
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_057",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.683508814364147,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.683508814364147,
+          "final_score": 0.683508814364147
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_032",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.682638782780209,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.682638782780209,
+          "final_score": 0.682638782780209
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_78b38b933fba2bdb_v001_chunk_002",
+          "doc_id": "static_78b38b933fba2bdb",
+          "title": "동의대학교 평생교육원 > 일반과정 > 수강신청",
+          "score": 0.574374045468925,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.574374045468925,
+          "final_score": 0.574374045468925
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0001",
+      "query": "수강신청 기간은 언제야?",
+      "label": "수강신청 기간",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "deu_academic_notice_84385_v001_chunk_003",
+        "deu_academic_notice_84385_v001_chunk_004",
+        "deu_academic_notice_84378_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 4,
+      "recall_at_k": 0.3333333333333333,
+      "precision_at_k": 0.1,
+      "mrr": 0.25,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_008",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.9982932543594168,
+          "search_mode": "hybrid",
+          "lexical_score": 0.782608697905658,
+          "vector_score": 0.689274371309617,
+          "final_score": 0.9982932543594168
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_032",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.9708885134037147,
+          "search_mode": "hybrid",
+          "lexical_score": 0.740259745085213,
+          "vector_score": 0.682638782780209,
+          "final_score": 0.9708885134037147
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_021",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.9384753297832562,
+          "search_mode": "hybrid",
+          "lexical_score": 0.729729730600506,
+          "vector_score": 0.651497036040183,
+          "final_score": 0.9384753297832562
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_003",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.93621195210864,
+          "search_mode": "hybrid",
+          "lexical_score": 0.692307696822127,
+          "vector_score": 0.670924861105538,
+          "final_score": 0.93621195210864
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_006",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.9295069231266735,
+          "search_mode": "hybrid",
+          "lexical_score": 0.736842107739805,
+          "vector_score": 0.63697680986204,
+          "final_score": 0.9295069231266735
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0002",
+      "query": "장학금 신청 방법 알려줘",
+      "label": "장학금 신청 방법",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "deu_scholarship_81842_v002_chunk_001",
+        "deu_scholarship_81842_v002_chunk_002",
+        "deu_scholarship_81842_v002_chunk_003"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_055",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.750000002980232,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.00000004768372,
+          "vector_score": null,
+          "final_score": 0.750000002980232
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_026",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.743589745941012,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.90000003576279,
+          "vector_score": null,
+          "final_score": 0.743589745941012
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_063",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.743589745157256,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.90000002384186,
+          "vector_score": null,
+          "final_score": 0.743589745157256
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_disability_support_84499_v001_chunk_002",
+          "doc_id": "deu_disability_support_84499",
+          "title": "[국가과학기술인력개발원] 2026년 이공계 장애 대학생 현장 연구지원 프로그램 참여자 모집 3차 안내",
+          "score": 0.733333336724175,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.75000004768372,
+          "vector_score": null,
+          "final_score": 0.733333336724175
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_disability_support_82159_v001_chunk_002",
+          "doc_id": "deu_disability_support_82159",
+          "title": "[국가과학기술인력개발원] 2026년 이공계 장애 대학생 현장 연구지원 참여자 모집 및 사업 설명회 안내",
+          "score": 0.733333336724175,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.75000004768372,
+          "vector_score": null,
+          "final_score": 0.733333336724175
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0002",
+      "query": "장학금 신청 방법 알려줘",
+      "label": "장학금 신청 방법",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "deu_scholarship_81842_v002_chunk_001",
+        "deu_scholarship_81842_v002_chunk_002",
+        "deu_scholarship_81842_v002_chunk_003"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 2,
+      "recall_at_k": 0.3333333333333333,
+      "precision_at_k": 0.1,
+      "mrr": 0.5,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_d833cf326e095a02_v001_chunk_008",
+          "doc_id": "static_d833cf326e095a02",
+          "title": "미래융합대학",
+          "score": 0.66983141511177,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.66983141511177,
+          "final_score": 0.66983141511177
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_003",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.650090654197064,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.650090654197064,
+          "final_score": 0.650090654197064
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_007",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.645963428553652,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.645963428553652,
+          "final_score": 0.645963428553652
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_010",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.644184904597391,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.644184904597391,
+          "final_score": 0.644184904597391
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_024",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.627153616334404,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.627153616334404,
+          "final_score": 0.627153616334404
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0002",
+      "query": "장학금 신청 방법 알려줘",
+      "label": "장학금 신청 방법",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "deu_scholarship_81842_v002_chunk_001",
+        "deu_scholarship_81842_v002_chunk_002",
+        "deu_scholarship_81842_v002_chunk_003"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 6,
+      "recall_at_k": 0.3333333333333333,
+      "precision_at_k": 0.1,
+      "mrr": 0.16666666666666666,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_055",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.9039828894799027,
+          "search_mode": "hybrid",
+          "lexical_score": 0.750000002980232,
+          "vector_score": 0.56263928675407,
+          "final_score": 0.9039828894799027
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_023",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.9023449625576495,
+          "search_mode": "hybrid",
+          "lexical_score": 0.687499998835847,
+          "vector_score": 0.598023587288584,
+          "final_score": 0.9023449625576495
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_041",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.9012693088989372,
+          "search_mode": "hybrid",
+          "lexical_score": 0.682539683741086,
+          "vector_score": 0.599776142815605,
+          "final_score": 0.9012693088989372
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_061",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.8977256698904684,
+          "search_mode": "hybrid",
+          "lexical_score": 0.722222223142047,
+          "vector_score": 0.572192864781412,
+          "final_score": 0.8977256698904684
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_d833cf326e095a02_v001_chunk_008",
+          "doc_id": "static_d833cf326e095a02",
+          "title": "미래융합대학",
+          "score": 0.6,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.66983141511177,
+          "final_score": 0.6
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0003",
+      "query": "기숙사 입사 신청은?",
+      "label": "기숙사 입사 신청",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "static_489038e768a146d4_v001_chunk_001",
+        "static_51ad97a54f7a0db7_v001_chunk_001",
+        "static_26d633279a2768ef_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_003",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.661016953262027,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.95000003576279,
+          "vector_score": null,
+          "final_score": 0.661016953262027
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_88dd0994c7078637_v001_chunk_001",
+          "doc_id": "static_88dd0994c7078637",
+          "title": "동의대학교 효민생활관",
+          "score": 0.649122808485187,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.85000001192093,
+          "vector_score": null,
+          "final_score": 0.649122808485187
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_014ee735a1b20c1b_v001_chunk_001",
+          "doc_id": "static_014ee735a1b20c1b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.636363636363636,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.75,
+          "vector_score": null,
+          "final_score": 0.636363636363636
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_001",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.636363634787315,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.74999998807907,
+          "vector_score": null,
+          "final_score": 0.636363634787315
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_85468_v001_chunk_002",
+          "doc_id": "deu_academic_notice_85468",
+          "title": "2026학년도 1학기 조기취업 출석인정(최종) 서류 접수 안내",
+          "score": 0.615384625965321,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.60000007152557,
+          "vector_score": null,
+          "final_score": 0.615384625965321
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0003",
+      "query": "기숙사 입사 신청은?",
+      "label": "기숙사 입사 신청",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "static_489038e768a146d4_v001_chunk_001",
+        "static_51ad97a54f7a0db7_v001_chunk_001",
+        "static_26d633279a2768ef_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 2,
+      "first_hit_rank": 2,
+      "recall_at_k": 0.6666666666666666,
+      "precision_at_k": 0.2,
+      "mrr": 0.5,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_003",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.699467211914114,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.699467211914114,
+          "final_score": 0.699467211914114
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_489038e768a146d4_v001_chunk_001",
+          "doc_id": "static_489038e768a146d4",
+          "title": "동의대학교 효민생활관",
+          "score": 0.670117167220457,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.670117167220457,
+          "final_score": 0.670117167220457
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_51ad97a54f7a0db7_v001_chunk_001",
+          "doc_id": "static_51ad97a54f7a0db7",
+          "title": "동의대학교 효민생활관",
+          "score": 0.670117167220457,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.670117167220457,
+          "final_score": 0.670117167220457
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_001",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.630110566013423,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.630110566013423,
+          "final_score": 0.630110566013423
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_004",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.626623368263245,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.626623368263245,
+          "final_score": 0.626623368263245
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0003",
+      "query": "기숙사 입사 신청은?",
+      "label": "기숙사 입사 신청",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "static_489038e768a146d4_v001_chunk_001",
+        "static_51ad97a54f7a0db7_v001_chunk_001",
+        "static_26d633279a2768ef_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 2,
+      "first_hit_rank": 3,
+      "recall_at_k": 0.6666666666666666,
+      "precision_at_k": 0.2,
+      "mrr": 0.3333333333333333,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_003",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 1.0,
+          "search_mode": "hybrid",
+          "lexical_score": 0.661016953262027,
+          "vector_score": 0.699467211914114,
+          "final_score": 1.0
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_001",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.9255877458088628,
+          "search_mode": "hybrid",
+          "lexical_score": 0.636363634787315,
+          "vector_score": 0.630110566013423,
+          "final_score": 0.9255877458088628
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_489038e768a146d4_v001_chunk_001",
+          "doc_id": "static_489038e768a146d4",
+          "title": "동의대학교 효민생활관",
+          "score": 0.898496880650095,
+          "search_mode": "hybrid",
+          "lexical_score": 0.534883721252594,
+          "vector_score": 0.670117167220457,
+          "final_score": 0.898496880650095
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_51ad97a54f7a0db7_v001_chunk_001",
+          "doc_id": "static_51ad97a54f7a0db7",
+          "title": "동의대학교 효민생활관",
+          "score": 0.898496880650095,
+          "search_mode": "hybrid",
+          "lexical_score": 0.534883721252594,
+          "vector_score": 0.670117167220457,
+          "final_score": 0.898496880650095
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_002",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.886892624331175,
+          "search_mode": "hybrid",
+          "lexical_score": 0.615384613621164,
+          "vector_score": 0.599800175452215,
+          "final_score": 0.886892624331175
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0004",
+      "query": "졸업 요건은 뭐야?",
+      "label": "졸업요건",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "deu_academic_84441_v002_chunk_013",
+        "deu_academic_84441_v002_chunk_017"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_042",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.636363634787315,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.74999998807907,
+          "vector_score": null,
+          "final_score": 0.636363634787315
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_4809c15f8904a00c_v001_chunk_004",
+          "doc_id": "static_4809c15f8904a00c",
+          "title": "연수성과 | 교육연수원 | 부속기관 | 대학기관/규정 | DEU",
+          "score": 0.629629634535362,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.70000003576279,
+          "vector_score": null,
+          "final_score": 0.629629634535362
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_043",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.622641512829029,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.65000002384186,
+          "vector_score": null,
+          "final_score": 0.622641512829029
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_81202_v001_chunk_002",
+          "doc_id": "deu_academic_notice_81202",
+          "title": "2026학년도 편입생 대상 수강신청 및 학점관련 안내",
+          "score": 0.622641510282729,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.65000000596046,
+          "vector_score": null,
+          "final_score": 0.622641510282729
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_aa3bc6cdd827da89_v001_chunk_001",
+          "doc_id": "static_aa3bc6cdd827da89",
+          "title": "지원자격 | 입학안내 | 뷰티비즈니스학과",
+          "score": 0.615384618911517,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.60000002384186,
+          "vector_score": null,
+          "final_score": 0.615384618911517
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0004",
+      "query": "졸업 요건은 뭐야?",
+      "label": "졸업요건",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "deu_academic_84441_v002_chunk_013",
+        "deu_academic_84441_v002_chunk_017"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_043",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.738649387520629,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.738649387520629,
+          "final_score": 0.738649387520629
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80057_v001_chunk_001",
+          "doc_id": "deu_academic_notice_80057",
+          "title": "모집 중지학과 소속학생(복수전공 포함)의 졸업논문 제출 관련사항 안내(불문, 독문, 사학, 철학상담심리, 수학, 물리, 화학, 분자생물, 생명응용)(~2026.01.23 까지 제출)",
+          "score": 0.710729813575745,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.710729813575745,
+          "final_score": 0.710729813575745
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_042",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.696182752110634,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.696182752110634,
+          "final_score": 0.696182752110634
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_031",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.679321945946102,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.679321945946102,
+          "final_score": 0.679321945946102
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_council_notice_79841_v001_chunk_080",
+          "doc_id": "deu_council_notice_79841",
+          "title": "제138차 대학평의원회 회의록",
+          "score": 0.554597556591034,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.554597556591034,
+          "final_score": 0.554597556591034
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0004",
+      "query": "졸업 요건은 뭐야?",
+      "label": "졸업요건",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "deu_academic_84441_v002_chunk_013",
+        "deu_academic_84441_v002_chunk_017"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_043",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.9913746661762832,
+          "search_mode": "hybrid",
+          "lexical_score": 0.622641512829029,
+          "vector_score": 0.738649387520629,
+          "final_score": 0.9913746661762832
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_042",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.9655046336239121,
+          "search_mode": "hybrid",
+          "lexical_score": 0.636363634787315,
+          "vector_score": 0.696182752110634,
+          "final_score": 0.9655046336239121
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_80057_v001_chunk_001",
+          "doc_id": "deu_academic_notice_80057",
+          "title": "모집 중지학과 소속학생(복수전공 포함)의 졸업논문 제출 관련사항 안내(불문, 독문, 사학, 철학상담심리, 수학, 물리, 화학, 분자생물, 생명응용)(~2026.01.23 까지 제출)",
+          "score": 0.949332779177746,
+          "search_mode": "hybrid",
+          "lexical_score": 0.591836736679871,
+          "vector_score": 0.710729813575745,
+          "final_score": 0.949332779177746
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_031",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.9238203740497731,
+          "search_mode": "hybrid",
+          "lexical_score": 0.591836732707884,
+          "vector_score": 0.679321945946102,
+          "final_score": 0.9238203740497731
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_80057_v001_chunk_002",
+          "doc_id": "deu_academic_notice_80057",
+          "title": "모집 중지학과 소속학생(복수전공 포함)의 졸업논문 제출 관련사항 안내(불문, 독문, 사학, 철학상담심리, 수학, 물리, 화학, 분자생물, 생명응용)(~2026.01.23 까지 제출)",
+          "score": 0.9033837534584075,
+          "search_mode": "hybrid",
+          "lexical_score": 0.607843137254902,
+          "vector_score": 0.641776657104492,
+          "final_score": 0.9033837534584075
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0005",
+      "query": "등록금 납부 기한은?",
+      "label": "등록금 납부 기한",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "deu_academic_84441_v002_chunk_024",
+        "deu_notice_85581_v002_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 2,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.5,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_notice_81016_v001_chunk_001",
+          "doc_id": "deu_notice_81016",
+          "title": "2026-1학기 등록금 납부 안내",
+          "score": 0.836065573770492,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 5.1,
+          "vector_score": null,
+          "final_score": 0.836065573770492
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_notice_85581_v002_chunk_001",
+          "doc_id": "deu_notice_85581",
+          "title": "2026학년도 1학기 등록금 분할 4차 납부 안내",
+          "score": 0.803921568627451,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 4.1,
+          "vector_score": null,
+          "final_score": 0.803921568627451
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_notice_84242_v001_chunk_001",
+          "doc_id": "deu_notice_84242",
+          "title": "2026학년도 1학기 등록금 분할 3차 납부 안내",
+          "score": 0.803921568627451,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 4.1,
+          "vector_score": null,
+          "final_score": 0.803921568627451
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_notice_83246_v001_chunk_001",
+          "doc_id": "deu_notice_83246",
+          "title": "2026학년도 1학기 등록금 분할 2차 납부 안내",
+          "score": 0.803921568627451,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 4.1,
+          "vector_score": null,
+          "final_score": 0.803921568627451
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_notice_81016_v001_chunk_002",
+          "doc_id": "deu_notice_81016",
+          "title": "2026-1학기 등록금 납부 안내",
+          "score": 0.791666668736272,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.80000004768372,
+          "vector_score": null,
+          "final_score": 0.791666668736272
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0005",
+      "query": "등록금 납부 기한은?",
+      "label": "등록금 납부 기한",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "deu_academic_84441_v002_chunk_024",
+        "deu_notice_85581_v002_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 3,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.3333333333333333,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_notice_81016_v001_chunk_001",
+          "doc_id": "deu_notice_81016",
+          "title": "2026-1학기 등록금 납부 안내",
+          "score": 0.801866167672516,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.801866167672516,
+          "final_score": 0.801866167672516
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_notice_83246_v001_chunk_001",
+          "doc_id": "deu_notice_83246",
+          "title": "2026학년도 1학기 등록금 분할 2차 납부 안내",
+          "score": 0.757423118199297,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.757423118199297,
+          "final_score": 0.757423118199297
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_notice_85581_v002_chunk_001",
+          "doc_id": "deu_notice_85581",
+          "title": "2026학년도 1학기 등록금 분할 4차 납부 안내",
+          "score": 0.753544584127939,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.753544584127939,
+          "final_score": 0.753544584127939
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_notice_81016_v001_chunk_004",
+          "doc_id": "deu_notice_81016",
+          "title": "2026-1학기 등록금 납부 안내",
+          "score": 0.74302430409338,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.74302430409338,
+          "final_score": 0.74302430409338
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_notice_84242_v001_chunk_001",
+          "doc_id": "deu_notice_84242",
+          "title": "2026학년도 1학기 등록금 분할 3차 납부 안내",
+          "score": 0.741987142740531,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.741987142740531,
+          "final_score": 0.741987142740531
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0005",
+      "query": "등록금 납부 기한은?",
+      "label": "등록금 납부 기한",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "deu_academic_84441_v002_chunk_024",
+        "deu_notice_85581_v002_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 3,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.3333333333333333,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_notice_81016_v001_chunk_001",
+          "doc_id": "deu_notice_81016",
+          "title": "2026-1학기 등록금 납부 안내",
+          "score": 1.0,
+          "search_mode": "hybrid",
+          "lexical_score": 0.836065573770492,
+          "vector_score": 0.801866167672516,
+          "final_score": 1.0
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_notice_83246_v001_chunk_001",
+          "doc_id": "deu_notice_83246",
+          "title": "2026학년도 1학기 등록금 분할 2차 납부 안내",
+          "score": 0.9513665859844304,
+          "search_mode": "hybrid",
+          "lexical_score": 0.803921568627451,
+          "vector_score": 0.757423118199297,
+          "final_score": 0.9513665859844304
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_notice_85581_v002_chunk_001",
+          "doc_id": "deu_notice_85581",
+          "title": "2026학년도 1학기 등록금 분할 4차 납부 안내",
+          "score": 0.9484644552590882,
+          "search_mode": "hybrid",
+          "lexical_score": 0.803921568627451,
+          "vector_score": 0.753544584127939,
+          "final_score": 0.9484644552590882
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_notice_84242_v001_chunk_001",
+          "doc_id": "deu_notice_84242",
+          "title": "2026학년도 1학기 등록금 분할 3차 납부 안내",
+          "score": 0.9398165472764224,
+          "search_mode": "hybrid",
+          "lexical_score": 0.803921568627451,
+          "vector_score": 0.741987142740531,
+          "final_score": 0.9398165472764224
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_notice_81016_v001_chunk_004",
+          "doc_id": "deu_notice_81016",
+          "title": "2026-1학기 등록금 납부 안내",
+          "score": 0.934729479391456,
+          "search_mode": "hybrid",
+          "lexical_score": 0.791666668736272,
+          "vector_score": 0.74302430409338,
+          "final_score": 0.934729479391456
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0007",
+      "query": "수강 정정 기간은?",
+      "label": "수강정정 기간",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "deu_academic_notice_84385_v001_chunk_004",
+        "deu_academic_notice_84385_v001_chunk_005",
+        "deu_academic_notice_84385_v001_chunk_011"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.811320758112048,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 4.30000009536743,
+          "vector_score": null,
+          "final_score": 0.811320758112048
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_008",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.800000005722046,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 4.00000014305115,
+          "vector_score": null,
+          "final_score": 0.800000005722046
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_notice_80708_v001_chunk_005",
+          "doc_id": "deu_notice_80708",
+          "title": "2026학년도 1학기 재입학 합격 안내",
+          "score": 0.787234049029024,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.70000014305115,
+          "vector_score": null,
+          "final_score": 0.787234049029024
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_notice_80708_v001_chunk_006",
+          "doc_id": "deu_notice_80708",
+          "title": "2026학년도 1학기 재입학 합격 안내",
+          "score": 0.777777782487281,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.50000009536743,
+          "vector_score": null,
+          "final_score": 0.777777782487281
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_011",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.76744185917567,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.29999997615814,
+          "vector_score": null,
+          "final_score": 0.76744185917567
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0007",
+      "query": "수강 정정 기간은?",
+      "label": "수강정정 기간",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "deu_academic_notice_84385_v001_chunk_004",
+        "deu_academic_notice_84385_v001_chunk_005",
+        "deu_academic_notice_84385_v001_chunk_011"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 4,
+      "recall_at_k": 0.3333333333333333,
+      "precision_at_k": 0.1,
+      "mrr": 0.25,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_008",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.691746736556685,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.691746736556685,
+          "final_score": 0.691746736556685
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_003",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.690055812590626,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.690055812590626,
+          "final_score": 0.690055812590626
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_notice_80708_v001_chunk_006",
+          "doc_id": "deu_notice_80708",
+          "title": "2026학년도 1학기 재입학 합격 안내",
+          "score": 0.571565679125113,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.571565679125113,
+          "final_score": 0.571565679125113
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_011",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.664618937418591,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.664618937418591,
+          "final_score": 0.664618937418591
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.661431102582089,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.661431102582089,
+          "final_score": 0.661431102582089
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0007",
+      "query": "수강 정정 기간은?",
+      "label": "수강정정 기간",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "deu_academic_notice_84385_v001_chunk_004",
+        "deu_academic_notice_84385_v001_chunk_005",
+        "deu_academic_notice_84385_v001_chunk_011"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 8,
+      "recall_at_k": 0.3333333333333333,
+      "precision_at_k": 0.1,
+      "mrr": 0.125,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_008",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.9944186058217737,
+          "search_mode": "hybrid",
+          "lexical_score": 0.800000005722046,
+          "vector_score": 0.691746736556685,
+          "final_score": 0.9944186058217737
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.9737051446381966,
+          "search_mode": "hybrid",
+          "lexical_score": 0.811320758112048,
+          "vector_score": 0.661431102582089,
+          "final_score": 0.9737051446381966
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_032",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.901177925674571,
+          "search_mode": "hybrid",
+          "lexical_score": 0.753086419753086,
+          "vector_score": 0.610914756871936,
+          "final_score": 0.901177925674571
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_notice_80708_v001_chunk_006",
+          "doc_id": "deu_notice_80708",
+          "title": "2026학년도 1학기 재입학 합격 안내",
+          "score": 0.8792211529739449,
+          "search_mode": "hybrid",
+          "lexical_score": 0.777777782487281,
+          "vector_score": 0.571565679125113,
+          "final_score": 0.8792211529739449
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_notice_80708_v001_chunk_005",
+          "doc_id": "deu_notice_80708",
+          "title": "2026학년도 1학기 재입학 합격 안내",
+          "score": 0.8731996781707856,
+          "search_mode": "hybrid",
+          "lexical_score": 0.787234049029024,
+          "vector_score": 0.559248397417516,
+          "final_score": 0.8731996781707856
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0009",
+      "query": "기숙사 시설 안내",
+      "label": "기숙사 시설 안내",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "static_413502a6fe8d98ad_v001_chunk_001",
+        "static_3dcfc0a72d7f9f55_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 9,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.1111111111111111,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_d0e3b3235a71e0a4_v001_chunk_001",
+          "doc_id": "static_d0e3b3235a71e0a4",
+          "title": "동의대학교 효민생활관",
+          "score": 0.642857147418723,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.80000003576279,
+          "vector_score": null,
+          "final_score": 0.642857147418723
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_26d633279a2768ef_v001_chunk_001",
+          "doc_id": "static_26d633279a2768ef",
+          "title": "기숙사 게시판목록",
+          "score": 0.600000003814697,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.50000002384186,
+          "vector_score": null,
+          "final_score": 0.600000003814697
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_88dd0994c7078637_v001_chunk_001",
+          "doc_id": "static_88dd0994c7078637",
+          "title": "동의대학교 효민생활관",
+          "score": 0.600000003814697,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.50000002384186,
+          "vector_score": null,
+          "final_score": 0.600000003814697
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_014ee735a1b20c1b_v001_chunk_001",
+          "doc_id": "static_014ee735a1b20c1b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.591836732707884,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.44999998807907,
+          "vector_score": null,
+          "final_score": 0.591836732707884
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_26d633279a2768ef_v001_chunk_002",
+          "doc_id": "static_26d633279a2768ef",
+          "title": "기숙사 게시판목록",
+          "score": 0.583333333333333,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.4,
+          "vector_score": null,
+          "final_score": 0.583333333333333
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0009",
+      "query": "기숙사 시설 안내",
+      "label": "기숙사 시설 안내",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "static_413502a6fe8d98ad_v001_chunk_001",
+        "static_3dcfc0a72d7f9f55_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 9,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.1111111111111111,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_829779c825eea0b9_v001_chunk_003",
+          "doc_id": "static_829779c825eea0b9",
+          "title": "부속기관 | 대학기관/규정 | DEU",
+          "score": 0.571056451138479,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.571056451138479,
+          "final_score": 0.571056451138479
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_6b7748ef0a12057b_v001_chunk_004",
+          "doc_id": "static_6b7748ef0a12057b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.62888053311342,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.62888053311342,
+          "final_score": 0.62888053311342
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_edb64e9fa11eeac0_v001_chunk_001",
+          "doc_id": "static_edb64e9fa11eeac0",
+          "title": "동의대학교 효민생활관",
+          "score": 0.61804843222229,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.61804843222229,
+          "final_score": 0.61804843222229
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_6b7748ef0a12057b_v001_chunk_009",
+          "doc_id": "static_6b7748ef0a12057b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.609121982612256,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.609121982612256,
+          "final_score": 0.609121982612256
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_6b7748ef0a12057b_v001_chunk_007",
+          "doc_id": "static_6b7748ef0a12057b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.602685010113122,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.602685010113122,
+          "final_score": 0.602685010113122
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0009",
+      "query": "기숙사 시설 안내",
+      "label": "기숙사 시설 안내",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "static_413502a6fe8d98ad_v001_chunk_001",
+        "static_3dcfc0a72d7f9f55_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 2,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.5,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_d0e3b3235a71e0a4_v001_chunk_001",
+          "doc_id": "static_d0e3b3235a71e0a4",
+          "title": "동의대학교 효민생활관",
+          "score": 0.9173930668913965,
+          "search_mode": "hybrid",
+          "lexical_score": 0.642857147418723,
+          "vector_score": 0.542297379559748,
+          "final_score": 0.9173930668913965
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_3dcfc0a72d7f9f55_v001_chunk_001",
+          "doc_id": "static_3dcfc0a72d7f9f55",
+          "title": "동의대학교 효민생활관",
+          "score": 0.9111249522526916,
+          "search_mode": "hybrid",
+          "lexical_score": 0.574468087264994,
+          "vector_score": 0.580329011600253,
+          "final_score": 0.9111249522526916
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_8d91be844784785b_v001_chunk_001",
+          "doc_id": "static_8d91be844784785b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.866794429780713,
+          "search_mode": "hybrid",
+          "lexical_score": 0.574468087264994,
+          "vector_score": 0.533864673924629,
+          "final_score": 0.866794429780713
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_f33ad37c7f04d53d_v001_chunk_004",
+          "doc_id": "static_f33ad37c7f04d53d",
+          "title": "동의대학교 효민생활관",
+          "score": 0.8649908765094142,
+          "search_mode": "hybrid",
+          "lexical_score": 0.574468087264994,
+          "vector_score": 0.531974308020041,
+          "final_score": 0.8649908765094142
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_f33ad37c7f04d53d_v001_chunk_005",
+          "doc_id": "static_f33ad37c7f04d53d",
+          "title": "동의대학교 효민생활관",
+          "score": 0.8486242350266633,
+          "search_mode": "hybrid",
+          "lexical_score": 0.545454547917547,
+          "vector_score": 0.53374170057624,
+          "final_score": 0.8486242350266633
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0012",
+      "query": "휴학 후 복학 절차",
+      "label": "휴학 및 복학 절차",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "deu_academic_84441_v002_chunk_011",
+        "deu_academic_84441_v002_chunk_012",
+        "deu_academic_84441_v002_chunk_013"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_001",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.677419353598238,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.09999998807907,
+          "vector_score": null,
+          "final_score": 0.677419353598238
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_79965_v001_chunk_002",
+          "doc_id": "deu_academic_notice_79965",
+          "title": "2026학년도 1학기 전과 신청기간 공지",
+          "score": 0.666666674613952,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.00000007152557,
+          "vector_score": null,
+          "final_score": 0.666666674613952
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_002",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.655172413793103,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.9,
+          "vector_score": null,
+          "final_score": 0.655172413793103
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_85468_v001_chunk_002",
+          "doc_id": "deu_academic_notice_85468",
+          "title": "2026학년도 1학기 조기취업 출석인정(최종) 서류 접수 안내",
+          "score": 0.649122815823401,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.85000007152557,
+          "vector_score": null,
+          "final_score": 0.649122815823401
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_005",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.622641509433962,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.65,
+          "vector_score": null,
+          "final_score": 0.622641509433962
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0012",
+      "query": "휴학 후 복학 절차",
+      "label": "휴학 및 복학 절차",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "deu_academic_84441_v002_chunk_011",
+        "deu_academic_84441_v002_chunk_012",
+        "deu_academic_84441_v002_chunk_013"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 6,
+      "recall_at_k": 0.3333333333333333,
+      "precision_at_k": 0.1,
+      "mrr": 0.16666666666666666,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_023",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.77730045318604,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.77730045318604,
+          "final_score": 0.77730045318604
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_021",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.737056903488267,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.737056903488267,
+          "final_score": 0.737056903488267
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_022",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.708975941745276,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.708975941745276,
+          "final_score": 0.708975941745276
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_notice_80708_v001_chunk_007",
+          "doc_id": "deu_notice_80708",
+          "title": "2026학년도 1학기 재입학 합격 안내",
+          "score": 0.595456218448653,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.595456218448653,
+          "final_score": 0.595456218448653
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_council_notice_79841_v001_chunk_077",
+          "doc_id": "deu_council_notice_79841",
+          "title": "제138차 대학평의원회 회의록",
+          "score": 0.587911062351859,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.587911062351859,
+          "final_score": 0.587911062351859
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0012",
+      "query": "휴학 후 복학 절차",
+      "label": "휴학 및 복학 절차",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "deu_academic_84441_v002_chunk_011",
+        "deu_academic_84441_v002_chunk_012",
+        "deu_academic_84441_v002_chunk_013"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_023",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.9337474152806875,
+          "search_mode": "hybrid",
+          "lexical_score": 0.565217395811315,
+          "vector_score": 0.77730045318604,
+          "final_score": 0.9337474152806875
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_001",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.887452386647595,
+          "search_mode": "hybrid",
+          "lexical_score": 0.677419353598238,
+          "vector_score": 0.631494935079654,
+          "final_score": 0.887452386647595
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_006",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.8281836275625395,
+          "search_mode": "hybrid",
+          "lexical_score": 0.622641509433962,
+          "vector_score": 0.596615201436575,
+          "final_score": 0.8281836275625395
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_021",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.56893591182188,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.737056903488267,
+          "final_score": 0.56893591182188
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_022",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.547260153141006,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.708975941745276,
+          "final_score": 0.547260153141006
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0015",
+      "query": "기숙사 생활 규칙",
+      "label": "기숙사 생활 규칙",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "static_014ee735a1b20c1b_v001_chunk_001",
+        "static_3dcfc0a72d7f9f55_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 2,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.5,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_88dd0994c7078637_v001_chunk_001",
+          "doc_id": "static_88dd0994c7078637",
+          "title": "동의대학교 효민생활관",
+          "score": 0.64912280995283,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.85000002384186,
+          "vector_score": null,
+          "final_score": 0.64912280995283
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_014ee735a1b20c1b_v001_chunk_001",
+          "doc_id": "static_014ee735a1b20c1b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.642857141336616,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.79999998807907,
+          "vector_score": null,
+          "final_score": 0.642857141336616
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_014ee735a1b20c1b_v001_chunk_003",
+          "doc_id": "static_014ee735a1b20c1b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.629629632900118,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.70000002384186,
+          "vector_score": null,
+          "final_score": 0.629629632900118
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_014ee735a1b20c1b_v001_chunk_005",
+          "doc_id": "static_014ee735a1b20c1b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.629629632900118,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.70000002384186,
+          "vector_score": null,
+          "final_score": 0.629629632900118
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_001",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.622641510282729,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.65000000596046,
+          "vector_score": null,
+          "final_score": 0.622641510282729
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0015",
+      "query": "기숙사 생활 규칙",
+      "label": "기숙사 생활 규칙",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "static_014ee735a1b20c1b_v001_chunk_001",
+        "static_3dcfc0a72d7f9f55_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 9,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.1111111111111111,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_f33ad37c7f04d53d_v001_chunk_005",
+          "doc_id": "static_f33ad37c7f04d53d",
+          "title": "동의대학교 효민생활관",
+          "score": 0.673332633177482,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.673332633177482,
+          "final_score": 0.673332633177482
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_f33ad37c7f04d53d_v001_chunk_004",
+          "doc_id": "static_f33ad37c7f04d53d",
+          "title": "동의대학교 효민생활관",
+          "score": 0.647703916108145,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.647703916108145,
+          "final_score": 0.647703916108145
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_6b7748ef0a12057b_v001_chunk_005",
+          "doc_id": "static_6b7748ef0a12057b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.642162840624198,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.642162840624198,
+          "final_score": 0.642162840624198
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_f33ad37c7f04d53d_v001_chunk_003",
+          "doc_id": "static_f33ad37c7f04d53d",
+          "title": "동의대학교 효민생활관",
+          "score": 0.625009804961743,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.625009804961743,
+          "final_score": 0.625009804961743
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_8d91be844784785b_v001_chunk_002",
+          "doc_id": "static_8d91be844784785b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.621620631217957,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.621620631217957,
+          "final_score": 0.621620631217957
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0015",
+      "query": "기숙사 생활 규칙",
+      "label": "기숙사 생활 규칙",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "static_014ee735a1b20c1b_v001_chunk_001",
+        "static_3dcfc0a72d7f9f55_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 3,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.3333333333333333,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_f33ad37c7f04d53d_v001_chunk_005",
+          "doc_id": "static_f33ad37c7f04d53d",
+          "title": "동의대학교 효민생활관",
+          "score": 0.9745627975281634,
+          "search_mode": "hybrid",
+          "lexical_score": 0.607843139088186,
+          "vector_score": 0.673332633177482,
+          "final_score": 0.9745627975281634
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_f33ad37c7f04d53d_v001_chunk_004",
+          "doc_id": "static_f33ad37c7f04d53d",
+          "title": "동의대학교 효민생활관",
+          "score": 0.951725303125083,
+          "search_mode": "hybrid",
+          "lexical_score": 0.607843139088186,
+          "vector_score": 0.647703916108145,
+          "final_score": 0.951725303125083
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_014ee735a1b20c1b_v001_chunk_001",
+          "doc_id": "static_014ee735a1b20c1b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.9152676823177999,
+          "search_mode": "hybrid",
+          "lexical_score": 0.642857141336616,
+          "vector_score": 0.58257714509964,
+          "final_score": 0.9152676823177999
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_8d91be844784785b_v001_chunk_001",
+          "doc_id": "static_8d91be844784785b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.9147148353360686,
+          "search_mode": "hybrid",
+          "lexical_score": 0.607843139088186,
+          "vector_score": 0.606169989888966,
+          "final_score": 0.9147148353360686
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_d0e3b3235a71e0a4_v001_chunk_001",
+          "doc_id": "static_d0e3b3235a71e0a4",
+          "title": "동의대학교 효민생활관",
+          "score": 0.9089751276568616,
+          "search_mode": "hybrid",
+          "lexical_score": 0.607843139088186,
+          "vector_score": 0.599728769080117,
+          "final_score": 0.9089751276568616
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0018",
+      "query": "휴학 기간 제한",
+      "label": "휴학 기간 제한",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "deu_academic_84441_v002_chunk_011",
+        "deu_academic_84441_v002_chunk_012"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_79965_v001_chunk_001",
+          "doc_id": "deu_academic_notice_79965",
+          "title": "2026학년도 1학기 전과 신청기간 공지",
+          "score": 0.682539689748105,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.15000007152557,
+          "vector_score": null,
+          "final_score": 0.682539689748105
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_001",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.677419355458945,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.10000000596046,
+          "vector_score": null,
+          "final_score": 0.677419355458945
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_005",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.67741935483871,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.1,
+          "vector_score": null,
+          "final_score": 0.67741935483871
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_80071_v001_chunk_001",
+          "doc_id": "deu_academic_notice_80071",
+          "title": "2026-1학기 제2전공(부ㆍ복수ㆍ융합ㆍ연계전공) 및 마이크로디그리 신청/변경 일정 및 이수기준 안내",
+          "score": 0.677419352357767,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.09999997615814,
+          "vector_score": null,
+          "final_score": 0.677419352357767
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_notice_80805_v001_chunk_001",
+          "doc_id": "deu_notice_80805",
+          "title": "2026학년도 1학기 시외통학버스 신청 안내(수정)",
+          "score": 0.672131150103935,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.05000002384186,
+          "vector_score": null,
+          "final_score": 0.672131150103935
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0018",
+      "query": "휴학 기간 제한",
+      "label": "휴학 기간 제한",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "deu_academic_84441_v002_chunk_011",
+        "deu_academic_84441_v002_chunk_012"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 2,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.5,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_022",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.706985724388702,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.706985724388702,
+          "final_score": 0.706985724388702
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_84441_v002_chunk_012",
+          "doc_id": "deu_academic_84441",
+          "title": "학칙 개정안 공고(제2026-1호)",
+          "score": 0.602609056312116,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.602609056312116,
+          "final_score": 0.602609056312116
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_79216_v001_chunk_013",
+          "doc_id": "deu_academic_79216",
+          "title": "학칙 개정안 공고(제2025-3호)",
+          "score": 0.602560979051563,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.602560979051563,
+          "final_score": 0.602560979051563
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_79891_v001_chunk_010",
+          "doc_id": "deu_academic_79891",
+          "title": "개정 학칙 공포(제2025-3호)",
+          "score": 0.598599409973586,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.598599409973586,
+          "final_score": 0.598599409973586
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_council_notice_79841_v001_chunk_077",
+          "doc_id": "deu_council_notice_79841",
+          "title": "제138차 대학평의원회 회의록",
+          "score": 0.595529174538206,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.595529174538206,
+          "final_score": 0.595529174538206
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0018",
+      "query": "휴학 기간 제한",
+      "label": "휴학 기간 제한",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "deu_academic_84441_v002_chunk_011",
+        "deu_academic_84441_v002_chunk_012"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 5,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.2,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_022",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.6,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.706985724388702,
+          "final_score": 0.6
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_021",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.5852820401703,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.689643411902495,
+          "final_score": 0.5852820401703
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_012",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.5325033626358374,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.627453792620862,
+          "final_score": 0.5325033626358374
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_010",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.5295944288813712,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.624026168224862,
+          "final_score": 0.5295944288813712
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_84441_v002_chunk_012",
+          "doc_id": "deu_academic_84441",
+          "title": "학칙 개정안 공고(제2026-1호)",
+          "score": 0.5114182950439327,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.602609056312116,
+          "final_score": 0.5114182950439327
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0019",
+      "query": "수강 취소 방법",
+      "label": "수강 취소 방법",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "deu_academic_notice_84378_v001_chunk_001",
+        "deu_academic_notice_84385_v001_chunk_005"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_020",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.777777778955153,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.50000002384186,
+          "vector_score": null,
+          "final_score": 0.777777778955153
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_011",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.76744185917567,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.29999997615814,
+          "vector_score": null,
+          "final_score": 0.76744185917567
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_008",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.764705882352941,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.25,
+          "vector_score": null,
+          "final_score": 0.764705882352941
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.7619047659595,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.20000007152557,
+          "vector_score": null,
+          "final_score": 0.7619047659595
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_006",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.756097563812238,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.10000004768372,
+          "vector_score": null,
+          "final_score": 0.756097563812238
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0019",
+      "query": "수강 취소 방법",
+      "label": "수강 취소 방법",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "deu_academic_notice_84378_v001_chunk_001",
+        "deu_academic_notice_84385_v001_chunk_005"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_006",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.764645433425922,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.764645433425922,
+          "final_score": 0.764645433425922
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_82733_v001_chunk_002",
+          "doc_id": "deu_academic_notice_82733",
+          "title": "2026학년도 1학기 수강신청 취소 안내",
+          "score": 0.745662027080305,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.745662027080305,
+          "final_score": 0.745662027080305
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_041",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.719610681487407,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.719610681487407,
+          "final_score": 0.719610681487407
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_024",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.713452828732311,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.713452828732311,
+          "final_score": 0.713452828732311
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_028",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.696174704344519,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.696174704344519,
+          "final_score": 0.696174704344519
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0019",
+      "query": "수강 취소 방법",
+      "label": "수강 취소 방법",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "deu_academic_notice_84378_v001_chunk_001",
+        "deu_academic_notice_84385_v001_chunk_005"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_82733_v001_chunk_002",
+          "doc_id": "deu_academic_notice_82733",
+          "title": "2026학년도 1학기 수강신청 취소 안내",
+          "score": 0.9640515176801829,
+          "search_mode": "hybrid",
+          "lexical_score": 0.736842105263158,
+          "vector_score": 0.745662027080305,
+          "final_score": 0.9640515176801829
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_011",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.9111035086371388,
+          "search_mode": "hybrid",
+          "lexical_score": 0.714285716231988,
+          "vector_score": 0.692968296166459,
+          "final_score": 0.9111035086371388
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_002",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.89123603272002,
+          "search_mode": "hybrid",
+          "lexical_score": 0.740259745085213,
+          "vector_score": 0.650625357069105,
+          "final_score": 0.89123603272002
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_81202_v001_chunk_005",
+          "doc_id": "deu_academic_notice_81202",
+          "title": "2026학년도 편입생 대상 수강신청 및 학점관련 안내",
+          "score": 0.8904167598895696,
+          "search_mode": "hybrid",
+          "lexical_score": 0.740259745085213,
+          "vector_score": 0.649581268354882,
+          "final_score": 0.8904167598895696
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_80856_v001_chunk_003",
+          "doc_id": "deu_academic_notice_80856",
+          "title": "2026학년도 1학기 1학년 신입생 및 복학생 수강신청 안내",
+          "score": 0.8880079000769596,
+          "search_mode": "hybrid",
+          "lexical_score": 0.746835441509895,
+          "vector_score": 0.642201615965656,
+          "final_score": 0.8880079000769596
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0021",
+      "query": "기숙사 입사 자격",
+      "label": "기숙사 입사 자격",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "static_26d633279a2768ef_v001_chunk_001",
+        "static_489038e768a146d4_v001_chunk_001",
+        "static_51ad97a54f7a0db7_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_014ee735a1b20c1b_v001_chunk_001",
+          "doc_id": "static_014ee735a1b20c1b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.692307692307692,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.25,
+          "vector_score": null,
+          "final_score": 0.692307692307692
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_88dd0994c7078637_v001_chunk_001",
+          "doc_id": "static_88dd0994c7078637",
+          "title": "동의대학교 효민생활관",
+          "score": 0.687500001164153,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.20000001192093,
+          "vector_score": null,
+          "final_score": 0.687500001164153
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_014ee735a1b20c1b_v001_chunk_003",
+          "doc_id": "static_014ee735a1b20c1b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.672131148822459,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.05000001192093,
+          "vector_score": null,
+          "final_score": 0.672131148822459
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_014ee735a1b20c1b_v001_chunk_005",
+          "doc_id": "static_014ee735a1b20c1b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.672131148822459,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.05000001192093,
+          "vector_score": null,
+          "final_score": 0.672131148822459
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_001",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.655172413793103,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.9,
+          "vector_score": null,
+          "final_score": 0.655172413793103
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0021",
+      "query": "기숙사 입사 자격",
+      "label": "기숙사 입사 자격",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "static_26d633279a2768ef_v001_chunk_001",
+        "static_489038e768a146d4_v001_chunk_001",
+        "static_51ad97a54f7a0db7_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_003",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.673311967453016,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.673311967453016,
+          "final_score": 0.673311967453016
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_001",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.63387417783603,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.63387417783603,
+          "final_score": 0.63387417783603
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_004",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.603550588661366,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.603550588661366,
+          "final_score": 0.603550588661366
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_004",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.585552373992831,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.585552373992831,
+          "final_score": 0.585552373992831
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_006",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.580731785297407,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.580731785297407,
+          "final_score": 0.580731785297407
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0021",
+      "query": "기숙사 입사 자격",
+      "label": "기숙사 입사 자격",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "static_26d633279a2768ef_v001_chunk_001",
+        "static_489038e768a146d4_v001_chunk_001",
+        "static_51ad97a54f7a0db7_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_003",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.9637860091752607,
+          "search_mode": "hybrid",
+          "lexical_score": 0.629629631264874,
+          "vector_score": 0.673311967453016,
+          "final_score": 0.9637860091752607
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_001",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.9434003613329605,
+          "search_mode": "hybrid",
+          "lexical_score": 0.655172413793103,
+          "vector_score": 0.63387417783603,
+          "final_score": 0.9434003613329605
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_006",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.8960442514396683,
+          "search_mode": "hybrid",
+          "lexical_score": 0.655172413793103,
+          "vector_score": 0.580731785297407,
+          "final_score": 0.8960442514396683
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_008",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.8918987020122663,
+          "search_mode": "hybrid",
+          "lexical_score": 0.655172413793103,
+          "vector_score": 0.576079705228844,
+          "final_score": 0.8918987020122663
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_002",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.8909635606315139,
+          "search_mode": "hybrid",
+          "lexical_score": 0.64912280995283,
+          "vector_score": 0.578952710878203,
+          "final_score": 0.8909635606315139
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0023",
+      "query": "등록금 납부 방법",
+      "label": "등록금 납부 방법",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "deu_academic_84441_v002_chunk_024",
+        "deu_notice_85581_v002_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 2,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.5,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_notice_81016_v001_chunk_001",
+          "doc_id": "deu_notice_81016",
+          "title": "2026-1학기 등록금 납부 안내",
+          "score": 0.844961240310078,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 5.45,
+          "vector_score": null,
+          "final_score": 0.844961240310078
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_notice_85581_v002_chunk_001",
+          "doc_id": "deu_notice_85581",
+          "title": "2026학년도 1학기 등록금 분할 4차 납부 안내",
+          "score": 0.803921568627451,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 4.1,
+          "vector_score": null,
+          "final_score": 0.803921568627451
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_notice_84242_v001_chunk_001",
+          "doc_id": "deu_notice_84242",
+          "title": "2026학년도 1학기 등록금 분할 3차 납부 안내",
+          "score": 0.803921568627451,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 4.1,
+          "vector_score": null,
+          "final_score": 0.803921568627451
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_notice_83246_v001_chunk_001",
+          "doc_id": "deu_notice_83246",
+          "title": "2026학년도 1학기 등록금 분할 2차 납부 안내",
+          "score": 0.803921568627451,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 4.1,
+          "vector_score": null,
+          "final_score": 0.803921568627451
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_notice_81016_v001_chunk_002",
+          "doc_id": "deu_notice_81016",
+          "title": "2026-1학기 등록금 납부 안내",
+          "score": 0.791666668736272,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.80000004768372,
+          "vector_score": null,
+          "final_score": 0.791666668736272
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0023",
+      "query": "등록금 납부 방법",
+      "label": "등록금 납부 방법",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "deu_academic_84441_v002_chunk_024",
+        "deu_notice_85581_v002_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 4,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.25,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_notice_81016_v001_chunk_001",
+          "doc_id": "deu_notice_81016",
+          "title": "2026-1학기 등록금 납부 안내",
+          "score": 0.813733664679469,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.813733664679469,
+          "final_score": 0.813733664679469
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_020",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.746801036977644,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.746801036977644,
+          "final_score": 0.746801036977644
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_d833cf326e095a02_v001_chunk_003",
+          "doc_id": "static_d833cf326e095a02",
+          "title": "미래융합대학",
+          "score": 0.645849904665358,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.645849904665358,
+          "final_score": 0.645849904665358
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_notice_85581_v002_chunk_001",
+          "doc_id": "deu_notice_85581",
+          "title": "2026학년도 1학기 등록금 분할 4차 납부 안내",
+          "score": 0.708394526934951,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.708394526934951,
+          "final_score": 0.708394526934951
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_notice_81016_v001_chunk_004",
+          "doc_id": "deu_notice_81016",
+          "title": "2026-1학기 등록금 납부 안내",
+          "score": 0.703373491562994,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.703373491562994,
+          "final_score": 0.703373491562994
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0023",
+      "query": "등록금 납부 방법",
+      "label": "등록금 납부 방법",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "deu_academic_84441_v002_chunk_024",
+        "deu_notice_85581_v002_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 2,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.5,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_notice_81016_v001_chunk_001",
+          "doc_id": "deu_notice_81016",
+          "title": "2026-1학기 등록금 납부 안내",
+          "score": 1.0,
+          "search_mode": "hybrid",
+          "lexical_score": 0.844961240310078,
+          "vector_score": 0.813733664679469,
+          "final_score": 1.0
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_notice_85581_v002_chunk_001",
+          "doc_id": "deu_notice_85581",
+          "title": "2026학년도 1학기 등록금 분할 4차 납부 안내",
+          "score": 0.9029010758364796,
+          "search_mode": "hybrid",
+          "lexical_score": 0.803921568627451,
+          "vector_score": 0.708394526934951,
+          "final_score": 0.9029010758364796
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_notice_81016_v001_chunk_002",
+          "doc_id": "deu_notice_81016",
+          "title": "2026-1학기 등록금 납부 안내",
+          "score": 0.8933406274077444,
+          "search_mode": "hybrid",
+          "lexical_score": 0.791666668736272,
+          "vector_score": 0.703296422761893,
+          "final_score": 0.8933406274077444
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_notice_81016_v001_chunk_004",
+          "doc_id": "deu_notice_81016",
+          "title": "2026-1학기 등록금 납부 안내",
+          "score": 0.8902160389154676,
+          "search_mode": "hybrid",
+          "lexical_score": 0.784946238764422,
+          "vector_score": 0.703373491562994,
+          "final_score": 0.8902160389154676
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_notice_83246_v001_chunk_001",
+          "doc_id": "deu_notice_83246",
+          "title": "2026학년도 1학기 등록금 분할 2차 납부 안내",
+          "score": 0.8898262029599547,
+          "search_mode": "hybrid",
+          "lexical_score": 0.803921568627451,
+          "vector_score": 0.690662086566563,
+          "final_score": 0.8898262029599547
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0027",
+      "query": "기숙사 퇴사 절차",
+      "label": "기숙사 퇴사 절차",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "static_562bd7b91fdb0fee_v001_chunk_001",
+        "static_56bd1d9f3eb3548a_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 8,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.125,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_002",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.733333336724175,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.75000004768372,
+          "vector_score": null,
+          "final_score": 0.733333336724175
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_88dd0994c7078637_v001_chunk_001",
+          "doc_id": "static_88dd0994c7078637",
+          "title": "동의대학교 효민생활관",
+          "score": 0.672131147540984,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.05,
+          "vector_score": null,
+          "final_score": 0.672131147540984
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_005",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.661016953262027,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.95000003576279,
+          "vector_score": null,
+          "final_score": 0.661016953262027
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_014ee735a1b20c1b_v001_chunk_001",
+          "doc_id": "static_014ee735a1b20c1b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.649122808485187,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.85000001192093,
+          "vector_score": null,
+          "final_score": 0.649122808485187
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_004",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.649122808485187,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.85000001192093,
+          "vector_score": null,
+          "final_score": 0.649122808485187
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0027",
+      "query": "기숙사 퇴사 절차",
+      "label": "기숙사 퇴사 절차",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "static_562bd7b91fdb0fee_v001_chunk_001",
+        "static_56bd1d9f3eb3548a_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 7,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.14285714285714285,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_005",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.722374616719815,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.722374616719815,
+          "final_score": 0.722374616719815
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_004",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.702857803617047,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.702857803617047,
+          "final_score": 0.702857803617047
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_003",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.70077284565296,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.70077284565296,
+          "final_score": 0.70077284565296
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_006",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.681934869289415,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.681934869289415,
+          "final_score": 0.681934869289415
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_008",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.678643014592769,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.678643014592769,
+          "final_score": 0.678643014592769
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0027",
+      "query": "기숙사 퇴사 절차",
+      "label": "기숙사 퇴사 절차",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "static_562bd7b91fdb0fee_v001_chunk_001",
+        "static_56bd1d9f3eb3548a_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 7,
+      "recall_at_k": 0.5,
+      "precision_at_k": 0.1,
+      "mrr": 0.14285714285714285,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_005",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.9605547001121276,
+          "search_mode": "hybrid",
+          "lexical_score": 0.661016953262027,
+          "vector_score": 0.722374616719815,
+          "final_score": 0.9605547001121276
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_002",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.9536742226438405,
+          "search_mode": "hybrid",
+          "lexical_score": 0.733333336724175,
+          "vector_score": 0.666600340616643,
+          "final_score": 0.9536742226438405
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_004",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.9378564375522114,
+          "search_mode": "hybrid",
+          "lexical_score": 0.649122808485187,
+          "vector_score": 0.702857803617047,
+          "final_score": 0.9378564375522114
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_003",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.9177220352683668,
+          "search_mode": "hybrid",
+          "lexical_score": 0.615384618911518,
+          "vector_score": 0.70077284565296,
+          "final_score": 0.9177220352683668
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_006",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.902075322827155,
+          "search_mode": "hybrid",
+          "lexical_score": 0.615384613621164,
+          "vector_score": 0.681934869289415,
+          "final_score": 0.902075322827155
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0036",
+      "query": "휴학 취소 방법",
+      "label": "휴학 취소 방법",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "deu_academic_84441_v002_chunk_011",
+        "deu_academic_84441_v002_chunk_012"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_002",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.714285715258851,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.50000001192093,
+          "vector_score": null,
+          "final_score": 0.714285715258851
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_001",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.710144928037006,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.45000000596046,
+          "vector_score": null,
+          "final_score": 0.710144928037006
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_007",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.710144927536232,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.45,
+          "vector_score": null,
+          "final_score": 0.710144927536232
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_009",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.69696969710653,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.30000000149012,
+          "vector_score": null,
+          "final_score": 0.69696969710653
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_005",
+          "doc_id": "deu_academic_notice_81144",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "score": 0.696969696969697,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.3,
+          "vector_score": null,
+          "final_score": 0.696969696969697
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0036",
+      "query": "휴학 취소 방법",
+      "label": "휴학 취소 방법",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "deu_academic_84441_v002_chunk_011",
+        "deu_academic_84441_v002_chunk_012"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_021",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.728919228444209,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.728919228444209,
+          "final_score": 0.728919228444209
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_82733_v001_chunk_002",
+          "doc_id": "deu_academic_notice_82733",
+          "title": "2026학년도 1학기 수강신청 취소 안내",
+          "score": 0.704566525596415,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.704566525596415,
+          "final_score": 0.704566525596415
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_006",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.69013814027961,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.69013814027961,
+          "final_score": 0.69013814027961
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_041",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.684081664547632,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.684081664547632,
+          "final_score": 0.684081664547632
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_024",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.673447329176113,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.673447329176113,
+          "final_score": 0.673447329176113
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0036",
+      "query": "휴학 취소 방법",
+      "label": "휴학 취소 방법",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "deu_academic_84441_v002_chunk_011",
+        "deu_academic_84441_v002_chunk_012"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80157_v001_chunk_002",
+          "doc_id": "deu_academic_notice_80157",
+          "title": "학사학위취득유예(졸업유예) 신청자 및 미졸업자의 2026-1학기 수강 신청 및 현금 등록 방법 안내(미졸업자 국가장학금 및 학자금 대출 안내 포함)",
+          "score": 0.8358483878829082,
+          "search_mode": "hybrid",
+          "lexical_score": 0.607843137254902,
+          "vector_score": 0.601912623301879,
+          "final_score": 0.8358483878829082
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_021",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.6,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.728919228444209,
+          "final_score": 0.6
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_82733_v001_chunk_002",
+          "doc_id": "deu_academic_notice_82733",
+          "title": "2026학년도 1학기 수강신청 취소 안내",
+          "score": 0.579954402163511,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.704566525596415,
+          "final_score": 0.579954402163511
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_006",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.5680778720182432,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.69013814027961,
+          "final_score": 0.5680778720182432
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_041",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.5630925659687063,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.684081664547632,
+          "final_score": 0.5630925659687063
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0045",
+      "query": "기숙사 비용",
+      "label": "기숙사 비용",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "static_56bd1d9f3eb3548a_v001_chunk_001",
+        "deu_scholarship_81842_v002_chunk_017",
+        "static_26d633279a2768ef_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 2,
+      "first_hit_rank": 1,
+      "recall_at_k": 0.6666666666666666,
+      "precision_at_k": 0.2,
+      "mrr": 1.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_017",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.622641507736429,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.64999998807907,
+          "vector_score": null,
+          "final_score": 0.622641507736429
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_88dd0994c7078637_v001_chunk_001",
+          "doc_id": "static_88dd0994c7078637",
+          "title": "동의대학교 효민생활관",
+          "score": 0.574468089423605,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.35000002384186,
+          "vector_score": null,
+          "final_score": 0.574468089423605
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_f33ad37c7f04d53d_v001_chunk_004",
+          "doc_id": "static_f33ad37c7f04d53d",
+          "title": "동의대학교 효민생활관",
+          "score": 0.56521739243109,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.30000000596046,
+          "vector_score": null,
+          "final_score": 0.56521739243109
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_014ee735a1b20c1b_v001_chunk_001",
+          "doc_id": "static_014ee735a1b20c1b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.565217389050864,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.29999998807907,
+          "vector_score": null,
+          "final_score": 0.565217389050864
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_014ee735a1b20c1b_v001_chunk_003",
+          "doc_id": "static_014ee735a1b20c1b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.545454550380549,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.20000002384186,
+          "vector_score": null,
+          "final_score": 0.545454550380549
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0045",
+      "query": "기숙사 비용",
+      "label": "기숙사 비용",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "static_56bd1d9f3eb3548a_v001_chunk_001",
+        "deu_scholarship_81842_v002_chunk_017",
+        "static_26d633279a2768ef_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 2,
+      "recall_at_k": 0.3333333333333333,
+      "precision_at_k": 0.1,
+      "mrr": 0.5,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_030",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.553119248523626,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.553119248523626,
+          "final_score": 0.553119248523626
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_017",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.520101788056114,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.520101788056114,
+          "final_score": 0.520101788056114
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_6b7748ef0a12057b_v001_chunk_005",
+          "doc_id": "static_6b7748ef0a12057b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.589602563286439,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.589602563286439,
+          "final_score": 0.589602563286439
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_6b7748ef0a12057b_v001_chunk_004",
+          "doc_id": "static_6b7748ef0a12057b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.586940054528723,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.586940054528723,
+          "final_score": 0.586940054528723
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_6b7748ef0a12057b_v001_chunk_009",
+          "doc_id": "static_6b7748ef0a12057b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.583990251063727,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.583990251063727,
+          "final_score": 0.583990251063727
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0045",
+      "query": "기숙사 비용",
+      "label": "기숙사 비용",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "static_56bd1d9f3eb3548a_v001_chunk_001",
+        "deu_scholarship_81842_v002_chunk_017",
+        "static_26d633279a2768ef_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 1,
+      "recall_at_k": 0.3333333333333333,
+      "precision_at_k": 0.1,
+      "mrr": 1.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_017",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.9292736027032226,
+          "search_mode": "hybrid",
+          "lexical_score": 0.622641507736429,
+          "vector_score": 0.520101788056114,
+          "final_score": 0.9292736027032226
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_6b7748ef0a12057b_v001_chunk_005",
+          "doc_id": "static_6b7748ef0a12057b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.8951678962523277,
+          "search_mode": "hybrid",
+          "lexical_score": 0.459459459894848,
+          "vector_score": 0.589602563286439,
+          "final_score": 0.8951678962523277
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_f33ad37c7f04d53d_v001_chunk_004",
+          "doc_id": "static_f33ad37c7f04d53d",
+          "title": "동의대학교 효민생활관",
+          "score": 0.8650857207724576,
+          "search_mode": "hybrid",
+          "lexical_score": 0.56521739243109,
+          "vector_score": 0.49327758550645,
+          "final_score": 0.8650857207724576
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_004",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.8608140324193125,
+          "search_mode": "hybrid",
+          "lexical_score": 0.487179487963243,
+          "vector_score": 0.53834459781648,
+          "final_score": 0.8608140324193125
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_f33ad37c7f04d53d_v001_chunk_005",
+          "doc_id": "static_f33ad37c7f04d53d",
+          "title": "동의대학교 효민생활관",
+          "score": 0.8358510312483568,
+          "search_mode": "hybrid",
+          "lexical_score": 0.512195124787847,
+          "vector_score": 0.498022019745238,
+          "final_score": 0.8358510312483568
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0050",
+      "query": "장학금 신청 마감",
+      "label": "장학금 신청 마감",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "deu_scholarship_81842_v002_chunk_001",
+        "deu_scholarship_81842_v002_chunk_002",
+        "deu_scholarship_81842_v002_chunk_005"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_055",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.761904760553183,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.19999997615814,
+          "vector_score": null,
+          "final_score": 0.761904760553183
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_032",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.743589745941012,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.90000003576279,
+          "vector_score": null,
+          "final_score": 0.743589745941012
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_026",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.736842106088707,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.80000001192093,
+          "vector_score": null,
+          "final_score": 0.736842106088707
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_061",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.729729732342059,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.70000003576279,
+          "vector_score": null,
+          "final_score": 0.729729732342059
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_063",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.729729732342059,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.70000003576279,
+          "vector_score": null,
+          "final_score": 0.729729732342059
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0050",
+      "query": "장학금 신청 마감",
+      "label": "장학금 신청 마감",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "deu_scholarship_81842_v002_chunk_001",
+        "deu_scholarship_81842_v002_chunk_002",
+        "deu_scholarship_81842_v002_chunk_005"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_d833cf326e095a02_v001_chunk_008",
+          "doc_id": "static_d833cf326e095a02",
+          "title": "미래융합대학",
+          "score": 0.625487051875172,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.625487051875172,
+          "final_score": 0.625487051875172
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_003",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.594126189105143,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.594126189105143,
+          "final_score": 0.594126189105143
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_102418e6cc617c0c_v001_chunk_008",
+          "doc_id": "static_102418e6cc617c0c",
+          "title": "동의대학교 대표",
+          "score": 0.585839713463801,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.585839713463801,
+          "final_score": 0.585839713463801
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_85a7bb2c5b4fa514_v001_chunk_008",
+          "doc_id": "static_85a7bb2c5b4fa514",
+          "title": "동의대학교 대표",
+          "score": 0.585839713463801,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.585839713463801,
+          "final_score": 0.585839713463801
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_b166c4678e17da08_v001_chunk_008",
+          "doc_id": "static_b166c4678e17da08",
+          "title": "동의대학교 대표",
+          "score": 0.585839713463801,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.585839713463801,
+          "final_score": 0.585839713463801
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0050",
+      "query": "장학금 신청 마감",
+      "label": "장학금 신청 마감",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "deu_scholarship_81842_v002_chunk_001",
+        "deu_scholarship_81842_v002_chunk_002",
+        "deu_scholarship_81842_v002_chunk_005"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_041",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.8736852543576361,
+          "search_mode": "hybrid",
+          "lexical_score": 0.696969698064364,
+          "vector_score": 0.529345691204071,
+          "final_score": 0.8736852543576361
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_023",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.8660311404233358,
+          "search_mode": "hybrid",
+          "lexical_score": 0.687499998835847,
+          "vector_score": 0.526549220085144,
+          "final_score": 0.8660311404233358
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_d833cf326e095a02_v001_chunk_008",
+          "doc_id": "static_d833cf326e095a02",
+          "title": "미래융합대학",
+          "score": 0.6,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.625487051875172,
+          "final_score": 0.6
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_scholarship_81842_v002_chunk_003",
+          "doc_id": "deu_scholarship_81842",
+          "title": "2026-1학기 주거안정장학금 시행안내",
+          "score": 0.5699170148996584,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.594126189105143,
+          "final_score": 0.5699170148996584
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_102418e6cc617c0c_v001_chunk_008",
+          "doc_id": "static_102418e6cc617c0c",
+          "title": "동의대학교 대표",
+          "score": 0.5619681926660091,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.585839713463801,
+          "final_score": 0.5619681926660091
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0052",
+      "query": "졸업 자격 심사",
+      "label": "졸업 자격 심사",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "deu_academic_84441_v002_chunk_013",
+        "deu_academic_84441_v002_chunk_017"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80057_v001_chunk_001",
+          "doc_id": "deu_academic_notice_80057",
+          "title": "모집 중지학과 소속학생(복수전공 포함)의 졸업논문 제출 관련사항 안내(불문, 독문, 사학, 철학상담심리, 수학, 물리, 화학, 분자생물, 생명응용)(~2026.01.23 까지 제출)",
+          "score": 0.642857142857143,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.8,
+          "vector_score": null,
+          "final_score": 0.642857142857143
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_4809c15f8904a00c_v001_chunk_004",
+          "doc_id": "static_4809c15f8904a00c",
+          "title": "연수성과 | 교육연수원 | 부속기관 | 대학기관/규정 | DEU",
+          "score": 0.629629634535362,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.70000003576279,
+          "vector_score": null,
+          "final_score": 0.629629634535362
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_81202_v001_chunk_002",
+          "doc_id": "deu_academic_notice_81202",
+          "title": "2026학년도 편입생 대상 수강신청 및 학점관련 안내",
+          "score": 0.622641510282729,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.65000000596046,
+          "vector_score": null,
+          "final_score": 0.622641510282729
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_aa3bc6cdd827da89_v001_chunk_001",
+          "doc_id": "static_aa3bc6cdd827da89",
+          "title": "지원자격 | 입학안내 | 뷰티비즈니스학과",
+          "score": 0.615384618911517,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.60000002384186,
+          "vector_score": null,
+          "final_score": 0.615384618911517
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_e77eafe303be9aef_v001_chunk_001",
+          "doc_id": "static_e77eafe303be9aef",
+          "title": "지원자격 | 입학안내 | 라이프복지학과",
+          "score": 0.615384618911517,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.60000002384186,
+          "vector_score": null,
+          "final_score": 0.615384618911517
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0052",
+      "query": "졸업 자격 심사",
+      "label": "졸업 자격 심사",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "deu_academic_84441_v002_chunk_013",
+        "deu_academic_84441_v002_chunk_017"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_043",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.72065267562868,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.72065267562868,
+          "final_score": 0.72065267562868
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80057_v001_chunk_001",
+          "doc_id": "deu_academic_notice_80057",
+          "title": "모집 중지학과 소속학생(복수전공 포함)의 졸업논문 제출 관련사항 안내(불문, 독문, 사학, 철학상담심리, 수학, 물리, 화학, 분자생물, 생명응용)(~2026.01.23 까지 제출)",
+          "score": 0.690444635205826,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.690444635205826,
+          "final_score": 0.690444635205826
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_871327ab2e9ffa4a_v001_chunk_001",
+          "doc_id": "static_871327ab2e9ffa4a",
+          "title": "교직과정 이수안내 | 교직과정 이수 | 교직과",
+          "score": 0.546228295115033,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.546228295115033,
+          "final_score": 0.546228295115033
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_d2a412605c948d0d_v001_chunk_001",
+          "doc_id": "static_d2a412605c948d0d",
+          "title": "교육과정 선발 | 교직과정 이수 | 교직과",
+          "score": 0.513946415656381,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.513946415656381,
+          "final_score": 0.513946415656381
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_council_notice_79841_v001_chunk_080",
+          "doc_id": "deu_council_notice_79841",
+          "title": "제138차 대학평의원회 회의록",
+          "score": 0.486301122462887,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.486301122462887,
+          "final_score": 0.486301122462887
+        }
+      ]
+    },
+    {
+      "qid": "donggu-0052",
+      "query": "졸업 자격 심사",
+      "label": "졸업 자격 심사",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "deu_academic_84441_v002_chunk_013",
+        "deu_academic_84441_v002_chunk_017"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80057_v001_chunk_001",
+          "doc_id": "deu_academic_notice_80057",
+          "title": "모집 중지학과 소속학생(복수전공 포함)의 졸업논문 제출 관련사항 안내(불문, 독문, 사학, 철학상담심리, 수학, 물리, 화학, 분자생물, 생명응용)(~2026.01.23 까지 제출)",
+          "score": 0.9748494318183156,
+          "search_mode": "hybrid",
+          "lexical_score": 0.642857142857143,
+          "vector_score": 0.690444635205826,
+          "final_score": 0.9748494318183156
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80057_v001_chunk_002",
+          "doc_id": "deu_academic_notice_80057",
+          "title": "모집 중지학과 소속학생(복수전공 포함)의 졸업논문 제출 관련사항 안내(불문, 독문, 사학, 철학상담심리, 수학, 물리, 화학, 분자생물, 생명응용)(~2026.01.23 까지 제출)",
+          "score": 0.8397154356412497,
+          "search_mode": "hybrid",
+          "lexical_score": 0.607843137254902,
+          "vector_score": 0.554304332054181,
+          "final_score": 0.8397154356412497
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_042",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.827841816365245,
+          "search_mode": "hybrid",
+          "lexical_score": 0.574468089423605,
+          "vector_score": 0.564985698461546,
+          "final_score": 0.827841816365245
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_871327ab2e9ffa4a_v001_chunk_001",
+          "doc_id": "static_871327ab2e9ffa4a",
+          "title": "교직과정 이수안내 | 교직과정 이수 | 교직과",
+          "score": 0.8122248016223366,
+          "search_mode": "hybrid",
+          "lexical_score": 0.574468086185688,
+          "vector_score": 0.546228295115033,
+          "final_score": 0.8122248016223366
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_043",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.6,
+          "search_mode": "hybrid",
+          "lexical_score": null,
+          "vector_score": 0.72065267562868,
+          "final_score": 0.6
+        }
+      ]
+    },
+    {
+      "qid": "수강신청 기간이 언제야?",
+      "query": "수강신청 기간이 언제야?",
+      "label": "수강신청 기간",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "deu_academic_notice_84385_v001_chunk_003",
+        "deu_academic_notice_84385_v001_chunk_004",
+        "deu_academic_notice_84378_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_008",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.782608697905658,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.60000004768372,
+          "vector_score": null,
+          "final_score": 0.782608697905658
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.777777778955153,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.50000002384186,
+          "vector_score": null,
+          "final_score": 0.777777778955153
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_notice_80708_v001_chunk_005",
+          "doc_id": "deu_notice_80708",
+          "title": "2026학년도 1학기 재입학 합격 안내",
+          "score": 0.761904770014237,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.20000014305115,
+          "vector_score": null,
+          "final_score": 0.761904770014237
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_011",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.7619047659595,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.20000007152557,
+          "vector_score": null,
+          "final_score": 0.7619047659595
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_bhcoss_84383_v001_chunk_001",
+          "doc_id": "deu_bhcoss_84383",
+          "title": "[혁신융합대학] 2026학년도 하계계절수업 수강신청을 위한 마이크로디그리 신청 안내",
+          "score": 0.750000002980232,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 3.00000004768372,
+          "vector_score": null,
+          "final_score": 0.750000002980232
+        }
+      ]
+    },
+    {
+      "qid": "수강신청 기간이 언제야?",
+      "query": "수강신청 기간이 언제야?",
+      "label": "수강신청 기간",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "deu_academic_notice_84385_v001_chunk_003",
+        "deu_academic_notice_84385_v001_chunk_004",
+        "deu_academic_notice_84378_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 9,
+      "recall_at_k": 0.3333333333333333,
+      "precision_at_k": 0.1,
+      "mrr": 0.1111111111111111,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_013",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.688573112146895,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.688573112146895,
+          "final_score": 0.688573112146895
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_008",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.688435912821537,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.688435912821537,
+          "final_score": 0.688435912821537
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_057",
+          "doc_id": "deu_academic_notice_80309",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "score": 0.682657719692129,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.682657719692129,
+          "final_score": 0.682657719692129
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_032",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.680733281948173,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.680733281948173,
+          "final_score": 0.680733281948173
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_78b38b933fba2bdb_v001_chunk_002",
+          "doc_id": "static_78b38b933fba2bdb",
+          "title": "동의대학교 평생교육원 > 일반과정 > 수강신청",
+          "score": 0.573561813022983,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.573561813022983,
+          "final_score": 0.573561813022983
+        }
+      ]
+    },
+    {
+      "qid": "수강신청 기간이 언제야?",
+      "query": "수강신청 기간이 언제야?",
+      "label": "수강신청 기간",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "deu_academic_notice_84385_v001_chunk_003",
+        "deu_academic_notice_84385_v001_chunk_004",
+        "deu_academic_notice_84378_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 1,
+      "first_hit_rank": 4,
+      "recall_at_k": 0.3333333333333333,
+      "precision_at_k": 0.1,
+      "mrr": 0.25,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_008",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.9998804490129478,
+          "search_mode": "hybrid",
+          "lexical_score": 0.782608697905658,
+          "vector_score": 0.688435912821537,
+          "final_score": 0.9998804490129478
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_032",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.9715236091246693,
+          "search_mode": "hybrid",
+          "lexical_score": 0.740259745085213,
+          "vector_score": 0.680733281948173,
+          "final_score": 0.9715236091246693
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_021",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.9395954569297365,
+          "search_mode": "hybrid",
+          "lexical_score": 0.729729730600506,
+          "vector_score": 0.650268346039254,
+          "final_score": 0.9395954569297365
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_84385_v001_chunk_003",
+          "doc_id": "deu_academic_notice_84385",
+          "title": "타대학 2026-하계계절수업 수강 안내(본교생이 타대학의 계절수업을 수강하는 경우)",
+          "score": 0.9367698992340203,
+          "search_mode": "hybrid",
+          "lexical_score": 0.692307696822127,
+          "vector_score": 0.668976027698041,
+          "final_score": 0.9367698992340203
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_006",
+          "doc_id": "deu_academic_notice_80877",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "score": 0.9309015346822648,
+          "search_mode": "hybrid",
+          "lexical_score": 0.736842107739805,
+          "vector_score": 0.636119158730607,
+          "final_score": 0.9309015346822648
+        }
+      ]
+    },
+    {
+      "qid": "통학버스 시간표 알려줘",
+      "query": "통학버스 시간표 알려줘",
+      "label": "통학버스 시간표",
+      "needs_review": false,
+      "mode": "lexical",
+      "expected": [
+        "static_59384ca5fbe6b8a7_v001_chunk_001",
+        "static_59384ca5fbe6b8a7_v001_chunk_002"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_notice_80805_v001_chunk_006",
+          "doc_id": "deu_notice_80805",
+          "title": "2026학년도 1학기 시외통학버스 신청 안내(수정)",
+          "score": 0.69696969710653,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.30000000149012,
+          "vector_score": null,
+          "final_score": 0.69696969710653
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_notice_80805_v001_chunk_001",
+          "doc_id": "deu_notice_80805",
+          "title": "2026학년도 1학기 시외통학버스 신청 안내(수정)",
+          "score": 0.615384615605047,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.60000000149012,
+          "vector_score": null,
+          "final_score": 0.615384615605047
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_bids_81498_v001_chunk_009",
+          "doc_id": "deu_bids_81498",
+          "title": "[입찰공고]제2025-21호_동의대학교 2026학년도 시외통학버스 운행 용역 입찰공고(재공고)",
+          "score": 0.545454545762421,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.20000000149012,
+          "vector_score": null,
+          "final_score": 0.545454545762421
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_bids_80145_v001_chunk_009",
+          "doc_id": "deu_bids_80145",
+          "title": "[입찰공고]제2025-21호_동의대학교 2026학년도 시외통학버스 운행 용역 입찰공고",
+          "score": 0.545454545762421,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.20000000149012,
+          "vector_score": null,
+          "final_score": 0.545454545762421
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_bids_81498_v001_chunk_015",
+          "doc_id": "deu_bids_81498",
+          "title": "[입찰공고]제2025-21호_동의대학교 2026학년도 시외통학버스 운행 용역 입찰공고(재공고)",
+          "score": 0.534883721574956,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.15000000298023,
+          "vector_score": null,
+          "final_score": 0.534883721574956
+        }
+      ]
+    },
+    {
+      "qid": "통학버스 시간표 알려줘",
+      "query": "통학버스 시간표 알려줘",
+      "label": "통학버스 시간표",
+      "needs_review": false,
+      "mode": "vector",
+      "expected": [
+        "static_59384ca5fbe6b8a7_v001_chunk_001",
+        "static_59384ca5fbe6b8a7_v001_chunk_002"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 2,
+      "first_hit_rank": 1,
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "mrr": 1.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_59384ca5fbe6b8a7_v001_chunk_001",
+          "doc_id": "static_59384ca5fbe6b8a7",
+          "title": "시외통학버스 | 편의·복지 | 대학생활",
+          "score": 0.637435793876648,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.637435793876648,
+          "final_score": 0.637435793876648
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_notice_80805_v001_chunk_006",
+          "doc_id": "deu_notice_80805",
+          "title": "2026학년도 1학기 시외통학버스 신청 안내(수정)",
+          "score": 0.622618854045868,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.622618854045868,
+          "final_score": 0.622618854045868
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_72242c1a9440872b_v001_chunk_001",
+          "doc_id": "static_72242c1a9440872b",
+          "title": "셔틀버스 안내 | 캠퍼스안내 | DEU",
+          "score": 0.59316195168042,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.59316195168042,
+          "final_score": 0.59316195168042
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_bids_81498_v001_chunk_009",
+          "doc_id": "deu_bids_81498",
+          "title": "[입찰공고]제2025-21호_동의대학교 2026학년도 시외통학버스 운행 용역 입찰공고(재공고)",
+          "score": 0.57653876682885,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.57653876682885,
+          "final_score": 0.57653876682885
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_59384ca5fbe6b8a7_v001_chunk_002",
+          "doc_id": "static_59384ca5fbe6b8a7",
+          "title": "시외통학버스 | 편의·복지 | 대학생활",
+          "score": 0.57487952709198,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.57487952709198,
+          "final_score": 0.57487952709198
+        }
+      ]
+    },
+    {
+      "qid": "통학버스 시간표 알려줘",
+      "query": "통학버스 시간표 알려줘",
+      "label": "통학버스 시간표",
+      "needs_review": false,
+      "mode": "hybrid",
+      "expected": [
+        "static_59384ca5fbe6b8a7_v001_chunk_001",
+        "static_59384ca5fbe6b8a7_v001_chunk_002"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_notice_80805_v001_chunk_006",
+          "doc_id": "deu_notice_80805",
+          "title": "2026학년도 1학기 시외통학버스 신청 안내(수정)",
+          "score": 0.9860532402104355,
+          "search_mode": "hybrid",
+          "lexical_score": 0.69696969710653,
+          "vector_score": 0.622618854045868,
+          "final_score": 0.9860532402104355
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_bids_81498_v001_chunk_009",
+          "doc_id": "deu_bids_81498",
+          "title": "[입찰공고]제2025-21호_동의대학교 2026학년도 시외통학버스 운행 용역 입찰공고(재공고)",
+          "score": 0.8557228563155411,
+          "search_mode": "hybrid",
+          "lexical_score": 0.545454545762421,
+          "vector_score": 0.57653876682885,
+          "final_score": 0.8557228563155411
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_bids_80145_v001_chunk_009",
+          "doc_id": "deu_bids_80145",
+          "title": "[입찰공고]제2025-21호_동의대학교 2026학년도 시외통학버스 운행 용역 입찰공고",
+          "score": 0.8531845612550024,
+          "search_mode": "hybrid",
+          "lexical_score": 0.545454545762421,
+          "vector_score": 0.573842099950504,
+          "final_score": 0.8531845612550024
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_notice_80805_v001_chunk_001",
+          "doc_id": "deu_notice_80805",
+          "title": "2026학년도 1학기 시외통학버스 신청 안내(수정)",
+          "score": 0.8308285483743207,
+          "search_mode": "hybrid",
+          "lexical_score": 0.615384615605047,
+          "vector_score": 0.507453382903744,
+          "final_score": 0.8308285483743207
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_bids_81498_v001_chunk_010",
+          "doc_id": "deu_bids_81498",
+          "title": "[입찰공고]제2025-21호_동의대학교 2026학년도 시외통학버스 운행 용역 입찰공고(재공고)",
+          "score": 0.7422949728751445,
+          "search_mode": "hybrid",
+          "lexical_score": 0.487179487179487,
+          "vector_score": 0.491565316915512,
+          "final_score": 0.7422949728751445
+        }
+      ]
+    },
+    {
+      "qid": "통학버스 신청방법 알려줘",
+      "query": "통학버스 신청방법 알려줘",
+      "label": "통학버스 신청방법",
+      "needs_review": false,
+      "mode": "lexical",
+      "expected": [
+        "static_59384ca5fbe6b8a7_v001_chunk_002",
+        "static_59384ca5fbe6b8a7_v001_chunk_003"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_notice_80805_v001_chunk_001",
+          "doc_id": "deu_notice_80805",
+          "title": "2026학년도 1학기 시외통학버스 신청 안내(수정)",
+          "score": 0.722222224061872,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.60000002384186,
+          "vector_score": null,
+          "final_score": 0.722222224061872
+        },
+        {
+          "rank": 2,
+          "chunk_id": "deu_notice_80805_v001_chunk_006",
+          "doc_id": "deu_notice_80805",
+          "title": "2026학년도 1학기 시외통학버스 신청 안내(수정)",
+          "score": 0.705882353198982,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 2.40000000298023,
+          "vector_score": null,
+          "final_score": 0.705882353198982
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_academic_notice_85468_v001_chunk_002",
+          "doc_id": "deu_academic_notice_85468",
+          "title": "2026학년도 1학기 조기취업 출석인정(최종) 서류 접수 안내",
+          "score": 0.655172422297928,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.90000007152557,
+          "vector_score": null,
+          "final_score": 0.655172422297928
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_80071_v001_chunk_014",
+          "doc_id": "deu_academic_notice_80071",
+          "title": "2026-1학기 제2전공(부ㆍ복수ㆍ융합ㆍ연계전공) 및 마이크로디그리 신청/변경 일정 및 이수기준 안내",
+          "score": 0.636363645821563,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.75000007152557,
+          "vector_score": null,
+          "final_score": 0.636363645821563
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_academic_notice_80071_v001_chunk_009",
+          "doc_id": "deu_academic_notice_80071",
+          "title": "2026-1학기 제2전공(부ㆍ복수ㆍ융합ㆍ연계전공) 및 마이크로디그리 신청/변경 일정 및 이수기준 안내",
+          "score": 0.622641516224096,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.65000004768372,
+          "vector_score": null,
+          "final_score": 0.622641516224096
+        }
+      ]
+    },
+    {
+      "qid": "통학버스 신청방법 알려줘",
+      "query": "통학버스 신청방법 알려줘",
+      "label": "통학버스 신청방법",
+      "needs_review": false,
+      "mode": "vector",
+      "expected": [
+        "static_59384ca5fbe6b8a7_v001_chunk_002",
+        "static_59384ca5fbe6b8a7_v001_chunk_003"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 2,
+      "first_hit_rank": 1,
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "mrr": 1.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_59384ca5fbe6b8a7_v001_chunk_002",
+          "doc_id": "static_59384ca5fbe6b8a7",
+          "title": "시외통학버스 | 편의·복지 | 대학생활",
+          "score": 0.639975590708786,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.639975590708786,
+          "final_score": 0.639975590708786
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_59384ca5fbe6b8a7_v001_chunk_003",
+          "doc_id": "static_59384ca5fbe6b8a7",
+          "title": "시외통학버스 | 편의·복지 | 대학생활",
+          "score": 0.637023988036164,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.637023988036164,
+          "final_score": 0.637023988036164
+        },
+        {
+          "rank": 3,
+          "chunk_id": "deu_notice_80805_v001_chunk_001",
+          "doc_id": "deu_notice_80805",
+          "title": "2026학년도 1학기 시외통학버스 신청 안내(수정)",
+          "score": 0.604798197746294,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.604798197746294,
+          "final_score": 0.604798197746294
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_59384ca5fbe6b8a7_v001_chunk_001",
+          "doc_id": "static_59384ca5fbe6b8a7",
+          "title": "시외통학버스 | 편의·복지 | 대학생활",
+          "score": 0.57203440999575,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.57203440999575,
+          "final_score": 0.57203440999575
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_bids_81498_v001_chunk_010",
+          "doc_id": "deu_bids_81498",
+          "title": "[입찰공고]제2025-21호_동의대학교 2026학년도 시외통학버스 운행 용역 입찰공고(재공고)",
+          "score": 0.540244693726938,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.540244693726938,
+          "final_score": 0.540244693726938
+        }
+      ]
+    },
+    {
+      "qid": "통학버스 신청방법 알려줘",
+      "query": "통학버스 신청방법 알려줘",
+      "label": "통학버스 신청방법",
+      "needs_review": false,
+      "mode": "hybrid",
+      "expected": [
+        "static_59384ca5fbe6b8a7_v001_chunk_002",
+        "static_59384ca5fbe6b8a7_v001_chunk_003"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 2,
+      "first_hit_rank": 2,
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "mrr": 0.5,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "deu_notice_80805_v001_chunk_001",
+          "doc_id": "deu_notice_80805",
+          "title": "2026학년도 1학기 시외통학버스 신청 안내(수정)",
+          "score": 0.9670199362539446,
+          "search_mode": "hybrid",
+          "lexical_score": 0.722222224061872,
+          "vector_score": 0.604798197746294,
+          "final_score": 0.9670199362539446
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_59384ca5fbe6b8a7_v001_chunk_002",
+          "doc_id": "static_59384ca5fbe6b8a7",
+          "title": "시외통학버스 | 편의·복지 | 대학생활",
+          "score": 0.9076923082127216,
+          "search_mode": "hybrid",
+          "lexical_score": 0.555555557910307,
+          "vector_score": 0.639975590708786,
+          "final_score": 0.9076923082127216
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_59384ca5fbe6b8a7_v001_chunk_003",
+          "doc_id": "static_59384ca5fbe6b8a7",
+          "title": "시외통학버스 | 편의·복지 | 대학생활",
+          "score": 0.9049250751662052,
+          "search_mode": "hybrid",
+          "lexical_score": 0.555555557910307,
+          "vector_score": 0.637023988036164,
+          "final_score": 0.9049250751662052
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_59384ca5fbe6b8a7_v001_chunk_001",
+          "doc_id": "static_59384ca5fbe6b8a7",
+          "title": "시외통학버스 | 편의·복지 | 대학생활",
+          "score": 0.8544696529286286,
+          "search_mode": "hybrid",
+          "lexical_score": 0.574468086185688,
+          "vector_score": 0.57203440999575,
+          "final_score": 0.8544696529286286
+        },
+        {
+          "rank": 5,
+          "chunk_id": "deu_notice_80805_v001_chunk_006",
+          "doc_id": "deu_notice_80805",
+          "title": "2026학년도 1학기 시외통학버스 신청 안내(수정)",
+          "score": 0.8084499203715572,
+          "search_mode": "hybrid",
+          "lexical_score": 0.705882353198982,
+          "vector_score": 0.445316023192883,
+          "final_score": 0.8084499203715572
+        }
+      ]
+    },
+    {
+      "qid": "기숙사 입사 신청은 어디서 해?",
+      "query": "기숙사 입사 신청은 어디서 해?",
+      "label": "기숙사 입사 신청",
+      "needs_review": true,
+      "mode": "lexical",
+      "expected": [
+        "static_489038e768a146d4_v001_chunk_001",
+        "static_51ad97a54f7a0db7_v001_chunk_001",
+        "static_26d633279a2768ef_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": false,
+      "hit_count": 0,
+      "first_hit_rank": null,
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "mrr": 0.0,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_003",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.661016953262027,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.95000003576279,
+          "vector_score": null,
+          "final_score": 0.661016953262027
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_014ee735a1b20c1b_v001_chunk_001",
+          "doc_id": "static_014ee735a1b20c1b",
+          "title": "동의대학교 효민생활관",
+          "score": 0.655172413793103,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.9,
+          "vector_score": null,
+          "final_score": 0.655172413793103
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_88dd0994c7078637_v001_chunk_001",
+          "doc_id": "static_88dd0994c7078637",
+          "title": "동의대학교 효민생활관",
+          "score": 0.649122808485187,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.85000001192093,
+          "vector_score": null,
+          "final_score": 0.649122808485187
+        },
+        {
+          "rank": 4,
+          "chunk_id": "deu_academic_notice_79965_v001_chunk_002",
+          "doc_id": "deu_academic_notice_79965",
+          "title": "2026학년도 1학기 전과 신청기간 공지",
+          "score": 0.642857148939249,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.80000004768372,
+          "vector_score": null,
+          "final_score": 0.642857148939249
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_f8dc367f6008877f_v001_chunk_001",
+          "doc_id": "static_f8dc367f6008877f",
+          "title": "동의대학교 효민생활관",
+          "score": 0.642857145898196,
+          "search_mode": "keyword_or_tsquery_ilike",
+          "lexical_score": 1.80000002384186,
+          "vector_score": null,
+          "final_score": 0.642857145898196
+        }
+      ]
+    },
+    {
+      "qid": "기숙사 입사 신청은 어디서 해?",
+      "query": "기숙사 입사 신청은 어디서 해?",
+      "label": "기숙사 입사 신청",
+      "needs_review": true,
+      "mode": "vector",
+      "expected": [
+        "static_489038e768a146d4_v001_chunk_001",
+        "static_51ad97a54f7a0db7_v001_chunk_001",
+        "static_26d633279a2768ef_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 2,
+      "first_hit_rank": 2,
+      "recall_at_k": 0.6666666666666666,
+      "precision_at_k": 0.2,
+      "mrr": 0.5,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_003",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.672442787064403,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.672442787064403,
+          "final_score": 0.672442787064403
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_489038e768a146d4_v001_chunk_001",
+          "doc_id": "static_489038e768a146d4",
+          "title": "동의대학교 효민생활관",
+          "score": 0.653381284466753,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.653381284466753,
+          "final_score": 0.653381284466753
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_51ad97a54f7a0db7_v001_chunk_001",
+          "doc_id": "static_51ad97a54f7a0db7",
+          "title": "동의대학교 효민생활관",
+          "score": 0.653381284466753,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.653381284466753,
+          "final_score": 0.653381284466753
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_3bceffc2cb343adf_v001_chunk_001",
+          "doc_id": "static_3bceffc2cb343adf",
+          "title": "입시설명회 신청",
+          "score": 0.525994683624265,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.525994683624265,
+          "final_score": 0.525994683624265
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_5557d88cac361467_v001_chunk_001",
+          "doc_id": "static_5557d88cac361467",
+          "title": "입시설명회 신청",
+          "score": 0.525994683624265,
+          "search_mode": "vector_cosine",
+          "lexical_score": null,
+          "vector_score": 0.525994683624265,
+          "final_score": 0.525994683624265
+        }
+      ]
+    },
+    {
+      "qid": "기숙사 입사 신청은 어디서 해?",
+      "query": "기숙사 입사 신청은 어디서 해?",
+      "label": "기숙사 입사 신청",
+      "needs_review": true,
+      "mode": "hybrid",
+      "expected": [
+        "static_489038e768a146d4_v001_chunk_001",
+        "static_51ad97a54f7a0db7_v001_chunk_001",
+        "static_26d633279a2768ef_v001_chunk_001"
+      ],
+      "retrieved_count": 30,
+      "hit": true,
+      "hit_count": 2,
+      "first_hit_rank": 6,
+      "recall_at_k": 0.6666666666666666,
+      "precision_at_k": 0.2,
+      "mrr": 0.16666666666666666,
+      "top_docs": [
+        {
+          "rank": 1,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_003",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 1.0,
+          "search_mode": "hybrid",
+          "lexical_score": 0.661016953262027,
+          "vector_score": 0.672442787064403,
+          "final_score": 1.0
+        },
+        {
+          "rank": 2,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_001",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.9213890855862099,
+          "search_mode": "hybrid",
+          "lexical_score": 0.636363634787315,
+          "vector_score": 0.601060187690236,
+          "final_score": 0.9213890855862099
+        },
+        {
+          "rank": 3,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_002",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.890690282247977,
+          "search_mode": "hybrid",
+          "lexical_score": 0.636363634787315,
+          "vector_score": 0.566654872896397,
+          "final_score": 0.890690282247977
+        },
+        {
+          "rank": 4,
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_004",
+          "doc_id": "static_9da619eb2fa46324",
+          "title": "동의대학교 효민생활관",
+          "score": 0.8789713504322447,
+          "search_mode": "hybrid",
+          "lexical_score": 0.574468087264994,
+          "vector_score": 0.59549797204149,
+          "final_score": 0.8789713504322447
+        },
+        {
+          "rank": 5,
+          "chunk_id": "static_562bd7b91fdb0fee_v001_chunk_004",
+          "doc_id": "static_562bd7b91fdb0fee",
+          "title": "동의대학교 효민생활관",
+          "score": 0.8245510572233798,
+          "search_mode": "hybrid",
+          "lexical_score": 0.555555556144243,
+          "vector_score": 0.547333375096314,
+          "final_score": 0.8245510572233798
+        }
+      ]
+    }
+  ]
+}
