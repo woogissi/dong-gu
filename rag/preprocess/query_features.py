@@ -6,6 +6,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Iterable
 
+from rag.preprocess.domain_knowledge import DOMAIN_BLACKLIST, DOMAIN_RULES, ENTITY_ALIASES
+from rag.preprocess.dynamic_entities import get_dynamic_entity_aliases
+
 
 _TOKEN_PATTERN = re.compile(r"[가-힣A-Za-z0-9]+")
 _BUILDING_NO_PATTERN = re.compile(r"\d+\s*번\s*건물")
@@ -25,6 +28,7 @@ GENERIC_QUERY_TERMS = {
     "어디",
     "이름",
 }
+GENERIC_QUERY_TERMS.update(DOMAIN_BLACKLIST)
 
 PROTECTED_LITERAL_TERMS = (
     "정보공학관",
@@ -96,16 +100,24 @@ UI_NOISE_MARKERS = (
 @dataclass(frozen=True)
 class QueryFeatures:
     family: str = "general"
+    domain: str | None = None
+    category: str | None = None
     protected_terms: list[str] = field(default_factory=list)
     strong_terms: list[str] = field(default_factory=list)
     required_terms: list[str] = field(default_factory=list)
+    source_boosts: list[str] = field(default_factory=list)
+    rule_hit_names: list[str] = field(default_factory=list)
 
     def to_log_dict(self) -> dict[str, object]:
         return {
             "family": self.family,
+            "domain": self.domain,
+            "category": self.category,
             "protected_terms": self.protected_terms,
             "strong_terms": self.strong_terms,
             "required_terms": self.required_terms,
+            "source_boosts": self.source_boosts,
+            "rule_hit_names": self.rule_hit_names,
         }
 
 
@@ -115,13 +127,19 @@ def extract_query_features(query: str, keywords: Iterable[str] | None = None) ->
     tokens = tokenize_koreanish(" ".join([text, *keyword_values]))
     protected = _protected_terms(text, keyword_values, tokens)
     strong = _strong_terms(tokens, protected)
+    domain, domain_rule_hits = detect_domain(text, [*strong, *protected])
     family = detect_query_family(text, [*strong, *protected])
     required = _required_terms_for_family(family, strong, protected)
+    rule = DOMAIN_RULES.get(domain or "", {})
     return QueryFeatures(
         family=family,
+        domain=domain,
+        category=str(rule.get("category")) if rule.get("category") else None,
         protected_terms=ordered_unique(protected),
         strong_terms=ordered_unique(strong),
         required_terms=ordered_unique(required),
+        source_boosts=[str(value) for value in rule.get("source_boosts", [])],
+        rule_hit_names=domain_rule_hits,
     )
 
 
@@ -157,6 +175,36 @@ def detect_query_family(query: str, terms: Iterable[str] | None = None) -> str:
     if any(term.casefold() in values or term.casefold() in joined for term in CLUB_PROGRAM_TERMS):
         return "club_program"
     return "general"
+
+
+def detect_domain(query: str, terms: Iterable[str] | None = None) -> tuple[str | None, list[str]]:
+    query_text = (query or "").casefold()
+    term_text = " ".join(str(term) for term in (terms or []) if term).casefold()
+    haystack = f"{query_text} {term_text}"
+    best_domain: str | None = None
+    best_score = 0
+    hits: list[str] = []
+    for domain, rule in DOMAIN_RULES.items():
+        score = 0
+        matched_terms: list[str] = []
+        for keyword in rule.get("keywords", []):
+            text = str(keyword)
+            if text and text.casefold() not in DOMAIN_BLACKLIST and text.casefold() in haystack:
+                score += 3 if text.casefold() in query_text else 1
+                matched_terms.append(text)
+        synonyms = rule.get("synonyms", {})
+        if isinstance(synonyms, dict):
+            for key, values in synonyms.items():
+                for value in [key, *values]:
+                    text = str(value)
+                    if text and text.casefold() not in DOMAIN_BLACKLIST and text.casefold() in haystack:
+                        score += 2 if text.casefold() in query_text else 1
+                        matched_terms.append(text)
+        if score > best_score:
+            best_domain = domain
+            best_score = score
+            hits = [f"domain:{domain}:{term}" for term in ordered_unique(matched_terms)]
+    return best_domain, hits
 
 
 def sanitize_filters(filters: dict[str, list[str]] | None) -> tuple[dict[str, list[str]], list[dict[str, str]]]:
@@ -200,10 +248,22 @@ def _protected_terms(text: str, keywords: list[str], tokens: list[str]) -> list[
     for term in PROTECTED_LITERAL_TERMS:
         if term in text or any(term.casefold() == keyword.casefold() for keyword in keywords):
             protected.append(term.upper() if term.casefold() == "ipp" else term)
+    for canonical, aliases in _merged_entity_aliases().items():
+        if canonical in text or any(alias in text for alias in aliases):
+            protected.append(canonical)
+            protected.extend(alias for alias in aliases if alias in text)
     for token in tokens:
         if re.fullmatch(r"\d+번", token) or re.fullmatch(r"\d+층", token) or re.fullmatch(r"\d+학년", token):
             protected.append(token)
     return protected
+
+
+def _merged_entity_aliases() -> dict[str, list[str]]:
+    merged = {key: list(values) for key, values in ENTITY_ALIASES.items()}
+    for canonical, aliases in get_dynamic_entity_aliases().items():
+        merged.setdefault(canonical, [])
+        merged[canonical] = ordered_unique([*merged[canonical], *aliases])
+    return merged
 
 
 def _strong_terms(tokens: list[str], protected_terms: list[str]) -> list[str]:

@@ -337,7 +337,7 @@ class QueryPreprocessor:
             if field not in state.filters and isinstance(values, list):
                 state.filters[field] = values
         state.filters, dropped_filters = sanitize_filters(state.filters)
-        state.category = primary_category(extracted_entities) or (
+        state.category = query_features.category or primary_category(extracted_entities) or (
             query_bundle.filters.get("category", [None])[0]
             if isinstance(query_bundle.filters.get("category"), list)
             else None
@@ -346,7 +346,9 @@ class QueryPreprocessor:
         state.rewritten_query = query_bundle.keyword_query or normalized_query
         state.metadata["query_understanding"] = {
             "normalized_query": normalized_query,
+            "original_query": state.original_query,
             "lexical_query": lexical_query,
+            "expanded_query": " ".join(dict.fromkeys([normalized_query, *keywords])),
             "embedding_query": embedding_query,
             "query_bundle": state.query_bundle,
             "keywords": keywords,
@@ -358,6 +360,10 @@ class QueryPreprocessor:
             "filters": state.filters,
             "dropped_filters": dropped_filters,
             "primary_category": state.category,
+            "detected_domain": query_features.domain,
+            "detected_category": query_features.category or state.category,
+            "rule_hit_names": query_features.rule_hit_names,
+            "applied_boosts": query_features.source_boosts,
             "rewritten_queries": rewritten_queries,
             "hybrid_keyword_extraction": {
                 "mode": HybridKeywordConfig.from_env().mode,

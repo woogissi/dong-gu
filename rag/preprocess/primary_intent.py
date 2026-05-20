@@ -3,86 +3,94 @@ from __future__ import annotations
 import re
 from typing import Literal
 
+from rag.preprocess.query_features import detect_domain
+
 
 PrimaryIntent = Literal["GENERAL", "INFO", "PROFANITY"]
 
-_PROFANITY_TERMS = {
-    "\uc2dc\ubc1c",
-    "\uc2dc\ubc8c",
-    "\ubcd1\uc2e0",
-    "\uc9c0\ub784",
-}
+_PROFANITY_TERMS = {"시발", "시벌", "병신", "지랄"}
+
+_SMALLTALK_EXACT = {"안녕", "안녕하세요", "고마워", "감사", "감사합니다", "하이", "hi", "hello"}
 
 _INFO_HINTS = {
-    "\uc218\uac15",
-    "\uc218\uac15\uc2e0\uccad",
-    "\uc7a5\ud559",
-    "\uc7a5\ud559\uae08",
-    "\uae30\uc219\uc0ac",
-    "\uc0dd\ud65c\uad00",
-    "\uc878\uc5c5",
-    "\uc131\uc801",
-    "\ub4f1\ub85d\uae08",
-    "\ud1b5\ud559\ubc84\uc2a4",
-    "\uc154\ud2c0",
-    "\uc154\ud2c0\ubc84\uc2a4",
-    "\ubc84\uc2a4",
-    "\ub3c4\uc11c\uad00",
-    "\ud559\uc2dd",
-    "\uc2dd\ub2f9",
-    "\ud559\uc0dd\uc2dd\ub2f9",
-    "\ud559\uc0ac",
-    "\ud734\ud559",
-    "\ubcf5\ud559",
-    "\uc99d\uba85\uc11c",
-    "\uc2e0\uccad",
-    "\uae30\uac04",
-    "\uc77c\uc815",
-    "\uc2dc\uac04",
-    "\ubc29\ubc95",
-    "\uc704\uce58",
-    "\uc694\uac74",
-    "\ub3d9\uc758\ub300",
-    "\ub3d9\uc758\ub300\ud559\uad50",
-    "\uc6b4\uc601",
-    "\ubcf4\uac15",
-    "\uc9c0\uc815\ubcf4\uac15\uc77c",
-    "\uad50\uc218",
-    "\uad50\uc218\ub2d8",
-    "\uc774\uba54\uc77c",
-    "\uba54\uc77c",
-    "\uc5f0\uad6c\uc2e4",
-    "\ud559\uacfc",
-    "\uac74\ubb3c",
-    "\ud638\uad00",
-    "\uc815\ubcf4\uad00",
-    "\uc815\ubcf4\uacf5\ud559\uad00",
-    "\uc9c0\ucc9c\uad00",
-    "\ub77c\uc6b4\uc9c0",
-    "\uac15\uc758\uc2e4",
-    "\ucea0\ud37c\uc2a4",
-    "\uc774\ub984",
-    "\ucd1d\uc7a5",
-    "\ud559\uc7a5",
-    "\uc5ed\ub300",
-    "\uc804\ud654\ubc88\ud638",
-    "\uc5f0\ub77d\ucc98",
-    "\uac00\ub294 \uae38",
-    "\ud589\uc815\uc2e4",
+    "수강",
+    "수강신청",
+    "수업",
+    "강의",
+    "성적",
+    "학점",
+    "졸업",
+    "장학",
+    "장학금",
+    "국가장학",
+    "등록금",
+    "납부",
+    "기숙사",
+    "생활관",
+    "통학버스",
+    "셔틀",
+    "버스",
+    "도서관",
+    "학식",
+    "식당",
+    "학생식당",
+    "학사",
+    "휴학",
+    "복학",
+    "증명서",
+    "신청",
+    "기간",
+    "일정",
+    "시간",
+    "방법",
+    "위치",
+    "요건",
+    "동의대",
+    "동의대학교",
+    "교수",
+    "이메일",
+    "메일",
+    "연구실",
+    "학과",
+    "전공",
+    "건물",
+    "호관",
+    "정보공학관",
+    "수덕전",
+    "캠퍼스",
+    "총장",
+    "전화번호",
+    "연락처",
+    "행정실",
+    "공지",
+    "첨부파일",
+    "pdf",
+    "서식",
+    "신청서",
+    "취업",
+    "현장실습",
+    "ipp",
+    "예비군",
 }
 
 _QUESTION_HINTS = {
-    "\uc54c\ub824\uc918",
-    "\uc54c\ub824\uc8fc\uc138\uc694",
-    "\uc5b8\uc81c",
-    "\uc5b4\ub514",
-    "\uc5b4\ub5bb\uac8c",
-    "\ubb34\uc5c7",
-    "\ubb50",
-    "\uba87\uc2dc",
-    "\uc5f4\uc5b4",
-    "\uc6b4\uc601",
-    "\uac00\ub2a5",
+    "알려줘",
+    "알려주세요",
+    "언제",
+    "어디",
+    "어떻게",
+    "무엇",
+    "뭐",
+    "몇",
+    "몇시",
+    "누구",
+    "운영",
+    "가능",
+    "확인",
+    "위치",
+    "전화번호",
+    "연락처",
+    "찾아줘",
 }
 
 
@@ -93,13 +101,19 @@ class PrimaryIntentClassifier:
             return "GENERAL"
         if any(term in text for term in _PROFANITY_TERMS):
             return "PROFANITY"
+        if text in _SMALLTALK_EXACT:
+            return "GENERAL"
+
+        domain, _ = detect_domain(text)
+        if domain:
+            return "INFO"
         if any(term in text for term in _INFO_HINTS):
             return "INFO"
-        if re.search(r"\d+\s*[-]?\s*\d*\s*번\s*버스", text):
+        if re.search(r"\d+\s*번\s*건물|\d+\s*층|\d+\s*학년", text):
             return "INFO"
-        if re.search(r"\d+\s*호관|\d{2,4}[-.]\d{3,4}[-.]\d{4}", text):
+        if re.search(r"\d{2,4}[-.]\d{3,4}[-.]\d{4}", text):
             return "INFO"
-        if any(term in text for term in _QUESTION_HINTS) and re.search(r"\d|\?", text):
+        if any(term in text for term in _QUESTION_HINTS):
             return "INFO"
         return "GENERAL"
 

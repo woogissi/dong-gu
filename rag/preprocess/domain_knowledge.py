@@ -6,6 +6,184 @@
 
 from __future__ import annotations
 
+DOMAIN_RULES: dict[str, dict[str, object]] = {
+    "academic": {
+        "keywords": ["학사", "학사일정", "휴학", "복학", "전과", "출석", "보강", "계절학기"],
+        "synonyms": {"학사": ["학사공지", "학사 안내"], "휴학": ["휴학신청"], "복학": ["복학신청"]},
+        "intent_boost": "RAG",
+        "category": "academic",
+        "source_boosts": ["academic_notice", "notice", "institution"],
+    },
+    "course": {
+        "keywords": ["수강", "수강신청", "수업", "강의", "정정", "강의계획서", "시간표"],
+        "synonyms": {"수강": ["수강신청", "강의신청", "수업신청"], "수업": ["강의"]},
+        "intent_boost": "RAG",
+        "category": "course",
+        "source_boosts": ["academic_notice", "department", "institution"],
+    },
+    "grade": {
+        "keywords": ["성적", "학점", "평점", "GPA", "출석"],
+        "synonyms": {"성적": ["학점", "평점", "GPA"]},
+        "intent_boost": "RAG",
+        "category": "grade",
+        "source_boosts": ["academic_notice", "institution"],
+    },
+    "graduation": {
+        "keywords": ["졸업", "졸업요건", "졸업학점", "논문", "학위"],
+        "synonyms": {"졸업": ["졸업요건", "졸업학점"]},
+        "intent_boost": "RAG",
+        "category": "graduation",
+        "source_boosts": ["academic_notice", "department", "institution"],
+    },
+    "scholarship": {
+        "keywords": ["장학", "장학금", "국가장학", "교내장학", "근로장학", "학자금"],
+        "synonyms": {"장학": ["장학금", "등록금 지원", "학비 지원"], "국가장학": ["국가장학금"]},
+        "intent_boost": "RAG",
+        "category": "scholarship",
+        "source_boosts": ["scholarship", "notice"],
+    },
+    "tuition": {
+        "keywords": ["등록금", "수업료", "학비", "납부", "고지서", "분납"],
+        "synonyms": {"등록금": ["수업료", "학비"], "고지서": ["등록금 고지서"]},
+        "intent_boost": "RAG",
+        "category": "tuition",
+        "source_boosts": ["academic_notice", "institution", "notice"],
+    },
+    "career": {
+        "keywords": ["취업", "진로", "현장실습", "IPP", "일학습", "인턴", "취업지원센터"],
+        "synonyms": {"현장실습": ["IPP", "인턴"], "취업": ["취업지원", "진로"]},
+        "intent_boost": "RAG",
+        "category": "career",
+        "source_boosts": ["job", "department", "institution"],
+    },
+    "admission": {
+        "keywords": ["입학", "입시", "신입생", "편입", "모집요강"],
+        "synonyms": {"입학": ["입시"], "편입": ["편입학"]},
+        "intent_boost": "RAG",
+        "category": "admission",
+        "source_boosts": ["admission", "notice"],
+    },
+    "notice": {
+        "keywords": ["공지", "공지사항", "게시판", "안내", "모집", "공고"],
+        "synonyms": {"공지": ["공지사항", "게시글"]},
+        "intent_boost": "RAG",
+        "category": "notice",
+        "source_boosts": ["notice", "academic_notice", "external_notice"],
+    },
+    "department_major": {
+        "keywords": ["학과", "전공", "학부", "단과대학", "컴퓨터공학과", "학과사무실"],
+        "synonyms": {"컴퓨터공학과": ["컴공", "컴퓨터", "computer", "computer engineering"]},
+        "intent_boost": "RAG",
+        "category": "department",
+        "source_boosts": ["department"],
+    },
+    "faculty_staff": {
+        "keywords": ["교수", "교수님", "교직원", "연구실", "이메일", "전화번호"],
+        "synonyms": {"교수": ["교수님"], "전화번호": ["연락처"]},
+        "intent_boost": "RAG",
+        "category": "faculty",
+        "source_boosts": ["department", "institution"],
+    },
+    "office_admin": {
+        "keywords": ["부서", "행정부서", "교무처", "학생지원팀", "입학처", "장학팀", "행정실"],
+        "synonyms": {"행정실": ["학과사무실"], "부서": ["행정부서"]},
+        "intent_boost": "RAG",
+        "category": "office",
+        "source_boosts": ["institution", "department"],
+    },
+    "campus_facility": {
+        "keywords": ["캠퍼스", "건물", "건물번호", "시설", "위치", "정보공학관", "수덕전", "호관", "라운지"],
+        "synonyms": {"정보공학관": ["23번 건물"], "수덕전": ["수덕관"], "위치": ["어디"]},
+        "intent_boost": "RAG",
+        "category": "facility",
+        "source_boosts": ["institution", "department", "static", "facility"],
+    },
+    "library": {
+        "keywords": ["도서관", "중앙도서관", "열람실", "자료실", "운영시간"],
+        "synonyms": {"도서관": ["중앙도서관", "열람실"]},
+        "intent_boost": "RAG",
+        "category": "library",
+        "source_boosts": ["institution", "library"],
+    },
+    "cafeteria": {
+        "keywords": ["학생식당", "식당", "학식", "식단", "메뉴", "오늘 밥"],
+        "synonyms": {"학생식당": ["학식", "식단", "오늘 밥"], "식단": ["메뉴"]},
+        "intent_boost": "RAG",
+        "category": "cafeteria",
+        "source_boosts": ["institution", "static"],
+    },
+    "shuttle": {
+        "keywords": ["통학버스", "셔틀", "셔틀버스", "통버", "버스", "시간표", "노선"],
+        "synonyms": {"통학버스": ["통버", "셔틀", "셔틀버스"], "노선": ["버스노선"]},
+        "intent_boost": "RAG",
+        "category": "shuttle",
+        "source_boosts": ["institution", "notice"],
+    },
+    "dormitory": {
+        "keywords": ["기숙사", "생활관", "효민생활관", "제2효민생활관", "입사"],
+        "synonyms": {"기숙사": ["생활관"], "제2효민생활관": ["2효민생활관"]},
+        "intent_boost": "RAG",
+        "category": "dormitory",
+        "source_boosts": ["dormitory", "notice"],
+    },
+    "club_activity": {
+        "keywords": ["동아리", "학생활동", "비교과", "마일리지", "학생회"],
+        "synonyms": {"동아리": ["학생동아리"], "비교과": ["비교과프로그램"]},
+        "intent_boost": "RAG",
+        "category": "club_activity",
+        "source_boosts": ["department", "institution", "notice"],
+    },
+    "international": {
+        "keywords": ["국제교류", "교환학생", "어학연수", "유학생", "외국인"],
+        "synonyms": {"교환학생": ["국제교류"], "유학생": ["외국인학생"]},
+        "intent_boost": "RAG",
+        "category": "international",
+        "source_boosts": ["notice", "institution"],
+    },
+    "counseling_support": {
+        "keywords": ["상담", "학생지원", "장애학생", "인권센터", "심리"],
+        "synonyms": {"상담": ["심리상담"], "학생지원": ["학생지원팀"]},
+        "intent_boost": "RAG",
+        "category": "support",
+        "source_boosts": ["institution", "notice"],
+    },
+    "military": {
+        "keywords": ["예비군", "병무", "군휴학", "훈련"],
+        "synonyms": {"예비군": ["예비군훈련"], "병무": ["군휴학"]},
+        "intent_boost": "RAG",
+        "category": "military",
+        "source_boosts": ["notice", "institution"],
+    },
+    "certificate_civil": {
+        "keywords": ["증명서", "민원", "발급", "재학증명서", "졸업증명서"],
+        "synonyms": {"증명서": ["민원", "증명 발급"], "발급": ["출력"]},
+        "intent_boost": "RAG",
+        "category": "certificate",
+        "source_boosts": ["institution", "notice"],
+    },
+    "attachment_form": {
+        "keywords": ["첨부파일", "PDF", "pdf", "서식", "신청서", "양식", "파일"],
+        "synonyms": {"첨부파일": ["PDF", "파일"], "서식": ["양식", "신청서"]},
+        "intent_boost": "RAG",
+        "category": "attachment",
+        "source_boosts": ["notice", "academic_notice", "department"],
+    },
+}
+
+ENTITY_ALIASES: dict[str, list[str]] = {
+    "동의대학교": ["동의대", "DEU", "deu"],
+    "컴퓨터공학과": ["컴공", "컴퓨터", "computer", "computer engineering"],
+    "정보공학관": ["23번 건물", "23번건물", "정보관"],
+    "수덕전": ["수덕관"],
+    "통학버스": ["통버", "셔틀", "셔틀버스"],
+    "학생식당": ["학식", "식단", "오늘 밥", "메뉴"],
+    "기숙사": ["생활관", "효민생활관", "제2효민생활관"],
+    "장학금": ["장학", "국가장학", "교내장학", "근로장학", "학자금"],
+    "수강신청": ["수강", "강의신청", "수업신청"],
+}
+
+DOMAIN_BLACKLIST = {"정보", "안내", "내용", "관련", "이름", "방법", "기간"}
+
 ENTITY_SCHEMA: dict[str, list[str]] = {
     "category": ["학사", "장학", "등록", "졸업", "휴학", "복학", "수강", "기숙사", "비교과", "국제"],
     "target": ["신입생", "재학생", "복학생", "편입생", "대학원생", "외국인", "졸업예정자"],
@@ -13,6 +191,8 @@ ENTITY_SCHEMA: dict[str, list[str]] = {
     "department": ["교무처", "학생지원팀", "입학처", "국제교류원", "장학팀", "학과사무실"],
     "action": ["신청", "확인", "제출", "조회", "변경", "취소", "납부", "연장", "문의"],
 }
+
+ENTITY_SCHEMA.setdefault("domain", list(DOMAIN_RULES))
 
 ENTITY_LEXICON: dict[str, list[str]] = {
     "학사": ["학사", "수강", "강의", "성적", "학점"],
@@ -60,6 +240,10 @@ ENTITY_SYNONYMS: dict[str, tuple[str, ...]] = {
     "수강신청": ("강의신청",),
     "교환학생": ("국제교류",),
 }
+for canonical, aliases in ENTITY_ALIASES.items():
+    ENTITY_SYNONYMS[canonical] = tuple(dict.fromkeys((*ENTITY_SYNONYMS.get(canonical, ()), *aliases)))
+    for alias in aliases:
+        ENTITY_SYNONYMS.setdefault(alias, (canonical,))
 
 CATEGORY_BY_REWRITE_ENTITY: dict[str, str] = {
     "휴학": "휴학",
@@ -90,6 +274,11 @@ REWRITE_ENTITY_SURFACES: dict[str, tuple[str, ...]] = {
     "기숙사": ("기숙사",),
     "생활관": ("생활관",),
 }
+for domain_name, rule in DOMAIN_RULES.items():
+    keywords = tuple(str(value) for value in rule.get("keywords", []) if value)
+    category = str(rule.get("category") or domain_name)
+    ENTITY_LEXICON.setdefault(category, [])
+    ENTITY_LEXICON[category] = list(dict.fromkeys([*ENTITY_LEXICON[category], *keywords]))
 
 REWRITE_ENTITY_SYNONYMS: dict[str, tuple[str, ...]] = {
     "장학금": ("국가장학", "근로장학", "학자금지원"),
@@ -98,6 +287,13 @@ REWRITE_ENTITY_SYNONYMS: dict[str, tuple[str, ...]] = {
     "기숙사": ("생활관",),
     "생활관": ("기숙사",),
 }
+for rule in DOMAIN_RULES.values():
+    synonyms = rule.get("synonyms", {})
+    if isinstance(synonyms, dict):
+        for key, values in synonyms.items():
+            REWRITE_ENTITY_SYNONYMS[key] = tuple(
+                dict.fromkeys([*REWRITE_ENTITY_SYNONYMS.get(key, ()), *[str(value) for value in values]])
+            )
 
 REWRITE_ENTITY_GROUPS: dict[str, tuple[str, ...]] = {
     "장학": ("장학금", "장학"),
