@@ -36,6 +36,33 @@ class DynamicDownloadResponse(FakeStreamResponse):
     }
 
 
+class QueryFilenameDownloadResponse(FakeStreamResponse):
+    url = "https://ipsi.deu.ac.kr/file/download.do?sfn=server.bin&ofn=guide.pdf"
+    headers = {
+        "Content-Type": "application/octet-stream",
+        "Content-Length": "11",
+    }
+
+
+class ContentTypeOnlyDownloadResponse(FakeStreamResponse):
+    url = "https://www.deu.ac.kr/www/deu-notice.do?mode=download&articleNo=123&attachNo=1"
+    headers = {
+        "Content-Type": "application/pdf",
+        "Content-Length": "11",
+    }
+
+
+class MagicBytesDownloadResponse(FakeStreamResponse):
+    url = "https://www.deu.ac.kr/download"
+    headers = {
+        "Content-Type": "application/octet-stream",
+        "Content-Length": "13",
+    }
+
+    def iter_content(self, chunk_size: int):
+        yield b"%PDF-1.7 body"
+
+
 class FailingOnceStreamResponse(FakeStreamResponse):
     attempts = 0
 
@@ -74,6 +101,11 @@ class AttachmentAndStaticExtractorTest(unittest.TestCase):
                 stream=True,
             )
             self.assertEqual(downloaded["file_ext"], ".pdf")
+            self.assertEqual(
+                downloaded["file_hash_sha256"],
+                "b94d27b9934d3e08a52e52d7da7dabfac484ef"
+                "e37a5380ee9088f7ace2efcde9",
+            )
             self.assertEqual(Path(downloaded["saved_path"]).read_bytes(), b"hello world")
 
     def test_attachment_downloader_ignores_dynamic_route_suffix_when_guessing_extension(self) -> None:
@@ -98,6 +130,73 @@ class AttachmentAndStaticExtractorTest(unittest.TestCase):
             self.assertEqual(downloaded["file_ext"], ".hwp")
             self.assertTrue(downloaded["saved_path"].endswith(".hwp"))
             self.assertNotIn(".do_mode=download", downloaded["saved_path"])
+
+    def test_attachment_downloader_restores_extension_from_query_filename(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            downloader = AttachmentDownloader(base_save_dir=Path(tmpdir), max_file_size=1024, timeout=(1, 2))
+            downloader.session.get = Mock(return_value=QueryFilenameDownloadResponse())
+
+            downloaded = downloader.download(
+                "admission",
+                "doc1",
+                {
+                    "attachment_index": 1,
+                    "file_name": "download",
+                    "file_url": "https://ipsi.deu.ac.kr/file/download.do?sfn=server.bin&ofn=guide.pdf",
+                },
+            )
+
+            self.assertEqual(downloaded["file_ext"], ".pdf")
+            self.assertEqual(downloaded["extension_source"], "url_query")
+            self.assertTrue(downloaded["saved_path"].endswith("guide.pdf"))
+
+    def test_attachment_downloader_restores_extension_from_content_type(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            downloader = AttachmentDownloader(base_save_dir=Path(tmpdir), max_file_size=1024, timeout=(1, 2))
+            downloader.session.get = Mock(return_value=ContentTypeOnlyDownloadResponse())
+
+            downloaded = downloader.download(
+                "notice",
+                "doc1",
+                {
+                    "attachment_index": 1,
+                    "file_name": "deu-notice.do_mode=download&articleNo=123&attachNo=1",
+                    "file_url": "https://www.deu.ac.kr/www/deu-notice.do?mode=download&articleNo=123&attachNo=1",
+                },
+            )
+
+            self.assertEqual(downloaded["file_ext"], ".pdf")
+            self.assertEqual(downloaded["extension_source"], "content_type")
+            self.assertTrue(downloaded["saved_path"].endswith(".pdf"))
+            self.assertFalse(Path(downloaded["saved_path"]).name.startswith("deu-notice.do"))
+
+    def test_attachment_downloader_uses_magic_bytes_when_headers_lack_extension(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            downloader = AttachmentDownloader(base_save_dir=Path(tmpdir), max_file_size=1024, timeout=(1, 2))
+            downloader.session.get = Mock(return_value=MagicBytesDownloadResponse())
+
+            downloaded = downloader.download(
+                "notice",
+                "doc1",
+                {
+                    "attachment_index": 3,
+                    "file_name": "download",
+                    "file_url": "https://www.deu.ac.kr/download",
+                },
+            )
+
+            self.assertEqual(downloaded["file_ext"], ".pdf")
+            self.assertEqual(downloaded["extension_source"], "magic_bytes")
+            self.assertTrue(downloaded["saved_path"].endswith(".pdf"))
+
+    def test_attachment_downloader_decodes_rfc5987_filename(self) -> None:
+        downloader = AttachmentDownloader()
+
+        filename = downloader.extract_filename_from_content_disposition(
+            "attachment; filename*=UTF-8''%EA%B0%80%EC%9D%B4%EB%93%9C.pdf"
+        )
+
+        self.assertEqual(filename, "가이드.pdf")
 
     def test_attachment_downloader_retries_chunked_encoding_errors(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -219,6 +318,38 @@ class AttachmentAndStaticExtractorTest(unittest.TestCase):
         self.assertEqual(len(doc["attachments"]), 1)
         self.assertIn("mode=download", doc["attachments"][0]["file_url"])
         self.assertNotIn("facebook", doc["attachments"][0]["file_url"].lower())
+
+    def test_static_page_extractor_dedupes_same_attachment_url_with_different_labels(self) -> None:
+        html = """
+        <html>
+          <body>
+            <main>
+              <a href="/computer/sub03_01.do?mode=download&articleNo=83206&attachNo=129221">원본파일 Download</a>
+              <a href="/computer/sub03_01.do?mode=download&articleNo=83206&attachNo=129221"></a>
+            </main>
+          </body>
+        </html>
+        """
+        extractor = StaticPageExtractor(allowed_hosts={"swcc.deu.ac.kr"})
+        extractor.fetch_result = Mock(
+            return_value=type(
+                "Result",
+                (),
+                {
+                    "url": "https://swcc.deu.ac.kr/computer/sub03_01.do",
+                    "final_url": "https://swcc.deu.ac.kr/computer/sub03_01.do",
+                    "status_code": 200,
+                    "headers": {},
+                    "raw_html": html,
+                },
+            )()
+        )
+
+        doc = extractor.extract_static_page("department", "https://swcc.deu.ac.kr/computer/sub03_01.do")
+
+        self.assertEqual(len(doc["attachments"]), 1)
+        self.assertEqual(doc["attachments"][0]["attachment_index"], 1)
+        self.assertEqual(doc["attachments"][0]["file_name"], "원본파일 Download")
 
     def test_static_page_extractor_uses_redirect_final_url_as_identity(self) -> None:
         html = """
@@ -536,6 +667,65 @@ class AttachmentAndStaticExtractorTest(unittest.TestCase):
         self.assertIn("- 신청 기간: 2026.03.01 ~ 2026.03.15", doc["structured_sections"][0]["text"])
         self.assertEqual(doc["structured_sections"][1]["section_title"], "제출 서류")
         self.assertIn("구분 | 서류", doc["structured_sections"][1]["text"])
+
+
+    def test_static_noise_filter_removes_common_shell_for_target_sources(self) -> None:
+        fixtures = {
+            "fund": "장학금 신청 기간은 2026년 3월 1일부터 3월 15일까지입니다. 제출 서류를 확인하세요.",
+            "lifelong": "평생교육원 강좌 접수는 온라인으로 진행되며 수강료 납부 후 등록이 완료됩니다.",
+            "dormitory": "생활관 입사 신청자는 선발 결과 발표 후 지정 기간 안에 납부해야 합니다.",
+            "advising": "학생상담센터 개인상담은 사전 예약 후 이용할 수 있으며 비밀보장을 원칙으로 합니다.",
+            "admission": "입학 전형 일정과 제출 서류는 모집요강 기준으로 반드시 확인해야 합니다.",
+        }
+
+        for source_type, body in fixtures.items():
+            with self.subTest(source_type=source_type):
+                html = f"""
+                <html>
+                  <body>
+                    <header>HOME 메뉴 로그인</header>
+                    <nav>HOME</nav>
+                    <main>
+                      <div class="breadcrumb">HOME &gt; 게시판 목록</div>
+                      <div class="share-area">공유 페이스북 트위터 카카오톡 공유 URL 복사 프린트</div>
+                      <form action="/search"><label>게시물 검색</label></form>
+                      <table class="board-list">
+                        <tr><th>번호</th><th>제목</th><th>작성자</th><th>작성일</th><th>조회수</th></tr>
+                      </table>
+                      <article class="content">
+                        <h2>학사 안내</h2>
+                        <p>{body}</p>
+                      </article>
+                      <aside class="sns">SNS 영역</aside>
+                      <footer>footer quick menu</footer>
+                    </main>
+                  </body>
+                </html>
+                """
+                extractor = StaticPageExtractor(allowed_hosts={"www.deu.ac.kr"})
+                extractor.fetch_result = Mock(
+                    return_value=type(
+                        "Result",
+                        (),
+                        {
+                            "url": f"https://www.deu.ac.kr/{source_type}/info.do",
+                            "final_url": f"https://www.deu.ac.kr/{source_type}/info.do",
+                            "status_code": 200,
+                            "headers": {},
+                            "raw_html": html,
+                        },
+                    )()
+                )
+
+                doc = extractor.extract_static_page(source_type, f"https://www.deu.ac.kr/{source_type}/info.do")
+                combined = "\n".join(
+                    [doc["raw_text"], doc["table_text"]]
+                    + [section["text"] for section in doc["structured_sections"]]
+                )
+
+                for noise in ("HOME", "SNS", "공유", "로그인", "번호 | 제목 | 작성자 | 작성일 | 조회수"):
+                    self.assertNotIn(noise, combined)
+                self.assertIn(body, combined)
 
 
 if __name__ == "__main__":

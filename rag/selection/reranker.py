@@ -7,6 +7,12 @@ import re
 from datetime import date, datetime
 from typing import Any
 
+from rag.preprocess.query_features import (
+    extract_query_features,
+    required_entity_match_score,
+    tokenize_koreanish,
+    ui_noise_hits,
+)
 from rag.schemas.retrieved_doc import RetrievedDoc
 
 _TOKEN_PATTERN = re.compile(r"[가-힣A-Za-z0-9]+")
@@ -145,6 +151,8 @@ def rerank_documents(
     filters = filters or {}
     query_tokens = _tokenize(query)
     keyword_tokens = _dedupe_tokens([*keywords, *query_tokens])
+    query_features = extract_query_features(query, keyword_tokens)
+    keyword_tokens = _dedupe_tokens([*query_features.strong_terms, *keyword_tokens])
     max_base_score = max((doc.score for doc in docs), default=0.0)
 
     reranked: list[tuple[float, int, RetrievedDoc]] = []
@@ -154,6 +162,7 @@ def rerank_documents(
             query=query,
             query_tokens=query_tokens,
             keyword_tokens=keyword_tokens,
+            query_features=query_features.to_log_dict(),
             category=category,
             filters=filters,
             max_base_score=max_base_score,
@@ -175,6 +184,7 @@ def _score_doc(
     query: str,
     query_tokens: list[str],
     keyword_tokens: list[str],
+    query_features: dict[str, Any],
     category: str | None,
     filters: dict[str, list[str]],
     max_base_score: float,
@@ -188,6 +198,10 @@ def _score_doc(
     title_section_text = f"{title}\n{section_title}".lower()
     full_text = f"{title}\n{section_title}\n{content}".lower()
     query_family = _detect_query_family(query_tokens, keyword_tokens)
+    feature_family = str(query_features.get("family") or "")
+    if feature_family and feature_family != "general":
+        query_family = feature_family
+    required_terms = [str(value).lower() for value in query_features.get("required_terms") or [] if value]
 
     base_score = _normalized_base_score(doc.score, max_base_score)
     title_match = _coverage_score(keyword_tokens, title_tokens) * 1.8
@@ -213,12 +227,15 @@ def _score_doc(
         full_text=full_text,
     )
     required_heading_match = _required_heading_match_score(query_family, title_section_text)
+    required_entity_match = required_entity_match_score(required_terms, full_text)
     query_family_penalty = _query_family_penalty(
         doc=doc,
         query_family=query_family,
         title_section_text=title_section_text,
         full_text=full_text,
     )
+    if required_terms and required_entity_match == 0.0:
+        query_family_penalty -= 1.2
     category_match = _category_match_score(doc, category, filters)
     recency = _recency_score(doc.metadata.get("published_at"))
     noise_score = abs(
@@ -243,6 +260,7 @@ def _score_doc(
         "source_type_noise": round(source_type_noise, 6),
         "query_family_boost": round(query_family_boost, 6),
         "required_heading_match": round(required_heading_match, 6),
+        "required_entity_match": round(required_entity_match, 6),
         "query_family_penalty": round(query_family_penalty, 6),
         "category_match": round(category_match, 6),
         "recency": round(recency, 6),
@@ -332,7 +350,10 @@ def _ui_static_noise_penalty(doc: RetrievedDoc, full_text: str) -> float:
         penalty -= 0.4
     if section_title in {"menu", "navigation", "breadcrumb"}:
         penalty -= 0.6
-    ui_hits = sum(1 for pattern in _UI_NOISE_PATTERNS if pattern.lower() in full_text)
+    ui_hits = max(
+        sum(1 for pattern in _UI_NOISE_PATTERNS if pattern.lower() in full_text),
+        ui_noise_hits(full_text),
+    )
     if ui_hits >= 4:
         penalty -= 1.0
     elif ui_hits >= 2:
@@ -531,7 +552,7 @@ def _copy_with_rerank_metadata(
 
 
 def _tokenize(text: str) -> list[str]:
-    return _dedupe_tokens(_TOKEN_PATTERN.findall(text.lower()))
+    return _dedupe_tokens([*_TOKEN_PATTERN.findall(text.lower()), *tokenize_koreanish(text.lower())])
 
 
 def _dedupe_tokens(values: list[str]) -> list[str]:

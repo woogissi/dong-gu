@@ -12,6 +12,7 @@ from crawler.extractors.base import BaseExtractor, FetchResult
 from crawler.extractors.image_text_extractor import ImageTextExtractor
 from crawler.utils.text_quality import is_binary_like_text
 from crawler.config.domains import DEPARTMENT_HOSTS
+from crawler.utils.attachment_utils import dedupe_attachments_by_url
 
 import requests
 from bs4 import BeautifulSoup
@@ -44,6 +45,22 @@ SOCIAL_LINK_HOSTS = {
 }
 
 STATIC_UI_PHRASES = (
+    "HOME",
+    "Home",
+    "로그인",
+    "메뉴",
+    "공유",
+    "페이스북",
+    "트위터",
+    "카카오톡 공유",
+    "URL 복사",
+    "프린트",
+    "게시물 검색",
+    "게시판 목록",
+    "이전글",
+    "다음글",
+    "첨부파일",
+    "SNS 영역",
     "게시물 좌측으로 이동",
     "게시물 우측으로 이동",
     "이전 정지 시작 다음",
@@ -54,6 +71,22 @@ STATIC_UI_PHRASES = (
 )
 
 STATIC_STUB_LINES = {
+    "HOME",
+    "Home",
+    "TOP",
+    "로그인",
+    "메뉴",
+    "공유",
+    "페이스북",
+    "트위터",
+    "카카오톡 공유",
+    "URL 복사",
+    "프린트",
+    "게시물 검색",
+    "게시판 목록",
+    "이전글",
+    "다음글",
+    "첨부파일",
     "More",
     "NOTICE",
     "PROGRAM",
@@ -76,6 +109,21 @@ GENERIC_SKIP_LINES = {
     "로그인",
     "회원가입",
 }
+
+GENERIC_SKIP_LINE_PATTERNS = (
+    re.compile(r"^(home|top|more|sns|menu|login|share|print)$", re.IGNORECASE),
+    re.compile(r"^(로그인|메뉴|공유|페이스북|트위터|카카오톡\s*공유|URL\s*복사|프린트)$", re.IGNORECASE),
+    re.compile(r"^(게시물\s*검색|게시판\s*목록|이전글|다음글|첨부파일)$"),
+    re.compile(r"^(번호|제목|작성자|작성일|조회수)(\s*[|/]\s*(번호|제목|작성자|작성일|조회수))*$"),
+    re.compile(r"^(no\.?|title|writer|date|views?)(\s*[|/]\s*(no\.?|title|writer|date|views?))*$", re.IGNORECASE),
+    re.compile(r"^(facebook|twitter|kakao\s*talk|copy\s*url|url\s*copy)$", re.IGNORECASE),
+)
+
+BOARD_SHELL_TABLE_PATTERN = re.compile(
+    r"^(번호|제목|작성자|작성일|조회수|첨부파일|no\.?|title|writer|date|views?)(\s*[|/]\s*"
+    r"(번호|제목|작성자|작성일|조회수|첨부파일|no\.?|title|writer|date|views?))*$",
+    re.IGNORECASE,
+)
 
 GENERIC_BLOCK_TAGS = {
     "address",
@@ -141,6 +189,66 @@ MAIN_PAGE_EXCLUDE_SELECTORS = [
     "[id*='gallery']",
     "[id*='sns']",
     "[id*='login']",
+]
+
+STATIC_NOISE_SELECTORS = [
+    "header",
+    "footer",
+    "nav",
+    "aside",
+    "script",
+    "style",
+    "noscript",
+    "form[action*='search']",
+    ".breadcrumb",
+    ".breadcrumbs",
+    ".location",
+    ".path",
+    ".quick",
+    ".quickMenu",
+    ".quick-menu",
+    ".pagination",
+    ".paging",
+    ".sns",
+    ".sns-area",
+    ".snsArea",
+    ".share",
+    ".share-area",
+    ".shareArea",
+    ".login",
+    ".member",
+    ".board-search",
+    ".boardSearch",
+    ".search-box",
+    ".searchBox",
+    ".board-util",
+    ".boardUtil",
+    ".board-list",
+    ".boardList",
+    ".btn-share",
+    ".btn-print",
+    "[class*='breadcrumb']",
+    "[class*='location']",
+    "[class*='quick']",
+    "[class*='sns']",
+    "[class*='share']",
+    "[class*='login']",
+    "[class*='member']",
+    "[class*='paging']",
+    "[class*='pagination']",
+    "[class*='board-search']",
+    "[class*='boardSearch']",
+    "[class*='board-util']",
+    "[class*='boardUtil']",
+    "[class*='quick-menu']",
+    "[id*='breadcrumb']",
+    "[id*='location']",
+    "[id*='quick']",
+    "[id*='sns']",
+    "[id*='share']",
+    "[id*='login']",
+    "[id*='paging']",
+    "[id*='pagination']",
 ]
 
 STATIC_INCLUDE_SELECTORS = [
@@ -296,20 +404,7 @@ class StaticPageExtractor(BaseExtractor):
         if not node:
             return
 
-        noise_selectors = [
-            "header",
-            "footer",
-            "nav",
-            "aside",
-            "script",
-            "style",
-            ".breadcrumb",
-            ".quick",
-            ".quickMenu",
-            ".pagination",
-            ".sns",
-            ".share",
-        ]
+        noise_selectors = list(STATIC_NOISE_SELECTORS)
         if is_main_page:
             noise_selectors.extend(MAIN_PAGE_EXCLUDE_SELECTORS)
 
@@ -382,12 +477,31 @@ class StaticPageExtractor(BaseExtractor):
             if normalized in STATIC_STUB_LINES:
                 removed_stub_lines += 1
                 continue
+            if BOARD_SHELL_TABLE_PATTERN.fullmatch(normalized):
+                removed_stub_lines += 1
+                continue
+            if any(pattern.search(normalized) for pattern in GENERIC_SKIP_LINE_PATTERNS):
+                removed_stub_lines += 1
+                continue
             if is_main_page and normalized in {"NOTICE", "PROGRAM", "행사사진", "SNS"}:
                 removed_stub_lines += 1
                 continue
             lines.append(line)
 
         cleaned = "\n".join(lines)
+        if len(self.normalize_text(cleaned)) < 40 and len(self.normalize_text(text)) >= 120:
+            meaningful_lines = []
+            for line in text.splitlines():
+                normalized = self.normalize_text(line)
+                if not normalized or normalized in STATIC_STUB_LINES:
+                    continue
+                if BOARD_SHELL_TABLE_PATTERN.fullmatch(normalized):
+                    continue
+                if any(pattern.search(normalized) for pattern in GENERIC_SKIP_LINE_PATTERNS):
+                    continue
+                meaningful_lines.append(line)
+            if len(meaningful_lines) >= 2:
+                cleaned = "\n".join(meaningful_lines)
         return self.normalize_multiline_text(cleaned), {
             "removed_ui_patterns": sorted(set(removed_patterns)),
             "removed_stub_lines": removed_stub_lines,
@@ -572,6 +686,10 @@ class StaticPageExtractor(BaseExtractor):
         if not normalized:
             return True
         if normalized in GENERIC_SKIP_LINES:
+            return True
+        if BOARD_SHELL_TABLE_PATTERN.fullmatch(normalized):
+            return True
+        if any(pattern.search(normalized) for pattern in GENERIC_SKIP_LINE_PATTERNS):
             return True
         if normalized in {"<", ">", "|"}:
             return True
@@ -773,7 +891,7 @@ class StaticPageExtractor(BaseExtractor):
                     "file_url": full_url,
                 }
             )
-        return attachments
+        return dedupe_attachments_by_url(attachments)
 
     def extract_internal_links(self, content_node, page_url: str) -> list[str]:     # 본문 안 내부 url 수집
         if not content_node:

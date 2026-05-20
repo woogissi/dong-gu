@@ -220,6 +220,26 @@ class BoardExtractorsTest(unittest.TestCase):
         self.assertIn("mode=download", doc["attachments"][0]["file_url"])
         self.assertNotIn("facebook", doc["attachments"][0]["file_url"].lower())
 
+    def test_board_detail_dedupes_same_attachment_url_with_different_labels(self) -> None:
+        html = """
+        <html><body><main>
+          <h2>Notice</h2>
+          <a href="/www/deu-notice.do?mode=download&articleNo=123&attachNo=1">원본파일 Download</a>
+          <a href="/www/deu-notice.do?mode=download&articleNo=123&attachNo=1"></a>
+        </main></body></html>
+        """
+
+        doc = BoardDetailExtractor().build_raw_document(
+            source_type="notice",
+            detail_url="https://www.deu.ac.kr/www/deu-notice.do?mode=view&articleNo=123",
+            html=html,
+            title_hint=None,
+        )
+
+        self.assertEqual(len(doc["attachments"]), 1)
+        self.assertEqual(doc["attachments"][0]["attachment_index"], 1)
+        self.assertEqual(doc["attachments"][0]["file_name"], "원본파일 Download")
+
     def test_board_detail_doc_id_uses_non_article_no_query_key(self) -> None:
         doc = BoardDetailExtractor().build_raw_document(
             source_type="notice",

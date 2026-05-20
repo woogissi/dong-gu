@@ -18,6 +18,7 @@ from rag.preprocess.hybrid_keyword_extractor import (
 )
 from rag.preprocess.entity_extractor import build_filters, extract_entities, primary_category
 from rag.preprocess.query_analysis import QueryAnalysisResult
+from rag.preprocess.query_features import extract_query_features, sanitize_filters
 from rag.preprocess.query_rewriter import (
     detect_intent,
     detect_rewrite_entities,
@@ -282,7 +283,8 @@ class QueryPreprocessor:
         analysis = self.analyze_query_once(state.original_query)
         normalized_query = analysis.normalized_text
         lexical_query = analysis.lexical_text
-        keywords = analysis.keywords
+        query_features = extract_query_features(normalized_query, analysis.keywords)
+        keywords = list(dict.fromkeys([*analysis.keywords, *query_features.strong_terms]))
         extracted_entities = analysis.extracted_entities
 
         # TODO:Semantic enrichment 추가 구현
@@ -305,7 +307,9 @@ class QueryPreprocessor:
             query=normalized_query,
             analysis=analysis,
         )
-        protected_terms = _protected_query_terms(normalized_query, keywords)
+        protected_terms = list(
+            dict.fromkeys([*_protected_query_terms(normalized_query, keywords), *query_features.protected_terms])
+        )
         missing_in_rewrite = _missing_protected_terms(query_bundle.keyword_query or "", protected_terms)
         rewrite_quality = {
             "protected_terms": protected_terms,
@@ -332,6 +336,7 @@ class QueryPreprocessor:
         for field, values in bundle_filters.items():
             if field not in state.filters and isinstance(values, list):
                 state.filters[field] = values
+        state.filters, dropped_filters = sanitize_filters(state.filters)
         state.category = primary_category(extracted_entities) or (
             query_bundle.filters.get("category", [None])[0]
             if isinstance(query_bundle.filters.get("category"), list)
@@ -348,8 +353,10 @@ class QueryPreprocessor:
             "extracted_entities": extracted_entities,
             "rewrite_entities": query_bundle.entities,
             "rewrite_quality": rewrite_quality,
+            "query_features": query_features.to_log_dict(),
             "entities": extracted_entities,
             "filters": state.filters,
+            "dropped_filters": dropped_filters,
             "primary_category": state.category,
             "rewritten_queries": rewritten_queries,
             "hybrid_keyword_extraction": {

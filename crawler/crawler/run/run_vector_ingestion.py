@@ -163,6 +163,58 @@ def split_chunks_by_embedding_reuse(
     return reusable, pending
 
 
+EMBEDDING_BLOCKED_QUALITY_STATUSES = {
+    "parse_failed",
+    "parser_empty_text",
+    "unsupported_attachment",
+    "binary_blocked",
+    "noise_blocked",
+    "duplicate_blocked",
+    "short_chunk_blocked",
+}
+
+
+def embedding_exclusion_report(chunk: dict) -> dict:
+    metadata = chunk.get("metadata", {}) or {}
+    quality_status = metadata.get("quality_status")
+    content_quality = text_quality_report(chunk.get("content"))
+    if quality_status in EMBEDDING_BLOCKED_QUALITY_STATUSES:
+        return {
+            "excluded": True,
+            "quality_status": quality_status,
+            "reason": quality_status,
+            "quality": content_quality,
+        }
+    if content_quality["is_binary_like"]:
+        return {
+            "excluded": True,
+            "quality_status": "binary_blocked",
+            "reason": "binary_marker_detected",
+            "quality": content_quality,
+        }
+    return {
+        "excluded": False,
+        "quality_status": quality_status or "ok",
+        "reason": "ok",
+        "quality": content_quality,
+    }
+
+
+def split_chunks_by_embedding_quality(chunks: list[dict]) -> tuple[list[dict], list[dict]]:
+    allowed = []
+    excluded = []
+    for chunk in chunks:
+        report = embedding_exclusion_report(chunk)
+        if report["excluded"]:
+            chunk.setdefault("metadata", {})["quality_status"] = report["quality_status"]
+            chunk["metadata"]["embedding_skip_reason"] = report["reason"]
+            chunk["metadata"]["quality"] = report["quality"]
+            excluded.append(chunk)
+        else:
+            allowed.append(chunk)
+    return allowed, excluded
+
+
 def ingestion_item_quality_report(item: dict) -> dict[str, object]:
     doc_quality = document_quality_report(item["curated_doc"])
     bad_chunks = []
@@ -226,6 +278,28 @@ def main() -> None:
                         f"bad_chunks={quality['bad_chunk_count']}",
                         flush=True,
                     )
+                    try:
+                        loader.insert_crawl_job_error(
+                            run_type="vector_ingestion",
+                            stage="vector_ingestion_quality_gate",
+                            error=ValueError("binary_marker_detected"),
+                            source_type=item.get("source_type"),
+                            doc_id=item.get("doc_id"),
+                            url=(item.get("curated_doc") or {}).get("source_url"),
+                            file_path=chunk_file.as_posix(),
+                            context={
+                                "quality_status": "parse_failed",
+                                "reason": "binary_marker_detected",
+                                "quality": quality,
+                            },
+                        )
+                        loader.commit()
+                    except Exception as logging_error:
+                        loader.rollback()
+                        log_error(
+                            "[VECTOR QUALITY LOGGING FAILED] "
+                            f"file={chunk_file.as_posix()} error={logging_error}"
+                        )
                     continue
 
                 print(
@@ -247,6 +321,39 @@ def main() -> None:
                     item["chunks"],
                     reusable_chunk_ids,
                 )
+                chunks_to_embed, excluded_embedding_chunks = split_chunks_by_embedding_quality(chunks_to_embed)
+                for excluded_chunk in excluded_embedding_chunks:
+                    loader.insert_crawl_job_error(
+                        run_type="vector_ingestion",
+                        stage="embedding_quality_gate",
+                        error=ValueError(excluded_chunk["metadata"].get("embedding_skip_reason")),
+                        source_type=excluded_chunk.get("source_type"),
+                        doc_id=excluded_chunk.get("doc_id"),
+                        url=excluded_chunk.get("source_url"),
+                        context={
+                            "chunk_id": excluded_chunk.get("chunk_id"),
+                            "chunk_index": excluded_chunk.get("chunk_index"),
+                            "quality_status": excluded_chunk["metadata"].get("quality_status"),
+                            "reason": excluded_chunk["metadata"].get("embedding_skip_reason"),
+                            "quality": excluded_chunk["metadata"].get("quality"),
+                        },
+                    )
+                if excluded_embedding_chunks:
+                    loader.commit()
+                    manifest_writer.append_jsonl(
+                        "vector_ingestion.jsonl",
+                        {
+                            "chunk_file": chunk_file.as_posix(),
+                            "source_type": item["source_type"],
+                            "doc_id": item["doc_id"],
+                            "status": "embedding_quality_exclusions",
+                            "excluded_chunk_count": len(excluded_embedding_chunks),
+                            "reasons": [
+                                chunk["metadata"].get("embedding_skip_reason")
+                                for chunk in excluded_embedding_chunks[:20]
+                            ],
+                        },
+                    )
                 if reusable_chunks:
                     manifest_writer.append_jsonl(
                         "vector_ingestion.jsonl",

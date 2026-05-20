@@ -1,0 +1,598 @@
+{
+  "generated_at": "2026-05-20T15:21:07",
+  "table_counts": [
+    {
+      "table_name": "chunk_embeddings",
+      "row_count": 13527,
+      "first_at": "2026-05-20T06:36:22.539463+09:00",
+      "last_at": "2026-05-20T13:34:37.804207+09:00"
+    },
+    {
+      "table_name": "chunks",
+      "row_count": 13527,
+      "first_at": "2026-05-20T06:35:33.044750+09:00",
+      "last_at": "2026-05-20T13:34:33.712187+09:00"
+    },
+    {
+      "table_name": "crawl_logs",
+      "row_count": 106,
+      "first_at": "2026-05-20T02:25:22.907784+09:00",
+      "last_at": "2026-05-20T04:43:46.646258+09:00"
+    },
+    {
+      "table_name": "documents",
+      "row_count": 3235,
+      "first_at": "2026-05-20T06:35:33.044750+09:00",
+      "last_at": "2026-05-20T13:34:33.712187+09:00"
+    },
+    {
+      "table_name": "query_logs",
+      "row_count": 15,
+      "first_at": "2026-05-20T13:52:06.786482+09:00",
+      "last_at": "2026-05-20T14:05:30.207350+09:00"
+    },
+    {
+      "table_name": "response_logs",
+      "row_count": 15,
+      "first_at": "2026-05-20T13:53:00.656363+09:00",
+      "last_at": "2026-05-20T14:05:57.558912+09:00"
+    },
+    {
+      "table_name": "retrieval_logs",
+      "row_count": 15,
+      "first_at": "2026-05-20T13:52:59.278122+09:00",
+      "last_at": "2026-05-20T14:05:56.534371+09:00"
+    },
+    {
+      "table_name": "retrieval_selected_chunks",
+      "row_count": 38,
+      "first_at": "2026-05-20T13:52:59.278122+09:00",
+      "last_at": "2026-05-20T14:05:56.534371+09:00"
+    }
+  ],
+  "answer_quality": {
+    "total_queries": 15,
+    "info_queries": 15,
+    "general_queries": 0,
+    "profanity_queries": 0,
+    "empty_answers": 0,
+    "response_failures": 0,
+    "response_errors": 0,
+    "non_committal_answers": 2,
+    "avg_response_time_ms": 38032.1,
+    "p95_response_time_ms": 88374.6,
+    "info_without_retrieval_log": 0,
+    "info_zero_retrieved": 1,
+    "info_zero_selected": 1,
+    "info_fallback_used": 2,
+    "first_query_at": "2026-05-20T13:52:06.786482+09:00",
+    "last_query_at": "2026-05-20T14:05:30.207350+09:00"
+  },
+  "rag_pipeline": {
+    "retrieval_attempts": 15,
+    "successful_attempts": 15,
+    "failed_attempts": 0,
+    "fallback_attempts": 2,
+    "avg_retrieved_docs": 17.93,
+    "avg_reranked_docs": 17.93,
+    "avg_selected_docs": 2.53,
+    "zero_retrieved_attempts": 1,
+    "zero_selected_attempts": 1
+  },
+  "retrieval_by_strategy": [
+    {
+      "retrieval_strategy": "hybrid",
+      "attempts": 14,
+      "successes": 14,
+      "fallback_attempts": 2,
+      "avg_retrieved": 19.21,
+      "avg_selected": 2.71
+    },
+    {
+      "retrieval_strategy": "keyword",
+      "attempts": 1,
+      "successes": 1,
+      "fallback_attempts": 0,
+      "avg_retrieved": 0.0,
+      "avg_selected": 0.0
+    }
+  ],
+  "selected_chunk_integrity": {
+    "selected_rows": 38,
+    "raw_chunk_refs": 38,
+    "content_snapshots": 38,
+    "null_chunk_refs": 0,
+    "missing_chunk_rows": 0,
+    "missing_document_rows": 0,
+    "avg_score": 3.24,
+    "avg_rerank_score": null
+  },
+  "source_data": {
+    "documents": 3235,
+    "document_contents": 8557,
+    "chunks": 13527,
+    "chunk_embeddings": 13527,
+    "documents_without_chunks": 0,
+    "chunks_without_embeddings": 0,
+    "documents_without_contents": 0,
+    "assets_without_extracted_content": 9420,
+    "very_short_chunks_lt_120": 334,
+    "very_long_chunks_gt_2500": 0
+  },
+  "top_source_domains": [
+    {
+      "domain": "www.deu.ac.kr",
+      "documents": 699,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "deuhome.deu.ac.kr",
+      "documents": 326,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "swcc.deu.ac.kr",
+      "documents": 125,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "dess.deu.ac.kr",
+      "documents": 78,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "lifelong.deu.ac.kr",
+      "documents": 59,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "ipsi.deu.ac.kr",
+      "documents": 58,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "police2001.deu.ac.kr",
+      "documents": 55,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "socialwelfare.deu.ac.kr",
+      "documents": 44,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "dorm.deu.ac.kr",
+      "documents": 42,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "nursing.deu.ac.kr",
+      "documents": 40,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "advising.deu.ac.kr",
+      "documents": 37,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "lis.deu.ac.kr",
+      "documents": 32,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "deufund.deu.ac.kr",
+      "documents": 32,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "bhcoss.deu.ac.kr",
+      "documents": 30,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "dental.deu.ac.kr",
+      "documents": 30,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "ctl.deu.ac.kr",
+      "documents": 29,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "biopharm.deu.ac.kr",
+      "documents": 29,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "tkd.deu.ac.kr",
+      "documents": 28,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "dce.deu.ac.kr",
+      "documents": 27,
+      "kbeauty_documents": 0
+    },
+    {
+      "domain": "collabo.deu.ac.kr",
+      "documents": 27,
+      "kbeauty_documents": 0
+    }
+  ],
+  "specific_source_domains": [
+    {
+      "domain": "kbeauty.deu.ac.kr",
+      "documents": 48,
+      "chunks": 48,
+      "embeddings": 48,
+      "first_document_at": "2026-05-20T08:21:23.138202+09:00",
+      "last_document_at": "2026-05-20T10:30:14.916142+09:00"
+    }
+  ],
+  "crawl_errors": [
+    {
+      "stage": "board_list",
+      "error_type": "SSLError",
+      "errors": 50,
+      "last_seen_at": "2026-05-20T03:03:48.792698+09:00",
+      "sample_error": "HTTPSConnectionPool(host='lib.deu.ac.kr', port=443): Max retries exceeded with url: /sb/libtoday_libtoday_list.mir?article.offset=90&articleLimit=10&mode=list (Caused by SSLError(SSLError(1, '[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] ssl/tls ale"
+    },
+    {
+      "stage": "static_page",
+      "error_type": "ValueError",
+      "errors": 17,
+      "last_seen_at": "2026-05-20T03:41:20.986649+09:00",
+      "sample_error": "non-html static response: url=https://www.deu.ac.kr/cms/etcResourceDown.do?site=$cms$O4o&key=$cms$BYUwng9grgdg5gWgLYEMZRQGwBQGcAuUAJiDPgJQB0ADkQGZA content_type=application/pdf"
+    },
+    {
+      "stage": "attachment_download",
+      "error_type": "ValueError",
+      "errors": 14,
+      "last_seen_at": "2026-05-20T04:00:32.713600+09:00",
+      "sample_error": "Attachment too large: 117138101 bytes url=https://deuhome.deu.ac.kr/exchange1/sub01_04_01.do?mode=download&articleNo=38041&attachNo=70619"
+    },
+    {
+      "stage": "static_page",
+      "error_type": "HTTPError",
+      "errors": 13,
+      "last_seen_at": "2026-05-20T04:43:46.646258+09:00",
+      "sample_error": "406 Client Error:  for url: https://koreanl.deu.ac.kr/koreanl/sub04_02.do"
+    },
+    {
+      "stage": "static_page",
+      "error_type": "SSLError",
+      "errors": 9,
+      "last_seen_at": "2026-05-20T04:30:41.341067+09:00",
+      "sample_error": "SSL verification failed for has.deu.ac.kr; keeping verify=True and skipping url=https://has.deu.ac.kr/"
+    },
+    {
+      "stage": "attachment_download",
+      "error_type": "HTTPError",
+      "errors": 2,
+      "last_seen_at": "2026-05-20T03:54:57.251682+09:00",
+      "sample_error": "404 Client Error: Not Found for url: https://lifelong.deu.ac.kr/Contents/%EB%AF%B8%EB%9E%98%EA%B5%90%EC%9C%A1%EC%9B%90%20%EC%88%98%EA%B0%95%EC%9B%90%EC%84%9C.hwp"
+    },
+    {
+      "stage": "file_parse",
+      "error_type": "BadZipFile",
+      "errors": 1,
+      "last_seen_at": "2026-05-20T03:03:51.001706+09:00",
+      "sample_error": "File is not a zip file"
+    }
+  ],
+  "recent_low_quality_cases": [
+    {
+      "query_id": 483,
+      "created_at": "2026-05-20T14:05:30.207350+09:00",
+      "intent_type": "INFO",
+      "question": "동의대 동아리 정보",
+      "rewritten_query": "동의대 동아리 정보",
+      "keywords": [
+        "동의대",
+        "동아리",
+        "정보",
+        "동의대동아리정보",
+        "동의대동아리",
+        "동아리정보"
+      ],
+      "category": null,
+      "retrieval_strategy": "hybrid",
+      "fallback_used": false,
+      "retrieved_doc_count": 20,
+      "selected_doc_count": 3,
+      "response_success": true,
+      "answer_preview": "동아리 정보는 다음과 같습니다.\n\n* 로봇공학과 동아리는 학습 및 기술 교류의 중심지로서 성적 향상과 기술 습득에 중점을 둡니다. 다양한 경진대회와 참여하고 선도 기술 체험 및 연구 활동에 참여할 기회를 제공합니다.\n* 경찰행정학과는 범죄 예방 동아리 \"퍼펙트(Perfect)\"를 운영하고 있습니다. 이 동아리는 지역사회에서 할 수 있는 다양한 활동에 관심을 가지고 참여해 보고자 합니다.\n* 자동차공학과 LAZO는 CAE 분야의 전문 지식을 갖춘 인재를 양성하기 위해 자기주도적으로 설계, 해석을 수행합니다.\n\n이러한 동아리 정보는 제공된 문서에서 확인할 수 있습니다.\n\n사이트 바로가기: https://www.deu.ac.kr/",
+      "selected_chunks": [
+        {
+          "rank": 1,
+          "score": 4.744447,
+          "title": "동의로봇작업단 | 동아리/지원사업 | 로봇공학과",
+          "doc_id": "static_a5d0b005d9edd54b",
+          "chunk_id": "static_a5d0b005d9edd54b_v001_chunk_001",
+          "source_url": "https://mecha.deu.ac.kr/mecha/sub08_06.do",
+          "raw_chunk_id": "static_a5d0b005d9edd54b_v001_chunk_001",
+          "rerank_score": null,
+          "content_preview": "[TITLE]\n동의로봇작업단 | 동아리/지원사업 | 로봇공학과\n\n[BODY]\n동아리 목적\n\n- 학습 및 기술 교류의 중심지로서 성적 향상과 기술 습득에 중점을 두고 있으며, 다양한 경진대회와 참여와 선도 기술 체험 및 연구 활동에 참여할 기회를 제공합니다."
+        },
+        {
+          "rank": 2,
+          "score": 4.530448,
+          "title": "동아리 | 학생 활동 | 경찰행정학과",
+          "doc_id": "static_bf49e1ef1d2d5e75",
+          "chunk_id": "static_bf49e1ef1d2d5e75_v001_chunk_002",
+          "source_url": "https://police2001.deu.ac.kr/police/sub03_05.do",
+          "raw_chunk_id": "static_bf49e1ef1d2d5e75_v001_chunk_002",
+          "rerank_score": null,
+          "content_preview": "[TITLE]\n동아리 | 학생 활동 | 경찰행정학과\n\n[BODY]\n◆ 퍼펙트(범죄 예방 동아리)\n\n- 동아리 소개 범죄 예방 동아리 \"퍼펙트(Perfect)\"는 '우리 사회에서 발생하고 있는 범죄와 범죄로 인한 두려움을 완전히(Perfect) 제거하겠다는 의미'로 만들어진 동아리입니다. 특히, 자치경찰제 시행과 더불어 지"
+        },
+        {
+          "rank": 3,
+          "score": 4.530448,
+          "title": "LAZO | 동아리 | 자동차공학과",
+          "doc_id": "static_6ccb121656507be2",
+          "chunk_id": "static_6ccb121656507be2_v001_chunk_001",
+          "source_url": "https://automotive-engineering.deu.ac.kr/automotive-engineering/sub08_02.do",
+          "raw_chunk_id": "static_6ccb121656507be2_v001_chunk_001",
+          "rerank_score": null,
+          "content_preview": "[TITLE]\nLAZO | 동아리 | 자동차공학과\n\n[BODY]\n동아리 목적\n\n- CAE에 관심이 있는 학생들이 자기주도적으로 설계, 해석을 수행함으로써 CAE 분야의 전문 지식과 기술을 갖춘 인재를 양성하는 것에 목적을 두고 있습니다."
+        }
+      ]
+    },
+    {
+      "query_id": 482,
+      "created_at": "2026-05-20T14:03:30.286274+09:00",
+      "intent_type": "INFO",
+      "question": "정보공학관 2층에 뭐 있어",
+      "rewritten_query": "정보공학관 2층에 뭐 있어",
+      "keywords": [
+        "정보공학관",
+        "2층",
+        "정보공학",
+        "정보",
+        "공학",
+        "2"
+      ],
+      "category": null,
+      "retrieval_strategy": "hybrid",
+      "fallback_used": true,
+      "retrieved_doc_count": 15,
+      "selected_doc_count": 3,
+      "response_success": true,
+      "answer_preview": "인포마션 공학관 2층에 교직과목이 있습니다. \n\n교직과목은 다음과 같습니다.\n\n*   교육철학및교육사\n*   교육학개론\n*   교육사회\n*   교육심리\n*   교육방법및교육공학\n*   특수교육학개론\n*   교육평가\n*   교직실무\n*   디지털교육\n*   학교폭력예방및학생의이해\n*   교육봉사\n\n사이트 바로가기: https://www.deu.ac.kr/",
+      "selected_chunks": [
+        {
+          "rank": 1,
+          "score": 1.874237,
+          "title": "교직과정 이수조건 | 교직과정 이수 | 교직과",
+          "doc_id": "static_b832a32f7cf1a0cd",
+          "chunk_id": "static_b832a32f7cf1a0cd_v001_chunk_005",
+          "source_url": "https://www.deu.ac.kr/teacher/sub02_03.do",
+          "raw_chunk_id": "static_b832a32f7cf1a0cd_v001_chunk_005",
+          "rerank_score": null,
+          "content_preview": "[TITLE]\n교직과정 이수조건 | 교직과정 이수 | 교직과\n\n[BODY]\n학점 | 시간 | 학점 | 시간\n\n교직과목 | 2 | 700075 | 교육철학및교육사 | 2 | 2 | 동의지천교양대학 | 교직이론\n700077 | 교육학개론 | 2 | 2 | 동의지천교양대학 | 교직이론\n700070 | 교육사회 | 2 | 2 |"
+        },
+        {
+          "rank": 2,
+          "score": 1.468046,
+          "title": "교직과정 이수조건 | 교직과정 이수 | 교직과",
+          "doc_id": "static_0639be629e694259",
+          "chunk_id": "static_0639be629e694259_v001_chunk_006",
+          "source_url": "https://deuhome.deu.ac.kr/teacher/sub02_03.do",
+          "raw_chunk_id": "static_0639be629e694259_v001_chunk_006",
+          "rerank_score": null,
+          "content_preview": "[TITLE]\n교직과정 이수조건 | 교직과정 이수 | 교직과\n\n[TABLE]\ntable\n\n| 교육철학및교육사 | 2 | 2 | 동의지천교양대학 | 교직이론\n700077 | 교육학개론 | 2 | 2 | 동의지천교양대학 | 교직이론\n700070 | 교육사회 | 2 | 2 | 동의지천교양대학 | 교직이론\n700072 | 교육심"
+        },
+        {
+          "rank": 3,
+          "score": -0.891294,
+          "title": "교육대학원 | 대학원 | 간호학과",
+          "doc_id": "static_fa6f07a0262a403b",
+          "chunk_id": "static_fa6f07a0262a403b_v001_chunk_003",
+          "source_url": "https://nursing.deu.ac.kr/nursing/sub07_09.do",
+          "raw_chunk_id": "static_fa6f07a0262a403b_v001_chunk_003",
+          "rerank_score": null,
+          "content_preview": "[TITLE]\n교육대학원 | 대학원 | 간호학과\n\n[BODY]\n간호교육 교과과정표\n\n[TABLE]\n교과목 번호 | 과목명 | 학점(시간)\n5W6A01 | 간호교육이론 (Theory in Nursing Education) | 2(2)\n5W6A02 | 간호교육연구 (Research in Nursing Education) | "
+        }
+      ]
+    },
+    {
+      "query_id": 477,
+      "created_at": "2026-05-20T13:59:18.869339+09:00",
+      "intent_type": "INFO",
+      "question": "1번 건물 이름",
+      "rewritten_query": "1번 건물 이름",
+      "keywords": [
+        "1번",
+        "건물",
+        "이름",
+        "건물이름",
+        "1"
+      ],
+      "category": null,
+      "retrieval_strategy": "hybrid",
+      "fallback_used": true,
+      "retrieved_doc_count": 20,
+      "selected_doc_count": 1,
+      "response_success": true,
+      "answer_preview": "동의대학교 1번 건물 이름은 동의대학교 본관입니다.\n\n사이트 바로가기: https://www.deu.ac.kr/",
+      "selected_chunks": [
+        {
+          "rank": 1,
+          "score": -2.339971,
+          "title": "2026학년도 교육과정",
+          "doc_id": "deu_safety_80836",
+          "chunk_id": "deu_safety_80836_v001_chunk_027",
+          "source_url": "https://www.deu.ac.kr/www/deu-curriculum.do?article.offset=0&articleLimit=10&articleNo=80836&mode=view",
+          "raw_chunk_id": "deu_safety_80836_v001_chunk_027",
+          "rerank_score": null,
+          "content_preview": "[TITLE]\n2026학년도 교육과정\n\n[ATTACHMENT]\n2026학년도 교육과정 편람.pdf\n\n14 DONG-EUI UNIVERSITY CURRICULUM | 2026\n1. 교양과정\n동의대학교(콜라보) 교양교육은 인간, 사회, 자연의 원리에 대한 기본 지식과 도덕적 인성, 예술적\n감수성과 창조성, 개방적 소통 능력과"
+        }
+      ]
+    },
+    {
+      "query_id": 474,
+      "created_at": "2026-05-20T13:56:21.354887+09:00",
+      "intent_type": "INFO",
+      "question": "IPP사업 정보",
+      "rewritten_query": null,
+      "keywords": [],
+      "category": null,
+      "retrieval_strategy": "keyword",
+      "fallback_used": false,
+      "retrieved_doc_count": 0,
+      "selected_doc_count": 0,
+      "response_success": true,
+      "answer_preview": "안녕하세요. 동의대학교 정보 안내를 도와드리고 있어요. 학사, 장학, 기숙사, 통학버스 같은 학교 정보를 물어봐 주세요.\n\n사이트 바로가기: https://www.deu.ac.kr/",
+      "selected_chunks": []
+    },
+    {
+      "query_id": 469,
+      "created_at": "2026-05-20T13:52:06.786482+09:00",
+      "intent_type": "INFO",
+      "question": "7대 총장 누구야?",
+      "rewritten_query": "7대 총장 누구",
+      "keywords": [
+        "7대",
+        "총장",
+        "누구",
+        "7"
+      ],
+      "category": null,
+      "retrieval_strategy": "hybrid",
+      "fallback_used": false,
+      "retrieved_doc_count": 20,
+      "selected_doc_count": 3,
+      "response_success": true,
+      "answer_preview": "동의대학교 제 7대 총장은 whom이세요?\n\n제공된 문서에서 관련 정보를 찾지 못했습니다.\n\n사이트 바로가기: https://www.deu.ac.kr/",
+      "selected_chunks": [
+        {
+          "rank": 1,
+          "score": 4.85,
+          "title": "역대총장 | 총장 | DEU",
+          "doc_id": "static_7fe939fbbc6bdf3b",
+          "chunk_id": "static_7fe939fbbc6bdf3b_v001_chunk_001",
+          "source_url": "https://www.deu.ac.kr/www/former-university-presidents.do",
+          "raw_chunk_id": "static_7fe939fbbc6bdf3b_v001_chunk_001",
+          "rerank_score": null,
+          "content_preview": "[TITLE]\n역대총장 | 총장 | DEU\n\n[BODY]\nbody\n\n동의대학교 제12대 · 13대총장\n한 수 환 ( 韓 洙 桓 )\n학력\n1986. 2.\n연세대학교 전자공학과 (공학사)\n1990. 3.\n플로리다공대 전기전자공학 (공학석사)\n1993. 6.\n플로리다공대 전기전자공학 (공학박사)\n경력\n2005. 3. ~ 200"
+        },
+        {
+          "rank": 2,
+          "score": 3.443323,
+          "title": "총장메세지 | 총장 | DEU",
+          "doc_id": "static_b8eb523ef213d40a",
+          "chunk_id": "static_b8eb523ef213d40a_v001_chunk_002",
+          "source_url": "https://www.deu.ac.kr/www/deu-message.do",
+          "raw_chunk_id": "static_b8eb523ef213d40a_v001_chunk_002",
+          "rerank_score": null,
+          "content_preview": "[TITLE]\n총장메세지 | 총장 | DEU\n\n[BODY]\nbody\n\n에도 앞장서고 있습니다. 이러한 대학의 기능과 역할을 성실히 수행하며 학생들이 꿈을 펼칠 수 있는 대학으로 거듭나고 있습니다.\n앞으로도 동의대는 오늘보다 내일이 더욱 기대되는 ‘대학다운 대학’으로 전진할 것을 약속드립니다.\n동의대학교 총장\n최종수정일\n2"
+        },
+        {
+          "rank": 3,
+          "score": 2.208337,
+          "title": "동의대학교 미래교육원 > 학점은행제 > 경영과 > 모집안내",
+          "doc_id": "static_0ce2f14722c12e49",
+          "chunk_id": "static_0ce2f14722c12e49_v001_chunk_009",
+          "source_url": "https://lifelong.deu.ac.kr/Contents/Contents.aspx?MENU_ID=140&PAGE_NO=35",
+          "raw_chunk_id": "static_0ce2f14722c12e49_v001_chunk_009",
+          "rerank_score": null,
+          "content_preview": "[TITLE]\n동의대학교 미래교육원 > 학점은행제 > 경영과 > 모집안내\n\n[BODY]\n동의대학교 총장 명의 학위증\n\n- 개인정보처리방침\n- 사이트 이용약관\n- \n47340 부산광역시 부산진구 엄광로 176 동의대학교 지천관 2층 207호\n미래교육원\nTEL.\n051)890-1947~8\nFAX.\n0502-600-9396\nC"
+        }
+      ]
+    }
+  ],
+  "recent_success_cases": [
+    {
+      "query_id": 482,
+      "created_at": "2026-05-20T14:03:30.286274+09:00",
+      "question": "정보공학관 2층에 뭐 있어",
+      "retrieval_strategy": "hybrid",
+      "retrieved_doc_count": 15,
+      "selected_doc_count": 3,
+      "answer_preview": "인포마션 공학관 2층에 교직과목이 있습니다. \n\n교직과목은 다음과 같습니다.\n\n*   교육철학및교육사\n*   교육학개론\n*   교육사회\n*   교육심리\n*   교육방법및교육공학\n*   특수교육학개론\n*   교육평가\n*   교직실무\n*   디지털교육\n*   학교폭력예방및학생의이해\n*   교육봉사\n\n사이트 바로가기: https://www.deu.ac.kr/"
+    },
+    {
+      "query_id": 481,
+      "created_at": "2026-05-20T14:02:53.215066+09:00",
+      "question": "정보공학관 편의점 위치",
+      "retrieval_strategy": "hybrid",
+      "retrieved_doc_count": 20,
+      "selected_doc_count": 3,
+      "answer_preview": "정보공학관 편의점 위치는 정보공학관 613호실입니다.\n\n사이트 바로가기: https://www.deu.ac.kr/"
+    },
+    {
+      "query_id": 480,
+      "created_at": "2026-05-20T14:02:13.143164+09:00",
+      "question": "정보공학관은 몇번 건물?",
+      "retrieval_strategy": "hybrid",
+      "retrieved_doc_count": 20,
+      "selected_doc_count": 3,
+      "answer_preview": "정보공학관은 정보공학관 613호실과 814호실이 있습니다.\n\n사이트 바로가기: https://www.deu.ac.kr/"
+    },
+    {
+      "query_id": 479,
+      "created_at": "2026-05-20T14:01:20.427191+09:00",
+      "question": "23번 건물은 정보공학관?",
+      "retrieval_strategy": "hybrid",
+      "retrieved_doc_count": 20,
+      "selected_doc_count": 3,
+      "answer_preview": "23번 건물이 정보공학관이라고 합니다.\n\n사이트 바로가기: https://www.deu.ac.kr/"
+    },
+    {
+      "query_id": 478,
+      "created_at": "2026-05-20T14:00:49.777694+09:00",
+      "question": "동의대 23번 건물 이름",
+      "retrieval_strategy": "hybrid",
+      "retrieved_doc_count": 20,
+      "selected_doc_count": 3,
+      "answer_preview": "동의대학교 23번 건물 이름은 \"HOME 후원의 집\"입니다.\n\n사이트 바로가기: https://www.deu.ac.kr/"
+    },
+    {
+      "query_id": 477,
+      "created_at": "2026-05-20T13:59:18.869339+09:00",
+      "question": "1번 건물 이름",
+      "retrieval_strategy": "hybrid",
+      "retrieved_doc_count": 20,
+      "selected_doc_count": 1,
+      "answer_preview": "동의대학교 1번 건물 이름은 동의대학교 본관입니다.\n\n사이트 바로가기: https://www.deu.ac.kr/"
+    },
+    {
+      "query_id": 476,
+      "created_at": "2026-05-20T13:58:42.453738+09:00",
+      "question": "정보공학관 정보",
+      "retrieval_strategy": "hybrid",
+      "retrieved_doc_count": 20,
+      "selected_doc_count": 3,
+      "answer_preview": "정보공학관에 대한 정보를 제공해 드리겠습니다.\n\n*   정보공학관에는 3개의 실습실이 있습니다. \n    *   컴퓨터 시스템 실습실 (Computer System Lab) : 정보공학관 814호실\n        *   주요실습과목: 기초프로그래밍 I, II, 객체지향 프로그래밍, 비주얼프로그래밍, 어셈블리언어 실습, 공학기술프로그래밍, 자바프로그래밍, 데이터베이스응용, 소프트웨어공학, 웹프로그래밍, 캡스톤디자인 I, II, 머신러닝 프로그래밍 등\n    *  "
+    },
+    {
+      "query_id": 475,
+      "created_at": "2026-05-20T13:57:55.954147+09:00",
+      "question": "동의대 23번 건물 정보",
+      "retrieval_strategy": "hybrid",
+      "retrieved_doc_count": 20,
+      "selected_doc_count": 3,
+      "answer_preview": "동의대학교 23번 건물은 동의대학교 미래교육원이 있는 지천관 2층 207호입니다.\n\n지천관 2층 207호로 찾아오시는 길을 알려드리겠습니다.\n1. 학교 정문에서 자연대 로터리(회차로)로 이동합니다.\n2. 정문에서 제일 가까운 좌측 건물 (자연과학대학 아래 건물)에 도착합니다.\n\n이건물을 찾는 경우, 캠퍼스맵을 참고해 주세요.\n\n동의대학교 23번 건물은 지천관 2층 207호로 위치하고 있습니다.\n\n사이트 바로가기: https://www.deu.ac.kr/"
+    },
+    {
+      "query_id": 473,
+      "created_at": "2026-05-20T13:55:39.274312+09:00",
+      "question": "컴퓨터공학과 2학년 전공필수 과목",
+      "retrieval_strategy": "hybrid",
+      "retrieved_doc_count": 14,
+      "selected_doc_count": 1,
+      "answer_preview": "컴퓨터공학과 2학년의 전공필수 과목은 다음과 같습니다.\n\n*   토목공학과: 도시정책론, 교통조사분석및실습, 토지이용계획(키스톤디자인)\n*   환경공학과: 환경기초계산\n\n사이트 바로가기: https://www.deu.ac.kr/"
+    },
+    {
+      "query_id": 472,
+      "created_at": "2026-05-20T13:54:47.815411+09:00",
+      "question": "컴퓨터공학과 이수표 정보",
+      "retrieval_strategy": "hybrid",
+      "retrieved_doc_count": 20,
+      "selected_doc_count": 3,
+      "answer_preview": "컴퓨터공학과 이수표 정보를 제공해 드리겠습니다.\n\n이수표는 각 실습실의 주요실습과목을 포함하여 컴퓨터공학 학부 학생들이 이수할 수 있는 과목입니다. \n\n*   컴퓨터 시스템 실습실 (Computer System Lab) : 기초프로그래밍 I, II, 객체지향 프로그래밍, 비주얼프로그래밍, 어셈블리언어 실습, 공학기술프로그래밍, 자바프로그래밍, 데이터베이스응용, 소프트웨어공학, 웹프로그래밍, 캡스톤디자인 I, II, 머신러닝 프로그래밍 등\n*   컴퓨터 소프트웨어"
+    }
+  ]
+}

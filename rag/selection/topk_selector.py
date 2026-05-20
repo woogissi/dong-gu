@@ -1,5 +1,6 @@
 """Select top documents for answer context."""
 
+from rag.preprocess.query_features import ui_noise_hits
 from rag.schemas.retrieved_doc import RetrievedDoc
 
 
@@ -115,7 +116,7 @@ def _is_static_or_menu_candidate(doc: RetrievedDoc) -> bool:
     if section_title in {"menu", "navigation", "breadcrumb"}:
         return True
     ui_hits = sum(1 for marker in ("more", "본문 바로가기", "사이트맵", "로그인", "회원가입", "sns", "바로가기") if marker in content)
-    return ui_hits >= 3
+    return max(ui_hits, ui_noise_hits(f"{doc.title}\n{doc.source}\n{doc.content}")) >= 3
 
 
 def _is_context_contamination_candidate(doc: RetrievedDoc) -> bool:
@@ -133,7 +134,11 @@ def _is_context_contamination_candidate(doc: RetrievedDoc) -> bool:
         + _float_signal(signals, "category_match")
     )
     noise_score = _float_signal(signals, "noise_score")
+    required_entity_match = _float_signal(signals, "required_entity_match")
+    has_required_terms = bool(doc.metadata.get("required_terms"))
 
+    if has_required_terms and required_entity_match <= 0.0 and heading_relevance <= 0.0:
+        return True
     if noise_score >= 0.8 and _float_signal(signals, "query_family_penalty") < 0.0:
         return True
     if noise_score >= 1.5 and heading_relevance <= 0.0:

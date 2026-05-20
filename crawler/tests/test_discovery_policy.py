@@ -1,4 +1,6 @@
 import unittest
+from collections import Counter
+from urllib.parse import parse_qs, urlparse
 
 from crawler.config.domains import ALLOWED_HOSTS
 from crawler.config.seeds import iter_enabled_seeds, iter_seed_catalog, normalize_seed
@@ -84,6 +86,32 @@ class DiscoveryPolicyTest(unittest.TestCase):
         self.assertIn("koreanl.deu.ac.kr", ALLOWED_HOSTS)
         self.assertIn("massmedia.deu.ac.kr", ALLOWED_HOSTS)
         self.assertIn("kbeauty.deu.ac.kr", ALLOWED_HOSTS)
+
+    def test_enabled_seed_catalog_has_stable_identity_and_required_fields(self) -> None:
+        seeds = iter_enabled_seeds()
+        names = [seed["name"] for seed in seeds]
+        urls = [seed["url"] for seed in seeds]
+
+        duplicate_names = [name for name, count in Counter(names).items() if count > 1]
+        duplicate_urls = [url for url, count in Counter(urls).items() if count > 1]
+
+        self.assertEqual(duplicate_names, [])
+        self.assertEqual(duplicate_urls, [])
+        for seed in seeds:
+            with self.subTest(seed=seed["name"]):
+                self.assertIn(seed["page_kind"], {"static_page", "board_list", "seed"})
+                self.assertIn(seed["priority"], {"P0", "P1", "P2", "P3"})
+                self.assertTrue(seed["source_type"])
+                self.assertTrue(seed["source_group"])
+                self.assertTrue(urlparse(seed["url"]).scheme in {"http", "https"})
+
+    def test_board_list_seeds_are_lists_not_direct_downloads(self) -> None:
+        for seed in iter_enabled_seeds("board_list"):
+            parsed = urlparse(seed["url"])
+            query = parse_qs(parsed.query)
+            with self.subTest(seed=seed["name"], url=seed["url"]):
+                self.assertNotEqual(query.get("mode", [""])[0].lower(), "download")
+                self.assertNotIn("download", parsed.path.lower())
 
     def test_board_candidate_policy_accepts_board_list_url(self) -> None:
         classifier = URLClassifier()

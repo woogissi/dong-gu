@@ -14,13 +14,14 @@ selected AS (
             jsonb_build_object(
                 'rank', rsc.rank,
                 'chunk_id', rsc.chunk_id,
+                'raw_chunk_id', rsc.raw_chunk_id,
                 'doc_id', rsc.doc_id,
                 'score', rsc.score,
                 'rerank_score', rsc.rerank_score,
-                'title', d.title,
+                'title', coalesce(d.title, rsc.title_snapshot),
                 'source_type', d.source_type,
                 'department', d.department,
-                'content_preview', left(c.content, 260),
+                'content_preview', left(coalesce(c.content, rsc.content_snapshot), 260),
                 'metadata', rsc.metadata
             )
             ORDER BY rsc.rank

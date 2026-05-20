@@ -1,14 +1,24 @@
 # crawler/run/run_manual_attachment_parse.py
 
 import json
+import os
 from pathlib import Path
 
 from crawler.parsers.file_text_router import FileTextRouter
 from crawler.paths import CURATED_DOC_DIR, LOG_DIR, RAW_DOC_DIR, RAW_FILE_DIR
 from crawler.utils.content_hash import build_content_hash
+from crawler.utils.text_quality import attachment_text_quality_report
 
 
 LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def allow_needs_review_attachment_chunks() -> bool:
+    return os.getenv("CRAWLER_ALLOW_NEEDS_REVIEW_ATTACHMENT_CHUNKS", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
 
 
 def load_json(path: Path) -> dict:
@@ -37,6 +47,22 @@ def merge_attachment_texts(downloaded_attachments: list[dict]) -> str | None:
         file_name = item.get("file_name")
 
         if text:
+            quality = attachment_text_quality_report(
+                text,
+                parser_name=item.get("parser_type"),
+                parser_status=item.get("parse_status"),
+                page_count=item.get("page_count"),
+                tables=item.get("attachment_tables", []),
+            )
+            if quality["quality_status"] == "parse_failed" or (
+                quality["quality_status"] == "needs_review"
+                and not allow_needs_review_attachment_chunks()
+            ):
+                item["attachment_text"] = None
+                item["quality_status"] = quality["quality_status"]
+                item["quality"] = quality
+                item["note"] = f"attachment text skipped before curated merge: {quality['quality_reason']}"
+                continue
             texts.append(f"[ATTACHMENT: {file_name}]\n{text}")
 
     merged = "\n\n".join(texts).strip()
@@ -151,6 +177,26 @@ def parse_missing_attachments_for_doc(
         try:
             parse_result = router.extract_text(str(file_path))
             attachment_text = parse_result.get("attachment_text")
+            attachment_quality = attachment_text_quality_report(
+                attachment_text,
+                parser_name=parse_result.get("parser_type"),
+                page_count=parse_result.get("page_count"),
+                tables=parse_result.get("attachment_tables", []),
+            )
+            quality_status = str(attachment_quality.get("quality_status") or "needs_review")
+            parse_status = str(attachment_quality.get("parser_status") or "parser_success")
+            should_store_attachment_text = (
+                parse_status == "parser_success"
+                and (
+                    quality_status == "ok"
+                    or (
+                        quality_status == "needs_review"
+                        and allow_needs_review_attachment_chunks()
+                    )
+                )
+            )
+            if not should_store_attachment_text:
+                attachment_text = None
 
             attachment_index = next_attachment_index(downloaded_attachments)
 
@@ -163,10 +209,27 @@ def parse_missing_attachments_for_doc(
                 "file_size": file_path.stat().st_size,
                 "content_type": None,
                 "parser_type": parse_result.get("parser_type"),
+                "parser_name": parse_result.get("parser_type"),
+                "parser_status": parse_status,
                 "attachment_text": attachment_text,
                 "page_count": parse_result.get("page_count"),
                 "pages": parse_result.get("pages", []),
-                "note": parse_result.get("note") or "manually parsed attachment",
+                "attachment_tables": parse_result.get("attachment_tables", []),
+                "parse_status": parse_status,
+                "extracted_text_length": attachment_quality.get("extracted_text_length"),
+                "text_per_page": attachment_quality.get("text_per_page"),
+                "korean_ratio": attachment_quality.get("korean_ratio"),
+                "digit_ratio": attachment_quality.get("digit_ratio"),
+                "binary_marker_detected": attachment_quality.get("binary_marker_detected"),
+                "table_detected": attachment_quality.get("table_detected"),
+                "note": (
+                    f"attachment text skipped after parse: {attachment_quality['quality_reason']}"
+                    if not should_store_attachment_text
+                    else parse_result.get("note") or "manually parsed attachment"
+                ),
+                "quality_status": quality_status,
+                "quality_reason": attachment_quality.get("quality_reason"),
+                "quality": attachment_quality,
                 "raw_xml_files": parse_result.get("raw_xml_files", []),
             }
 

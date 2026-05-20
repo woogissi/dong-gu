@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 from rag.pipeline.state import PipelineState
+from rag.preprocess.query_features import extract_query_features, sanitize_filters
 from rag.schemas.retrieval import RetrievalRequest
 
 DEFAULT_TOP_K = 20
@@ -43,6 +44,8 @@ def build_retrieval_request(state: PipelineState) -> RetrievalRequest:
 
     query = query_variants[0] if query_variants else state.original_query
     filters = _normalize_filters(state.filters)
+    filters, dropped_filters = sanitize_filters(filters)
+    query_features = extract_query_features(query, state.keywords)
     category = state.category or _first_value(filters.get("category", []))
     top_k = state.retrieval_top_k or DEFAULT_TOP_K
     fallback_triggers = _fallback_triggers(
@@ -58,6 +61,8 @@ def build_retrieval_request(state: PipelineState) -> RetrievalRequest:
         category=category,
         top_k=top_k,
         fallback_triggers=fallback_triggers,
+        query_features=query_features.to_log_dict(),
+        dropped_filters=dropped_filters,
     )
 
     return RetrievalRequest(
@@ -83,6 +88,8 @@ def build_strategy_log_fields(
     category: str | None,
     top_k: int,
     fallback_triggers: list[str],
+    query_features: dict[str, object] | None = None,
+    dropped_filters: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     return {
         "strategy": KEYWORD_STRATEGY,
@@ -95,6 +102,10 @@ def build_strategy_log_fields(
         "top_k": top_k,
         "fallback_triggers": fallback_triggers,
         "filter_rules_applied": _filter_rules_applied(filters),
+        "query_features": query_features or {},
+        "strong_terms": (query_features or {}).get("strong_terms", []),
+        "query_family": (query_features or {}).get("family"),
+        "dropped_filters": dropped_filters or [],
     }
 
 

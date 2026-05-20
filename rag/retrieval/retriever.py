@@ -19,6 +19,11 @@ from typing import Any
 
 from rag.schemas.retrieval import RetrievalRequest
 from rag.schemas.retrieved_doc import RetrievedDoc
+from rag.preprocess.query_features import (
+    extract_query_features,
+    required_entity_match_score,
+    ui_noise_hits,
+)
 
 try:
     from kiwipiepy import Kiwi
@@ -314,7 +319,9 @@ def _build_db_search_term(request: RetrievalRequest) -> str:
 
 
 def _build_db_search_terms(request: RetrievalRequest) -> list[str]:
+    feature_terms = _request_feature_terms(request)
     candidate_texts = [
+        *feature_terms,
         *(request.keywords or []),
         *(request.query_variants or []),
         request.query,
@@ -327,6 +334,18 @@ def _build_db_search_terms(request: RetrievalRequest) -> list[str]:
             if token and token not in terms:
                 terms.append(token)
     return terms[:12]
+
+
+def _request_feature_terms(request: RetrievalRequest) -> list[str]:
+    query_features = request.log_fields.get("query_features") if isinstance(request.log_fields, dict) else None
+    if isinstance(query_features, dict):
+        terms = [
+            *[str(value) for value in query_features.get("required_terms") or []],
+            *[str(value) for value in query_features.get("strong_terms") or []],
+            *[str(value) for value in query_features.get("protected_terms") or []],
+        ]
+        return [term for term in terms if term]
+    return extract_query_features(request.query, request.keywords).strong_terms
 
 
 def _build_exact_phrase_patterns(request: RetrievalRequest) -> list[str]:
@@ -347,6 +366,18 @@ def _build_boost_patterns(search_terms: list[str]) -> tuple[list[str], bool]:
         if term not in _DB_BOOST_STOPWORDS and not (len(term) == 1 and not term.isdigit())
     ]
     return [f"%{term}%" for term in boost_terms] or ["__NO_BOOST_TERM_MATCH__"], bool(boost_terms)
+
+
+def _feature_log_fields(request: RetrievalRequest) -> dict[str, Any]:
+    query_features = request.log_fields.get("query_features") if isinstance(request.log_fields, dict) else None
+    if not isinstance(query_features, dict):
+        query_features = extract_query_features(request.query, request.keywords).to_log_dict()
+    return {
+        "query_features": query_features,
+        "strong_terms": query_features.get("strong_terms", []),
+        "required_terms": query_features.get("required_terms", []),
+        "query_family": query_features.get("family"),
+    }
 
 
 def _is_weak_db_search_term(term: str) -> bool:
@@ -518,6 +549,7 @@ def _retrieve_documents_from_database_vector(request: RetrievalRequest) -> list[
                     **document_metadata,
                     **chunk_metadata,
                     **request.log_fields,
+                    **_feature_log_fields(request),
                     "strategy": _resolve_retrieval_mode(request),
                     "query": request.query,
                     "keywords": request.keywords,
@@ -796,9 +828,12 @@ def _hybrid_relevance_adjustment(candidate: RetrievalCandidate) -> dict[str, flo
     doc = candidate.document
     metadata = doc.metadata or {}
     keywords = [str(value).lower() for value in metadata.get("keywords") or [] if value]
+    strong_from_features = [str(value).lower() for value in metadata.get("strong_terms") or [] if value]
+    required_terms = [str(value).lower() for value in metadata.get("required_terms") or [] if value]
+    query_family = str(metadata.get("query_family") or "general")
     strong_terms = [
         term
-        for term in keywords
+        for term in [*strong_from_features, *keywords]
         if len(term) >= 2 and term not in _HYBRID_GENERIC_TERMS and not (len(term) == 1 and not term.isdigit())
     ]
     title = (doc.title or "").lower()
@@ -811,11 +846,18 @@ def _hybrid_relevance_adjustment(candidate: RetrievalCandidate) -> dict[str, flo
 
     title_hits = sum(1 for term in strong_terms if term in title)
     content_hits = sum(1 for term in strong_terms if term in content)
+    required_match = required_entity_match_score(required_terms, f"{title}\n{content}\n{source}")
     bonus = min(title_hits * 0.10 + content_hits * 0.035, 0.30)
+    if required_match > 0:
+        bonus += min(required_match * 0.25, 0.25)
     if candidate.lexical_score and title_hits:
         bonus += 0.08
     if candidate.lexical_score and candidate.vector_score:
         bonus += 0.04
+    if query_family == "building_location" and any(term in f"{title} {content}" for term in ("정보공학관", "건물", "건물번호", "캠퍼스맵", "층")):
+        bonus += 0.18
+    if query_family == "department_curriculum" and any(term in f"{title} {content}" for term in ("컴퓨터공학", "이수표", "전공필수", "교육과정")):
+        bonus += 0.18
 
     penalty = 0.0
     reasons: list[str] = []
@@ -838,12 +880,19 @@ def _hybrid_relevance_adjustment(candidate: RetrievalCandidate) -> dict[str, flo
     if ui_hits >= 3:
         penalty += 0.12
         reasons.append("ui_noise")
+    if required_terms and required_match == 0.0:
+        penalty += 0.20
+        reasons.append("missing_required_terms")
+    if query_family == "building_location" and section_type == "attachment" and required_match == 0.0:
+        penalty += 0.20
+        reasons.append("building_query_weak_attachment")
 
     return {
         "bonus": round(bonus, 6),
         "penalty": round(min(penalty, 0.45), 6),
         "title_keyword_hits": float(title_hits),
         "content_keyword_hits": float(content_hits),
+        "required_entity_match": round(required_match, 6),
         "reasons": reasons,
     }
 
@@ -1102,6 +1151,7 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
                     **document_metadata,
                     **chunk_metadata,
                     **request.log_fields,
+                    **_feature_log_fields(request),
                     "strategy": request.strategy,
                     "query": request.query,
                     "keywords": request.keywords,
@@ -1282,6 +1332,7 @@ def _to_retrieved_docs(
                 category=request.category or record.source_type,
                 metadata={
                     **record.metadata,
+                    **_feature_log_fields(request),
                     "strategy": request.strategy,
                     "query": request.query,
                     "keywords": request.keywords,

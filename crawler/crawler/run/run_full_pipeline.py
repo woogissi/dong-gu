@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from crawler.utils.content_hash import build_content_hash
+from crawler.utils.text_quality import attachment_text_quality_report, document_quality_report
 from crawler.config.seeds import iter_enabled_seeds, iter_seed_catalog
 from crawler.config.domains import ALLOWED_HOSTS
 from crawler.extractors.board_list_extractor import BoardListExtractor
@@ -50,6 +51,14 @@ RUNTIME = {
     "force_static_recrawl": False,
     "force_document_recrawl": False,
 }
+
+
+def allow_needs_review_attachment_chunks() -> bool:
+    return os.getenv("CRAWLER_ALLOW_NEEDS_REVIEW_ATTACHMENT_CHUNKS", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
 
 BOARD_LIST_PAGING_QUERY_KEYS = {
     "mode",
@@ -164,6 +173,25 @@ def merge_attachment_texts(downloaded_attachments: list[dict]) -> str | None:
         attachment_text = item.get("attachment_text")
         file_name = item.get("file_name")
         if attachment_text:
+            quality = attachment_text_quality_report(
+                attachment_text,
+                parser_name=item.get("parser_type"),
+                parser_status=item.get("parse_status"),
+                page_count=item.get("page_count"),
+                tables=item.get("attachment_tables", []),
+            )
+            if quality["quality_status"] == "parse_failed" or (
+                quality["quality_status"] == "needs_review"
+                and not allow_needs_review_attachment_chunks()
+            ):
+                item["attachment_text"] = None
+                item["quality_status"] = quality["quality_status"]
+                item["note"] = (
+                    "attachment text skipped before curated merge: "
+                    f"{quality['quality_reason']}"
+                )
+                item["quality"] = quality
+                continue
             texts.append(f"[ATTACHMENT: {file_name}]\n{attachment_text}")
 
     merged = "\n\n".join(texts).strip()
@@ -183,9 +211,101 @@ def merge_image_texts(image_texts: list[dict]) -> str | None:
     return merged if merged else None
 
 
+def build_attachment_metadata(downloaded_attachments: list[dict]) -> list[dict]:
+    metadata = []
+    for item in downloaded_attachments or []:
+        metadata.append(
+            {
+                "attachment_index": item.get("attachment_index"),
+                "file_name": item.get("file_name"),
+                "file_url": item.get("file_url"),
+                "file_ext": item.get("file_ext"),
+                "file_size": item.get("file_size"),
+                "file_hash_sha256": item.get("file_hash_sha256"),
+                "content_type": item.get("content_type"),
+                "parser_type": item.get("parser_type"),
+                "parser_name": item.get("parser_name") or item.get("parser_type"),
+                "parser_status": item.get("parser_status") or item.get("parse_status"),
+                "parse_status": item.get("parse_status"),
+                "extracted_text_length": item.get("extracted_text_length"),
+                "page_count": item.get("page_count"),
+                "text_per_page": item.get("text_per_page"),
+                "korean_ratio": item.get("korean_ratio"),
+                "digit_ratio": item.get("digit_ratio"),
+                "binary_marker_detected": item.get("binary_marker_detected"),
+                "table_detected": item.get("table_detected"),
+                "table_count": len(item.get("attachment_tables", []) or []),
+                "quality_status": item.get("quality_status"),
+                "quality_reason": item.get("quality_reason"),
+                "extension_source": item.get("extension_source"),
+                "needs_reprocess": bool(
+                    item.get("parse_status") in {
+                        "parser_empty_text",
+                        "parser_unsupported",
+                        "parser_failed",
+                        "missing_extension",
+                        "binary_marker_detected",
+                    }
+                    or not item.get("attachment_text")
+                    or not item.get("file_ext")
+                ),
+                "note": item.get("note"),
+                "quality": item.get("quality"),
+            }
+        )
+    return metadata
+
+
+def dedupe_downloaded_attachments(downloaded_attachments: list[dict]) -> list[dict]:
+    deduped = []
+    seen: set[str] = set()
+    for item in downloaded_attachments or []:
+        key = item.get("file_hash_sha256") or item.get("file_url") or item.get("saved_path")
+        if key and key in seen:
+            continue
+        if key:
+            seen.add(key)
+        deduped.append(item)
+    return deduped
+
+
+def classify_attachment_parse_result(downloaded: dict, parse_result: dict, quality: dict) -> str:
+    parser_type = parse_result.get("parser_type")
+    text = parse_result.get("attachment_text")
+    if quality.get("binary_marker_detected"):
+        return "binary_marker_detected"
+    if quality.get("is_binary_like"):
+        return "parser_failed"
+    if not downloaded.get("file_ext"):
+        return "missing_extension"
+    if parser_type in {"unsupported", "unsupported_legacy_office"}:
+        return "parser_unsupported"
+    if not text or not str(text).strip():
+        return "parser_empty_text"
+    if quality.get("quality_status") == "parse_failed":
+        return "parser_failed"
+    return "parser_success"
+
+
+def attachment_parse_note(status: str, parse_result: dict, existing_note: str | None = None) -> str | None:
+    notes = [note for note in (existing_note, parse_result.get("note")) if note]
+    if status != "parser_success":
+        notes.append(status)
+    deduped = []
+    for note in notes:
+        if note not in deduped:
+            deduped.append(note)
+    return "; ".join(deduped) if deduped else None
+
+
 def build_curated_document(raw_doc: dict, version: int) -> dict:
     attachment_text = merge_attachment_texts(raw_doc.get("downloaded_attachments", []))
     image_text = merge_image_texts(raw_doc.get("image_texts", []))
+    metadata = dict(raw_doc.get("metadata", {}) or {})
+    metadata["attachments"] = build_attachment_metadata(raw_doc.get("downloaded_attachments", []))
+    if any(item.get("needs_reprocess") for item in metadata["attachments"]):
+        metadata["quality_status"] = "needs_review"
+        metadata.setdefault("quality_reasons", []).append("attachment_needs_reprocess")
 
     curated_doc = CuratedDocument(
         doc_id=raw_doc["doc_id"],
@@ -208,16 +328,30 @@ def build_curated_document(raw_doc: dict, version: int) -> dict:
         version=version,
         collected_at=raw_doc["collected_at"],
         content_hash=raw_doc["content_hash"],
-        metadata=raw_doc.get("metadata", {}),
+        metadata=metadata,
     )
 
     return curated_doc.model_dump()
+
+
+def attach_document_quality_report(doc: dict, stage: str) -> dict:
+    report = document_quality_report(doc)
+    metadata = doc.setdefault("metadata", {})
+    reports = metadata.setdefault("quality_reports", {})
+    reports[stage] = report
+    if report["is_binary_like"]:
+        metadata["quality_status"] = "needs_review"
+        metadata.setdefault("quality_reasons", []).append(f"{stage}:binary_like_text")
+    else:
+        metadata.setdefault("quality_status", "ok")
+    return report
 
 
 def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> None:
     source_type = raw_doc["source_type"]
     doc_id = raw_doc["doc_id"]
 
+    attach_document_quality_report(raw_doc, "raw_entry")
     raw_to_save, raw_path, _html_path = document_store.prepare_raw_document(raw_doc)
 
     existing_raw = existing_raw_document(source_type, doc_id)
@@ -294,12 +428,94 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
 
             try:    
                 parse_result = file_router.extract_text(downloaded["saved_path"])
+                attachment_quality = attachment_text_quality_report(
+                    parse_result.get("attachment_text"),
+                    parser_name=parse_result.get("parser_type"),
+                    page_count=parse_result.get("page_count"),
+                    tables=parse_result.get("attachment_tables", []),
+                )
+                parse_status = classify_attachment_parse_result(downloaded, parse_result, attachment_quality)
+                quality_status = str(attachment_quality.get("quality_status") or "needs_review")
+                quality_reason = str(attachment_quality.get("quality_reason") or parse_status)
+                should_store_attachment_text = (
+                    parse_status == "parser_success"
+                    and (
+                        quality_status == "ok"
+                        or (
+                            quality_status == "needs_review"
+                            and allow_needs_review_attachment_chunks()
+                        )
+                    )
+                )
                 downloaded["parser_type"] = parse_result.get("parser_type")
-                downloaded["attachment_text"] = parse_result.get("attachment_text")
+                downloaded["parser_name"] = parse_result.get("parser_type")
+                downloaded["parser_status"] = parse_status
+                downloaded["attachment_text"] = parse_result.get("attachment_text") if should_store_attachment_text else None
                 downloaded["page_count"] = parse_result.get("page_count")
                 downloaded["pages"] = parse_result.get("pages")
-                downloaded["note"] = parse_result.get("note")
+                downloaded["attachment_tables"] = parse_result.get("attachment_tables", [])
+                downloaded["parse_status"] = parse_status
+                downloaded["extracted_text_length"] = attachment_quality.get("extracted_text_length")
+                downloaded["text_per_page"] = attachment_quality.get("text_per_page")
+                downloaded["korean_ratio"] = attachment_quality.get("korean_ratio")
+                downloaded["digit_ratio"] = attachment_quality.get("digit_ratio")
+                downloaded["binary_marker_detected"] = attachment_quality.get("binary_marker_detected")
+                downloaded["table_detected"] = attachment_quality.get("table_detected")
+                downloaded["quality_status"] = quality_status
+                downloaded["quality_reason"] = quality_reason
+                downloaded["quality"] = attachment_quality
+                downloaded["note"] = attachment_parse_note(parse_status, parse_result, downloaded.get("note"))
                 downloaded["raw_xml_files"] = parse_result.get("raw_xml_files", [])
+                if parse_status != "parser_success" or quality_status != "ok":
+                    if parse_status == "parser_success" and quality_status == "needs_review" and not should_store_attachment_text:
+                        downloaded["note"] = attachment_parse_note(
+                            quality_reason,
+                            {"note": parse_result.get("note")},
+                            downloaded.get("note"),
+                        )
+                    record_crawl_job_error(
+                        run_type="full_pipeline",
+                        stage="file_parse",
+                        error=ValueError(parse_status if parse_status != "parser_success" else quality_reason),
+                        source_type=source_type,
+                        doc_id=doc_id,
+                        url=raw_to_save.get("source_url"),
+                        file_url=downloaded.get("file_url"),
+                        file_path=downloaded.get("saved_path"),
+                        context={
+                            "file_name": downloaded.get("file_name"),
+                            "file_ext": downloaded.get("file_ext"),
+                            "file_size": downloaded.get("file_size"),
+                            "attachment_index": downloaded.get("attachment_index"),
+                            "parser_type": downloaded.get("parser_type"),
+                            "failure_reason": parse_status,
+                            "content_type": downloaded.get("content_type"),
+                            "quality_status": downloaded.get("quality_status"),
+                            "quality_reason": downloaded.get("quality_reason"),
+                            "quality": attachment_quality,
+                        },
+                    )
+                    enqueue_retry_queue_error(
+                        task_type="file_parse",
+                        reason=parse_status if parse_status != "parser_success" else quality_reason,
+                        doc_id=doc_id,
+                        url=downloaded.get("file_url") or raw_to_save.get("source_url"),
+                        source_type=source_type,
+                        page_kind=raw_to_save.get("page_kind"),
+                        file_path=downloaded.get("saved_path"),
+                        payload={
+                            "file_url": downloaded.get("file_url"),
+                            "file_name": downloaded.get("file_name"),
+                            "file_ext": downloaded.get("file_ext"),
+                            "content_type": downloaded.get("content_type"),
+                            "parser_type": downloaded.get("parser_type"),
+                            "failure_reason": parse_status,
+                            "quality_status": downloaded.get("quality_status"),
+                            "quality_reason": downloaded.get("quality_reason"),
+                            "attachment_index": downloaded.get("attachment_index"),
+                            "saved_path": downloaded.get("saved_path"),
+                        },
+                    )
 
                 downloaded_attachments.append(downloaded)
                 manifest_writer.write_file_parse_record(doc_id, downloaded, parse_result)
@@ -326,6 +542,9 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
                         "file_ext": downloaded.get("file_ext"),
                         "file_size": downloaded.get("file_size"),
                         "attachment_index": downloaded.get("attachment_index"),
+                        "parser_type": downloaded.get("parser_type"),
+                        "failure_reason": "parser_failed",
+                        "content_type": downloaded.get("content_type"),
                     },
                 )
                 enqueue_retry_queue_error(
@@ -340,12 +559,21 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
                         "file_url": downloaded.get("file_url"),
                         "file_name": downloaded.get("file_name"),
                         "file_ext": downloaded.get("file_ext"),
+                        "content_type": downloaded.get("content_type"),
+                        "parser_type": downloaded.get("parser_type"),
+                        "failure_reason": "parser_failed",
                         "attachment_index": downloaded.get("attachment_index"),
                         "saved_path": downloaded.get("saved_path"),
                     },
                 )
+                downloaded["attachment_text"] = None
+                downloaded["parse_status"] = "parser_failed"
+                downloaded["quality_status"] = "parse_failed"
+                downloaded["note"] = f"parser_failed: {e}"
+                downloaded_attachments.append(downloaded)
                 continue
 
+    downloaded_attachments = dedupe_downloaded_attachments(downloaded_attachments)
     raw_to_save["downloaded_attachments"] = downloaded_attachments
 
     attachment_text = merge_attachment_texts(downloaded_attachments)
@@ -358,6 +586,11 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
     )
 
     candidate_curated = build_curated_document(raw_to_save, version=1)
+    raw_quality = attach_document_quality_report(raw_to_save, "raw_after_attachment_parse")
+    curated_quality = attach_document_quality_report(candidate_curated, "curated_after_extraction")
+    candidate_curated.setdefault("metadata", {}).setdefault("quality_reports", {})["raw_after_attachment_parse"] = raw_quality
+    if curated_quality["is_binary_like"] or raw_quality["is_binary_like"]:
+        candidate_curated["metadata"]["quality_status"] = "needs_review"
 
     version_result = version_manager.apply_version(source_type, dict(candidate_curated))
     final_curated = version_result["document"]

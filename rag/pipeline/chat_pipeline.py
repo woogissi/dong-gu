@@ -330,6 +330,7 @@ class ChatPipeline:
         retrieval_quality = state.metadata.get("retrieval_quality")
         if isinstance(retrieval_quality, dict):
             retrieval_quality["selection_quality"] = selection_quality
+        state.metadata["citation_trace"] = self._build_citation_trace(state.selected_docs)
         state.context = build_context(state.selected_docs)
 
     def _evaluate_selection_quality(self, docs: list) -> dict:
@@ -402,6 +403,27 @@ class ChatPipeline:
                 }
             )
         return rows
+
+    def _build_citation_trace(self, selected_docs: list) -> list[dict]:
+        trace = []
+        for rank, doc in enumerate(selected_docs, start=1):
+            trace.append(
+                {
+                    "rank": rank,
+                    "doc_id": doc.doc_id,
+                    "chunk_id": doc.chunk_id,
+                    "title": doc.title,
+                    "source_url": doc.source,
+                    "source_type": doc.metadata.get("source_type"),
+                    "content_type": doc.metadata.get("content_type") or doc.metadata.get("section_type"),
+                    "score": doc.score,
+                    "lexical_score": doc.metadata.get("lexical_score"),
+                    "vector_score": doc.metadata.get("vector_score"),
+                    "rerank_score": doc.metadata.get("rerank_score"),
+                    "final_score": doc.metadata.get("final_score"),
+                }
+            )
+        return trace
 
     def _metadata_float(self, values: dict, key: str) -> float:
         try:

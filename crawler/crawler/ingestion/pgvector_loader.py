@@ -8,7 +8,7 @@ from typing import Any
 import psycopg2
 from psycopg2.extras import Json
 
-from crawler.utils.text_quality import strip_nul_value
+from crawler.utils.text_quality import strip_nul_value, text_quality_report
 
 
 class PGVectorLoader:
@@ -46,6 +46,133 @@ class PGVectorLoader:
 
     def _json(self, value: Any) -> Json:
         return Json(self._strip_nul(value))
+
+    def _quality_gate_metadata(
+        self,
+        *,
+        content: Any,
+        content_type: str,
+        source: str,
+        file_name: str | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
+        report = text_quality_report(str(content) if content is not None else None)
+        metadata = {
+            "quality_status": "ok",
+            "quality": report,
+        }
+        if not report["is_binary_like"]:
+            return True, metadata
+
+        note = (
+            "content skipped before storage: binary_marker_detected; "
+            f"source={source} content_type={content_type}"
+        )
+        if file_name:
+            note += f" file_name={file_name}"
+        metadata.update(
+            {
+                "quality_status": "binary_blocked",
+                "note": note,
+                "skip_reason": "binary_marker_detected",
+            }
+        )
+        return False, metadata
+
+    def _allow_needs_review_attachment_chunks(self) -> bool:
+        return os.getenv("CRAWLER_ALLOW_NEEDS_REVIEW_ATTACHMENT_CHUNKS", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+
+    def _append_doc_quality_skip(
+        self,
+        doc: dict[str, Any],
+        *,
+        content_type: str,
+        source: str,
+        metadata: dict[str, Any],
+        file_name: str | None = None,
+        file_url: str | None = None,
+    ) -> None:
+        doc_metadata = doc.setdefault("metadata", {})
+        doc_metadata["quality_status"] = metadata.get("quality_status", "needs_review")
+        doc_metadata["note"] = metadata.get("note")
+        doc_metadata.setdefault("quality_skips", []).append(
+            {
+                "source": source,
+                "content_type": content_type,
+                "file_name": file_name,
+                "file_url": file_url,
+                "quality_status": metadata.get("quality_status"),
+                "reason": metadata.get("skip_reason"),
+                "quality": metadata.get("quality"),
+            }
+        )
+
+    def _insert_quality_gate_log(
+        self,
+        *,
+        doc_id: str,
+        source_type: str | None,
+        url: str | None,
+        file_url: str | None,
+        file_path: str | None,
+        content_type: str,
+        metadata: dict[str, Any],
+    ) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO crawl_logs (
+                    run_type,
+                    stage,
+                    source_type,
+                    doc_id,
+                    url,
+                    file_url,
+                    file_path,
+                    error_type,
+                    error_message,
+                    traceback,
+                    context
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NULL, %s);
+                """,
+                (
+                    "manual",
+                    "content_quality_gate",
+                    source_type,
+                    doc_id,
+                    url,
+                    file_url,
+                    file_path,
+                    "binary_marker_detected",
+                    metadata.get("note") or f"binary-like {content_type} content skipped",
+                    self._json(
+                        {
+                            "content_type": content_type,
+                            "quality_status": metadata.get("quality_status"),
+                            "skip_reason": metadata.get("skip_reason"),
+                            "quality": metadata.get("quality"),
+                        }
+                    ),
+                ),
+            )
+
+    def _update_document_metadata(self, doc: dict[str, Any]) -> None:
+        if not (doc.get("metadata") or {}).get("quality_skips"):
+            return
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE documents
+                SET metadata = %s,
+                    db_updated_at = now()
+                WHERE doc_id = %s;
+                """,
+                (self._json(doc.get("metadata", {})), doc["doc_id"]),
+            )
 
     def close(self) -> None:
         self.conn.close()
@@ -202,6 +329,7 @@ class PGVectorLoader:
 
     def upsert_document_contents(self, doc: dict[str, Any], document_version_id: int | None) -> None:
         rows = []
+        skipped: list[dict[str, Any]] = []
         for content_type, content in (
             ("raw", doc.get("raw_text")),
             ("clean", doc.get("normalize") or doc.get("clean_text")),
@@ -209,13 +337,35 @@ class PGVectorLoader:
             ("html", doc.get("html")),
         ):
             if content and str(content).strip():
+                allowed, metadata = self._quality_gate_metadata(
+                    content=content,
+                    content_type=content_type,
+                    source="document",
+                )
+                if not allowed:
+                    self._append_doc_quality_skip(
+                        doc,
+                        content_type=content_type,
+                        source="document",
+                        metadata=metadata,
+                    )
+                    skipped.append(
+                        {
+                            "doc_id": doc["doc_id"],
+                            "source_type": doc.get("source_type"),
+                            "url": doc.get("source_url"),
+                            "content_type": content_type,
+                            "metadata": metadata,
+                        }
+                    )
+                    continue
                 rows.append(
                     {
                         "doc_id": doc["doc_id"],
                         "document_version_id": document_version_id,
                         "content_type": content_type,
                         "content": self._strip_nul(content),
-                        "metadata": self._json({}),
+                        "metadata": self._json(metadata),
                     }
                 )
 
@@ -251,13 +401,31 @@ class PGVectorLoader:
                     """,
                     self._strip_nul(row),
                 )
+            for item in skipped:
+                self._insert_quality_gate_log(
+                    doc_id=item["doc_id"],
+                    source_type=item.get("source_type"),
+                    url=item.get("url"),
+                    file_url=None,
+                    file_path=None,
+                    content_type=item["content_type"],
+                    metadata=item["metadata"],
+                )
+        self._update_document_metadata(doc)
 
         self._commit_if_needed()
 
     def upsert_assets(self, doc: dict[str, Any], document_version_id: int | None = None) -> None:
         rows: list[dict[str, Any]] = []
+        seen_attachment_keys: set[str] = set()
 
         for fallback_index, item in enumerate(doc.get("downloaded_attachments", []) or []):
+            dedupe_key = item.get("file_hash_sha256") or item.get("file_url")
+            if dedupe_key and dedupe_key in seen_attachment_keys:
+                continue
+            if dedupe_key:
+                seen_attachment_keys.add(dedupe_key)
+            item_quality = item.get("quality") or {}
             rows.append(
                 {
                     "doc_id": doc["doc_id"],
@@ -273,9 +441,39 @@ class PGVectorLoader:
                     "extracted_text": item.get("attachment_text"),
                     "page_count": item.get("page_count"),
                     "metadata": {
+                        "file_hash_sha256": item.get("file_hash_sha256"),
                         "note": item.get("note"),
+                        "parser_name": item.get("parser_name") or item.get("parser_type"),
+                        "parser_status": item.get("parser_status") or item.get("parse_status"),
+                        "parse_status": item.get("parse_status"),
+                        "extracted_text_length": item.get("extracted_text_length") or item_quality.get("extracted_text_length"),
+                        "page_count": item.get("page_count") or item_quality.get("page_count"),
+                        "text_per_page": item.get("text_per_page") or item_quality.get("text_per_page"),
+                        "korean_ratio": item.get("korean_ratio") or item_quality.get("korean_ratio"),
+                        "digit_ratio": item.get("digit_ratio") or item_quality.get("digit_ratio"),
+                        "binary_marker_detected": item.get("binary_marker_detected") or item_quality.get("binary_marker_detected"),
+                        "table_detected": item.get("table_detected") or item_quality.get("table_detected"),
+                        "quality_status": item.get("quality_status"),
+                        "quality_reason": item.get("quality_reason") or item_quality.get("quality_reason"),
+                        "quality": item_quality,
+                        "extension_source": item.get("extension_source"),
+                        "download_filename_source": item.get("download_filename_source"),
+                        "inferred_file_name": item.get("inferred_file_name"),
+                        "needs_reprocess": bool(
+                            item.get("parse_status") in {
+                                "parser_empty_text",
+                                "parser_unsupported",
+                                "parser_failed",
+                                "missing_extension",
+                                "binary_marker_detected",
+                            }
+                            or not item.get("attachment_text")
+                            or not item.get("file_ext")
+                        ),
                         "raw_xml_files": item.get("raw_xml_files", []),
                         "pages": item.get("pages", []),
+                        "tables": item.get("attachment_tables", []),
+                        "table_count": len(item.get("attachment_tables", []) or []),
                     },
                 }
             )
@@ -312,6 +510,52 @@ class PGVectorLoader:
             cur.execute("DELETE FROM document_assets WHERE doc_id = %s;", (doc["doc_id"],))
 
             for row in rows:
+                extracted_text = row.get("extracted_text")
+                content_allowed = False
+                content_metadata: dict[str, Any] | None = None
+                if row["asset_type"] == "attachment" and not (extracted_text and str(extracted_text).strip()):
+                    row["metadata"]["parse_status"] = row["metadata"].get("parse_status") or "parser_empty_text"
+                    row["metadata"]["quality_status"] = row["metadata"].get("quality_status") or "needs_review"
+                    row["metadata"]["note"] = row["metadata"].get("note") or row["metadata"]["parse_status"]
+                    row["metadata"]["needs_reprocess"] = True
+                if extracted_text and str(extracted_text).strip():
+                    content_allowed, content_metadata = self._quality_gate_metadata(
+                        content=extracted_text,
+                        content_type=row["asset_type"],
+                        source="asset",
+                        file_name=row.get("file_name"),
+                    )
+                    if row["asset_type"] == "attachment":
+                        existing_quality_status = row["metadata"].get("quality_status")
+                        if existing_quality_status == "parse_failed":
+                            content_allowed = False
+                            content_metadata = {
+                                "quality_status": "parse_failed",
+                                "note": row["metadata"].get("note") or "attachment text skipped before storage: parse_failed",
+                                "skip_reason": row["metadata"].get("quality_reason") or row["metadata"].get("parse_status") or "parse_failed",
+                                "quality": row["metadata"].get("quality") or {},
+                            }
+                        elif existing_quality_status == "needs_review" and not self._allow_needs_review_attachment_chunks():
+                            content_allowed = False
+                            content_metadata = {
+                                "quality_status": "needs_review",
+                                "note": row["metadata"].get("note") or "attachment text skipped before storage: needs_review",
+                                "skip_reason": row["metadata"].get("quality_reason") or "needs_review",
+                                "quality": row["metadata"].get("quality") or {},
+                            }
+                    if content_allowed and row["asset_type"] == "attachment":
+                        content_metadata.update(
+                            {
+                                "quality_status": row["metadata"].get("quality_status") or content_metadata.get("quality_status"),
+                                "quality_reason": row["metadata"].get("quality_reason"),
+                                "quality": row["metadata"].get("quality") or content_metadata.get("quality"),
+                            }
+                        )
+                    if not content_allowed:
+                        row["metadata"]["quality_status"] = content_metadata["quality_status"]
+                        row["metadata"]["note"] = content_metadata["note"]
+                        row["metadata"]["quality"] = content_metadata["quality"]
+
                 cur.execute(
                     """
                     INSERT INTO document_assets (
@@ -347,8 +591,26 @@ class PGVectorLoader:
                     {**self._strip_nul(row), "metadata": self._json(row["metadata"])},
                 )
                 asset_id = int(cur.fetchone()[0])
-                extracted_text = row.get("extracted_text")
                 if extracted_text and str(extracted_text).strip():
+                    if not content_allowed:
+                        self._append_doc_quality_skip(
+                            doc,
+                            content_type=row["asset_type"],
+                            source="asset",
+                            metadata=content_metadata,
+                            file_name=row.get("file_name"),
+                            file_url=row.get("file_url"),
+                        )
+                        self._insert_quality_gate_log(
+                            doc_id=row["doc_id"],
+                            source_type=doc.get("source_type"),
+                            url=doc.get("source_url"),
+                            file_url=row.get("file_url"),
+                            file_path=row.get("saved_path"),
+                            content_type=row["asset_type"],
+                            metadata=content_metadata,
+                        )
+                        continue
                     cur.execute(
                         """
                         INSERT INTO document_contents (
@@ -370,9 +632,45 @@ class PGVectorLoader:
                             row["asset_type"],
                             self._strip_nul(extracted_text),
                             self._strip_nul(row.get("parser_type")),
-                            self._json({}),
+                            self._json(content_metadata),
                         ),
                     )
+                elif row["asset_type"] == "attachment":
+                    status = row["metadata"].get("parse_status") or "parser_empty_text"
+                    row["metadata"]["parse_status"] = status
+                    row["metadata"]["needs_reprocess"] = True
+                    self._append_doc_quality_skip(
+                        doc,
+                        content_type=row["asset_type"],
+                        source="asset",
+                        metadata={
+                            "quality_status": row["metadata"].get("quality_status") or "needs_review",
+                            "note": row["metadata"].get("note") or status,
+                            "skip_reason": status,
+                            "quality": {},
+                        },
+                        file_name=row.get("file_name"),
+                        file_url=row.get("file_url"),
+                    )
+                    self._insert_quality_gate_log(
+                        doc_id=row["doc_id"],
+                        source_type=doc.get("source_type"),
+                        url=doc.get("source_url"),
+                        file_url=row.get("file_url"),
+                        file_path=row.get("saved_path"),
+                        content_type=row["asset_type"],
+                        metadata={
+                            "quality_status": row["metadata"].get("quality_status") or "needs_review",
+                            "note": row["metadata"].get("note") or status,
+                            "skip_reason": status,
+                            "quality": {
+                                "content_type": row.get("content_type"),
+                                "file_ext": row.get("file_ext"),
+                                "parser_type": row.get("parser_type"),
+                            },
+                        },
+                    )
+        self._update_document_metadata(doc)
 
         self._commit_if_needed()
 
@@ -380,15 +678,35 @@ class PGVectorLoader:
         with self.conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT content_type::text, id
-                FROM document_contents
-                WHERE doc_id = %s
-                  AND (document_version_id = %s OR (%s IS NULL AND document_version_id IS NULL))
-                  AND content_type IN ('clean', 'table');
+                SELECT
+                    dc.content_type::text,
+                    dc.id,
+                    da.file_name,
+                    da.file_url,
+                    da.metadata->>'file_hash_sha256' AS file_hash_sha256
+                FROM document_contents dc
+                LEFT JOIN document_assets da ON da.id = dc.asset_id
+                WHERE dc.doc_id = %s
+                  AND (dc.document_version_id = %s OR (%s IS NULL AND dc.document_version_id IS NULL))
+                  AND dc.content_type IN ('clean', 'table', 'attachment');
                 """,
                 (doc_id, document_version_id, document_version_id),
             )
-            return {str(content_type): int(content_id) for content_type, content_id in cur.fetchall()}
+            rows = cur.fetchall()
+
+        content_ids: dict[str, int] = {}
+        for content_type, content_id, file_name, file_url, file_hash in rows:
+            content_id = int(content_id)
+            content_type = str(content_type)
+            content_ids.setdefault(content_type, content_id)
+            if content_type == "attachment":
+                if file_name:
+                    content_ids[f"attachment_name:{file_name}"] = content_id
+                if file_url:
+                    content_ids[f"attachment_url:{file_url}"] = content_id
+                if file_hash:
+                    content_ids[f"attachment_hash:{file_hash}"] = content_id
+        return content_ids
 
     def _content_id_for_chunk(self, chunk: dict[str, Any], content_ids: dict[str, int]) -> int | None:
         section_type = self._normalize_section_type(chunk.get("section_type"))
@@ -396,7 +714,74 @@ class PGVectorLoader:
             return content_ids.get("table")
         if section_type == "body":
             return content_ids.get("clean")
+        if section_type == "attachment":
+            metadata = chunk.get("metadata", {}) or {}
+            source_metadata = metadata.get("source_section_metadata", {}) or {}
+            file_hash = source_metadata.get("file_hash_sha256")
+            file_url = source_metadata.get("file_url")
+            file_name = chunk.get("section_title")
+            if file_hash and content_ids.get(f"attachment_hash:{file_hash}"):
+                return content_ids.get(f"attachment_hash:{file_hash}")
+            if file_url and content_ids.get(f"attachment_url:{file_url}"):
+                return content_ids.get(f"attachment_url:{file_url}")
+            if file_name and content_ids.get(f"attachment_name:{file_name}"):
+                return content_ids.get(f"attachment_name:{file_name}")
+            return content_ids.get("attachment")
         return None
+
+    def _filter_source_duplicate_chunks(self, rows: list[dict[str, Any]], source_type: str | None) -> list[dict[str, Any]]:
+        if os.getenv("CRAWLER_BLOCK_SOURCE_DUPLICATE_CHUNKS", "").strip().lower() not in {"1", "true", "yes"}:
+            return rows
+        hashes = sorted({row.get("content_hash") for row in rows if row.get("content_hash")})
+        if not hashes or not source_type:
+            return rows
+
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT c.content_hash
+                FROM chunks c
+                JOIN documents d ON d.doc_id = c.doc_id
+                WHERE d.source_type = %s
+                  AND c.content_hash = ANY(%s)
+                  AND c.doc_id <> %s;
+                """,
+                (source_type, hashes, rows[0]["doc_id"]),
+            )
+            duplicate_hashes = {row[0] for row in cur.fetchall()}
+
+        seen_in_batch: set[str] = set()
+        filtered = []
+        skipped = []
+        for row in rows:
+            content_hash = row.get("content_hash")
+            if content_hash and (content_hash in duplicate_hashes or content_hash in seen_in_batch):
+                skipped.append(row)
+                continue
+            if content_hash:
+                seen_in_batch.add(content_hash)
+            filtered.append(row)
+
+        for row in skipped:
+            self._insert_quality_gate_log(
+                doc_id=row["doc_id"],
+                source_type=source_type,
+                url=None,
+                file_url=None,
+                file_path=None,
+                content_type=row.get("section_type") or "chunk",
+                metadata={
+                    "quality_status": "duplicate_blocked",
+                    "note": "chunk skipped before storage: duplicate_content_hash_in_source",
+                    "skip_reason": "duplicate_content_hash_in_source",
+                    "quality": {
+                        "content_hash": row.get("content_hash"),
+                        "chunk_id": row.get("chunk_id"),
+                        "dedupe_scope": "source_type",
+                    },
+                },
+            )
+        return filtered
 
     def upsert_chunks(self, chunks: list[dict[str, Any]], version: int) -> None:
         if not chunks:
@@ -408,6 +793,27 @@ class PGVectorLoader:
         rows = []
 
         for chunk in chunks:
+            chunk_quality = text_quality_report(chunk.get("content"))
+            if chunk_quality["is_binary_like"]:
+                metadata = chunk.setdefault("metadata", {})
+                metadata["quality_status"] = "binary_blocked"
+                metadata["note"] = "chunk skipped before storage: binary_marker_detected"
+                metadata["quality"] = chunk_quality
+                self._insert_quality_gate_log(
+                    doc_id=chunk["doc_id"],
+                    source_type=chunk.get("source_type"),
+                    url=chunk.get("source_url"),
+                    file_url=(metadata.get("source_section_metadata") or {}).get("file_url"),
+                    file_path=None,
+                    content_type=self._normalize_section_type(chunk.get("section_type")),
+                    metadata={
+                        "quality_status": "binary_blocked",
+                        "note": metadata["note"],
+                        "skip_reason": "binary_marker_detected",
+                        "quality": chunk_quality,
+                    },
+                )
+                continue
             chunk_index = int(chunk["chunk_index"])
             chunk_id = self._versioned_chunk_id(chunk["doc_id"], version, chunk_index)
             chunk["chunk_id"] = chunk_id
@@ -429,6 +835,21 @@ class PGVectorLoader:
                     "metadata": self._json(chunk.get("metadata", {})),
                 }
             )
+
+        rows = self._filter_source_duplicate_chunks(rows, chunks[0].get("source_type"))
+
+        if not rows:
+            with self.conn.cursor() as cur:
+                cur.execute(
+                    """
+                    DELETE FROM chunks
+                    WHERE doc_id = %s
+                      AND (document_version_id = %s OR (%s IS NULL AND document_version_id IS NULL));
+                    """,
+                    (doc_id, document_version_id, document_version_id),
+                )
+            self._commit_if_needed()
+            return
 
         chunk_ids = [row["chunk_id"] for row in rows]
         with self.conn.cursor() as cur:
@@ -496,15 +917,46 @@ class PGVectorLoader:
         self._commit_if_needed()
 
     def upsert_embeddings(self, embedded_chunks: list[dict[str, Any]]) -> None:
-        rows = [
-            (
-                item["chunk_id"],
-                self._to_pg_vector(item["embedding"]),
-                item.get("embedding_model") or item.get("model_name") or "unknown",
+        rows = []
+        blocked_statuses = {
+            "parse_failed",
+            "parser_empty_text",
+            "unsupported_attachment",
+            "binary_blocked",
+            "noise_blocked",
+            "duplicate_blocked",
+            "short_chunk_blocked",
+        }
+        for item in embedded_chunks:
+            if not item.get("embedding"):
+                continue
+            metadata = item.get("metadata", {}) or {}
+            quality_status = metadata.get("quality_status")
+            content_quality = text_quality_report(item.get("content"))
+            if quality_status in blocked_statuses or content_quality["is_binary_like"]:
+                skip_reason = quality_status or "binary_marker_detected"
+                self._insert_quality_gate_log(
+                    doc_id=item.get("doc_id"),
+                    source_type=item.get("source_type"),
+                    url=item.get("source_url"),
+                    file_url=(metadata.get("source_section_metadata") or {}).get("file_url"),
+                    file_path=None,
+                    content_type="embedding",
+                    metadata={
+                        "quality_status": quality_status or "binary_blocked",
+                        "note": "embedding skipped before storage: quality_exclusion",
+                        "skip_reason": skip_reason,
+                        "quality": content_quality,
+                    },
+                )
+                continue
+            rows.append(
+                (
+                    item["chunk_id"],
+                    self._to_pg_vector(item["embedding"]),
+                    item.get("embedding_model") or item.get("model_name") or "unknown",
+                )
             )
-            for item in embedded_chunks
-            if item.get("embedding")
-        ]
         if not rows:
             return
 

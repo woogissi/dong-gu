@@ -1,6 +1,7 @@
 # crawler/extractors/board_detail_extractor.py
 
 import re
+from crawler.utils.attachment_utils import dedupe_attachments_by_url
 from crawler.utils.content_hash import build_content_hash       # 해시코드 제작용
 from datetime import datetime, timezone, timedelta              # 수집시간용
 from pathlib import Path                                        # fallback시 path명을 얻기 위함
@@ -295,7 +296,7 @@ class BoardDetailExtractor(BaseExtractor):
             url_path = urlparse(full_url).path
             url_ext = Path(url_path).suffix
 
-            if not Path(file_name).suffix and url_ext:
+            if not Path(file_name).suffix and url_ext and url_ext.lower() != ".do":
                 file_name = file_name + url_ext
 
             results.append({                #첨부파일 구성
@@ -306,6 +307,7 @@ class BoardDetailExtractor(BaseExtractor):
             idx += 1
 
         # 중복 제거
+        return dedupe_attachments_by_url(results)
         unique = []
         seen = set()
         for item in results:

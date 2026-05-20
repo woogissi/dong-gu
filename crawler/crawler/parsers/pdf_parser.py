@@ -134,6 +134,85 @@ class PDFParser:
         finally:
             doc.close()
 
+    def normalize_table_cell(self, value) -> str:
+        if value is None:
+            return ""
+        text = str(value).replace("\xa0", " ")
+        text = re.sub(r"[ \t]+", " ", text)
+        text = re.sub(r"\s*\n\s*", " ", text)
+        return text.strip()
+
+    def table_to_markdown(self, rows: list[list]) -> str:
+        normalized_rows = [
+            [self.normalize_table_cell(cell) for cell in row]
+            for row in rows
+            if any(self.normalize_table_cell(cell) for cell in row)
+        ]
+        if not normalized_rows:
+            return ""
+
+        column_count = max(len(row) for row in normalized_rows)
+        padded_rows = [row + [""] * (column_count - len(row)) for row in normalized_rows]
+        header = padded_rows[0]
+        separator = ["---"] * column_count
+        body = padded_rows[1:]
+
+        def render(row: list[str]) -> str:
+            return "| " + " | ".join(cell.replace("|", "\\|") for cell in row) + " |"
+
+        return "\n".join([render(header), render(separator), *[render(row) for row in body]])
+
+    def table_to_tsv(self, rows: list[list]) -> str:
+        normalized_rows = [
+            [self.normalize_table_cell(cell) for cell in row]
+            for row in rows
+            if any(self.normalize_table_cell(cell) for cell in row)
+        ]
+        return "\n".join("\t".join(row) for row in normalized_rows)
+
+    def extract_tables_with_pymupdf(self, file_path: str | Path) -> list[dict]:
+        tables = []
+        doc = fitz.open(str(file_path))
+
+        try:
+            for page_index, page in enumerate(doc, start=1):
+                if not hasattr(page, "find_tables"):
+                    continue
+                try:
+                    found = page.find_tables()
+                except Exception as exc:
+                    tables.append(
+                        {
+                            "page_no": page_index,
+                            "table_no": None,
+                            "parser_type": "pymupdf_table_error",
+                            "error": str(exc),
+                        }
+                    )
+                    continue
+
+                for table_index, table in enumerate(getattr(found, "tables", []) or [], start=1):
+                    rows = table.extract() or []
+                    markdown = self.table_to_markdown(rows)
+                    tsv = self.table_to_tsv(rows)
+                    if not markdown and not tsv:
+                        continue
+                    tables.append(
+                        {
+                            "page_no": page_index,
+                            "table_no": table_index,
+                            "parser_type": "pymupdf_find_tables",
+                            "row_count": len([row for row in rows if any(self.normalize_table_cell(cell) for cell in row)]),
+                            "column_count": max((len(row) for row in rows), default=0),
+                            "markdown": markdown,
+                            "tsv": tsv,
+                        }
+                    )
+        finally:
+            doc.close()
+
+        return tables
+
     def extract_text(self, file_path: str) -> dict:
         path = Path(file_path)
 
@@ -143,6 +222,12 @@ class PDFParser:
         reader = PdfReader(str(path))
         pages = []
         full_text_parts = []
+        tables = self.extract_tables_with_pymupdf(path)
+        tables_by_page: dict[int, list[dict]] = {}
+        for table in tables:
+            page_no = table.get("page_no")
+            if page_no:
+                tables_by_page.setdefault(int(page_no), []).append(table)
 
         ocr_used_count = 0
         text_layer_count = 0
@@ -180,13 +265,21 @@ class PDFParser:
                 if not can_run_ocr:
                     parser_type = "pdf_ocr_skipped"
                     text = self.clean_ocr_text(text)
+                    page_tables = tables_by_page.get(page_index, [])
                     pages.append({
                         "page_no": page_index,
                         "text": text,
                         "parser_type": parser_type,
+                        "tables": page_tables,
                     })
                     if text:
                         full_text_parts.append(text)
+                    for table in page_tables:
+                        rendered = table.get("markdown") or table.get("tsv")
+                        if rendered:
+                            full_text_parts.append(
+                                f"[PDF TABLE page={page_index} table={table.get('table_no')} format=markdown]\n{rendered}"
+                            )
                     print(
                         f"[PDF OCR SKIP] file={path.as_posix()} page={page_index} "
                         f"skip_ocr={self.skip_ocr} max_pages={self.ocr_max_pages} "
@@ -207,14 +300,22 @@ class PDFParser:
                 text_layer_count += 1
                 text = self.clean_ocr_text(text)
 
+            page_tables = tables_by_page.get(page_index, [])
             pages.append({
                 "page_no": page_index,
                 "text": text,
                 "parser_type": parser_type,
+                "tables": page_tables,
             })
 
             if text:
                 full_text_parts.append(text)
+            for table in page_tables:
+                rendered = table.get("markdown") or table.get("tsv")
+                if rendered:
+                    full_text_parts.append(
+                        f"[PDF TABLE page={page_index} table={table.get('table_no')} format=markdown]\n{rendered}"
+                    )
 
         full_text = "\n\n".join(full_text_parts).strip()
 
@@ -223,12 +324,14 @@ class PDFParser:
             "page_count": len(reader.pages),
             "text": full_text if full_text else None,
             "pages": pages,
+            "tables": tables,
             "note": (
                 "extracted with PDF text layer + EasyOCR fallback; "
                 f"ocr_pages={ocr_used_count}, "
                 f"text_layer_pages={text_layer_count}, "
                 f"noise_pages={noise_page_count}, "
                 f"ocr_skipped_pages={ocr_skipped_count}, "
-                f"ocr_limited_pages={ocr_limit_count}"
+                f"ocr_limited_pages={ocr_limit_count}, "
+                f"tables={len(tables)}"
             ),
         }

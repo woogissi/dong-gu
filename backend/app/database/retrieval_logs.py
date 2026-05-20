@@ -116,15 +116,23 @@ def save_retrieval_log(request_id: str, log_data: dict[str, Any] | None) -> None
                     INSERT INTO retrieval_selected_chunks (
                         retrieval_log_id,
                         chunk_id,
+                        raw_chunk_id,
                         doc_id,
                         rank,
                         score,
                         rerank_score,
+                        title_snapshot,
+                        source_snapshot,
+                        content_snapshot,
                         metadata
                     )
                     VALUES (
                         %s,
                         (SELECT chunk_id FROM chunks WHERE chunk_id = %s),
+                        %s,
+                        %s,
+                        %s,
+                        %s,
                         %s,
                         %s,
                         %s,
@@ -135,10 +143,14 @@ def save_retrieval_log(request_id: str, log_data: dict[str, Any] | None) -> None
                     (
                         retrieval_log_id,
                         doc.get("chunk_id"),
+                        doc.get("chunk_id"),
                         doc.get("doc_id"),
                         rank,
                         _float_value(doc.get("score")),
                         _float_value(doc.get("rerank_score")),
+                        doc.get("title") or None,
+                        doc.get("source") or doc.get("source_url") or None,
+                        doc.get("content") or None,
                         Json(_json_object(doc.get("metadata"))),
                     ),
                 )

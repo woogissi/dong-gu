@@ -38,6 +38,7 @@ class FileTextRouter:                                   # 파일 확장자를 �
                 "attachment_text": result["text"],
                 "page_count": result["page_count"],
                 "pages": result["pages"],
+                "attachment_tables": result.get("tables", []),
                 "note": result.get("note"),
             }
 
