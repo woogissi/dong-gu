@@ -8,6 +8,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app/backend
+      - ./rag:/app/rag:ro
     env_file:
       - .env
     environment:
