@@ -17,6 +17,8 @@ ALLOWED_HOSTS = {           # 정적 탐색에서 광고등등을 막기 위함.
     "advising.deu.ac.kr",
     "webzine.deu.ac.kr",
     "deufund.deu.ac.kr",
+    "dap.deu.ac.kr",
+    "sso2.deu.ac.kr",
 }
 
 DOWNLOAD_EXTENSIONS = {     # 정적 크롤링 탐색에서 첨부파일 다운을 막기위한 예외 주소

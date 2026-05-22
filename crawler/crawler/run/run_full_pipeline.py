@@ -178,8 +178,9 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
         and existing_curated.get("image_text") == image_text
     )
 
-    downloaded_attachments = []
-    if unchanged_without_attachment_work:
+    downloaded_attachments = raw_to_save.get("downloaded_attachments", []) or []
+
+    if unchanged_without_attachment_work and not downloaded_attachments:
         downloaded_attachments = existing_raw.get("downloaded_attachments", []) or []
         raw_to_save["attachments"] = existing_raw.get("attachments", raw_to_save.get("attachments", []))
         print(f"[ATTACH SKIP] doc_id={doc_id} reason=unchanged_document reused={len(downloaded_attachments)}")

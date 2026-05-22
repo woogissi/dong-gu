@@ -34,8 +34,9 @@ class StaticPageExtractor:
         allowed_hosts: set[str] | None = None,
         enable_image_ocr: bool = False,
         timeout: tuple[float, float] = (5, 30),
+        session: requests.Session | None = None,
     ):
-        self.session = requests.Session()
+        self.session = session or requests.Session()
         self.session.headers.update(HEADERS)
         self.allowed_hosts = allowed_hosts or set()     #허용도메인
         self.enable_image_ocr = enable_image_ocr

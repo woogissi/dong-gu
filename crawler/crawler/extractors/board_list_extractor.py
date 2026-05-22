@@ -17,8 +17,8 @@ HEADERS = {
 
 
 class BoardListExtractor:
-    def __init__(self, timeout: tuple[float, float] = (5, 30)):
-        self.session = requests.Session()
+    def __init__(self, timeout: tuple[float, float] = (5, 30), session=None):
+        self.session = session or requests.Session()
         self.session.headers.update(HEADERS)
         self.timeout = timeout
 

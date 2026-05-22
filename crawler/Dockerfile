@@ -16,10 +16,12 @@ RUN apt-get update && apt-get install -y \
     libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
+
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir --index-url ${PYTORCH_INDEX_URL} torch torchvision
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install pyhwp
 RUN pip install pyhwp six lxml
+RUN playwright install --with-deps chromium
 
 COPY . /app

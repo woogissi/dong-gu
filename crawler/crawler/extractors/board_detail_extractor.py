@@ -28,8 +28,9 @@ class BoardDetailExtractor:
         self,
         enable_image_ocr: bool = False,
         timeout: tuple[float, float] = (5, 30),
+        session=None,
     ):
-        self.session = requests.Session()
+        self.session = session or requests.Session()
         self.session.headers.update(HEADERS)
         self.timeout = timeout
         self.enable_image_ocr = enable_image_ocr
