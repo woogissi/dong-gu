@@ -8,6 +8,7 @@ from typing import Any
 import psycopg2
 from psycopg2.extras import Json
 
+from crawler.utils.canonical_source import canonical_notice_metadata
 from crawler.utils.text_quality import strip_nul_value, text_quality_report
 
 
@@ -220,6 +221,9 @@ class PGVectorLoader:
         return exists
 
     def upsert_document(self, doc: dict[str, Any]) -> None:
+        metadata = dict(doc.get("metadata", {}) or {})
+        metadata.update(canonical_notice_metadata({**doc, "metadata": metadata}))
+        doc["metadata"] = metadata
         sql = """
         INSERT INTO documents (
             doc_id,

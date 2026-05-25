@@ -10,14 +10,16 @@ from rag.preprocess.domain_knowledge import DOMAIN_BLACKLIST, DOMAIN_RULES, ENTI
 from rag.preprocess.dynamic_entities import get_dynamic_entity_aliases
 
 
-_TOKEN_PATTERN = re.compile(r"[가-힣A-Za-z0-9]+")
-_BUILDING_NO_PATTERN = re.compile(r"\d+\s*번\s*건물")
-_FLOOR_PATTERN = re.compile(r"\d+\s*층")
-_YEAR_MAJOR_PATTERN = re.compile(r"\d+\s*학년")
+_TOKEN_PATTERN = re.compile(r"[\uac00-\ud7a3A-Za-z0-9]+")
+_BUILDING_NO_PATTERN = re.compile(r"\d+\s*\ubc88\s*\uac74\ubb3c")
+_FLOOR_PATTERN = re.compile(r"\d+\s*\uce35")
+_YEAR_MAJOR_PATTERN = re.compile(r"\d+\s*\ud559\ub144")
 
 GENERIC_QUERY_TERMS = {
     "동의대",
     "동의대학교",
+    "동의",
+    "대학교",
     "정보",
     "안내",
     "관련",
@@ -32,13 +34,39 @@ GENERIC_QUERY_TERMS.update(DOMAIN_BLACKLIST)
 
 PROTECTED_LITERAL_TERMS = (
     "정보공학관",
+    "국제관",
+    "산학협력관",
+    "의료보건관",
     "컴퓨터공학과",
+    "컴공",
     "이수표",
     "전공필수",
+    "졸업학점",
+    "보강일정",
+    "지정보강일",
+    "학사일정",
+    "중간고사",
+    "기말고사",
+    "휴강일",
+    "수강신청",
+    "계절학기",
+    "계절수업",
+    "국가장학금",
+    "성적우수장학금",
+    "성적우수장학생",
+    "휴학",
+    "전과",
+    "재학증명서",
+    "성적증명서",
+    "제증명서",
+    "학생식당",
+    "헌혈의 집",
     "동아리",
     "IPP",
     "ipp",
     "총장",
+    "역대총장",
+    "연혁",
     "건물번호",
     "캠퍼스맵",
     "편의점",
@@ -48,11 +76,108 @@ FACILITY_TERMS = {
     "건물",
     "건물번호",
     "정보공학관",
+    "국제관",
+    "산학협력관",
+    "의료보건관",
+    "가야캠퍼스",
+    "가야 캠퍼스",
+    "찾아오시는길",
+    "찾아오시는 길",
     "캠퍼스맵",
     "층",
     "위치",
+    "주소",
     "편의점",
+    "학생식당",
+    "헌혈의 집",
+    "복지문화시설",
+    "편의시설",
     "시설",
+}
+
+SCHEDULE_TERMS = {
+    "학사일정",
+    "보강",
+    "보강일정",
+    "지정보강일",
+    "중간고사",
+    "기말고사",
+    "휴강일",
+    "시험",
+}
+
+SEASONAL_COURSE_TERMS = {
+    "계절학기",
+    "계절수업",
+    "하계",
+    "동계",
+    "하계계절수업",
+    "동계계절수업",
+}
+
+COURSE_REGISTRATION_TERMS = {
+    "수강신청",
+    "수강정정",
+    "장바구니",
+}
+
+SCHOLARSHIP_TERMS = {
+    "장학금",
+    "국가장학금",
+    "국가장학",
+    "신청기간",
+    "신청 기간",
+    "신청방법",
+    "신청 방법",
+}
+
+SPECIFIC_SCHOLARSHIP_TERMS = {
+    "성적우수장학금",
+    "성적우수장학생",
+    "동의복지장학금",
+    "근로장학금",
+    "국가근로장학금",
+}
+
+ACADEMIC_ADMIN_TERMS = {
+    "휴학",
+    "복학",
+    "전과",
+    "군휴학",
+    "일반휴학",
+}
+
+CERTIFICATE_TERMS = {
+    "증명서",
+    "재학증명서",
+    "성적증명서",
+    "졸업증명서",
+    "제증명서",
+    "발급",
+}
+
+HISTORY_TERMS = {
+    "연혁",
+    "역사",
+    "대학현황",
+}
+
+WELFARE_FACILITY_TERMS = {
+    "학생식당",
+    "학식",
+    "식당",
+    "헌혈",
+    "헌혈의 집",
+    "편의점",
+    "편의시설",
+    "복지문화시설",
+}
+
+CAMPUS_ADDRESS_TERMS = {
+    "동의대학교 위치",
+    "동의대학교 주소",
+    "동의대 위치",
+    "동의대 주소",
 }
 
 CURRICULUM_TERMS = {
@@ -166,8 +291,31 @@ def detect_query_family(query: str, terms: Iterable[str] | None = None) -> str:
     values = {term.casefold() for term in tokenize_koreanish(query)}
     values.update(str(term).casefold() for term in (terms or []) if term)
     joined = " ".join(values)
+    raw_text = (query or "").casefold()
+    if "졸업" in raw_text and any(term in raw_text for term in ("학점", "요건", "이수", "자격", "심사")):
+        return "graduation"
+    if any(term.casefold() in raw_text for term in CAMPUS_ADDRESS_TERMS):
+        return "campus_address"
+    if any(term.casefold() in values or term.casefold() in joined for term in WELFARE_FACILITY_TERMS):
+        return "welfare_facility"
+    if any(term.casefold() in values or term.casefold() in joined for term in HISTORY_TERMS):
+        return "institution_history"
+    if any(term.casefold() in values or term.casefold() in joined for term in CERTIFICATE_TERMS):
+        return "certificate"
+    if any(term.casefold() in values or term.casefold() in joined for term in ACADEMIC_ADMIN_TERMS):
+        return "academic_admin"
+    if any(term.casefold() in values or term.casefold() in joined for term in SPECIFIC_SCHOLARSHIP_TERMS):
+        return "specific_scholarship"
+    if any(term.casefold() in values or term.casefold() in joined for term in SEASONAL_COURSE_TERMS) and (
+        "수강신청" in joined or "수강" in joined
+    ):
+        return "seasonal_course_registration"
+    if any(term.casefold() in values or term.casefold() in joined for term in COURSE_REGISTRATION_TERMS):
+        return "course_registration"
     if any(term.casefold() in values or term.casefold() in joined for term in FACILITY_TERMS):
         return "building_location"
+    if any(term.casefold() in values or term.casefold() in joined for term in SCHEDULE_TERMS):
+        return "academic_schedule"
     if any(term.casefold() in values or term.casefold() in joined for term in CURRICULUM_TERMS):
         return "department_curriculum"
     if any(term.casefold() in values or term.casefold() in joined for term in PERSON_TERMS):
@@ -283,10 +431,45 @@ def _required_terms_for_family(family: str, strong_terms: list[str], protected_t
         preferred = [
             term
             for term in source
-            if any(marker in term for marker in ("정보공학관", "건물", "층", "편의점", "캠퍼스맵"))
+            if any(marker in term for marker in ("정보공학관", "건물", "층", "편의점", "캠퍼스맵", "위치", "주소"))
             or re.fullmatch(r"\d+번", term)
         ]
         return preferred[:4]
+    if family == "campus_address":
+        return [term for term in source if any(marker in term for marker in ("주소", "가야", "찾아오시는"))][:4]
+    if family == "welfare_facility":
+        return [term for term in source if term in WELFARE_FACILITY_TERMS or any(marker in term for marker in ("식당", "헌혈", "편의"))][:4]
+    if family == "academic_schedule":
+        return [term for term in source if term in SCHEDULE_TERMS or "보강" in term or "학사일정" in term or "고사" in term][:4]
+    if family == "seasonal_course_registration":
+        return [term for term in source if "계절" in term or "수강" in term or term in SEASONAL_COURSE_TERMS][:4]
+    if family == "course_registration":
+        return [term for term in source if "수강신청" in term or term in {"기간", "일정", "1학기", "2학기"}][:4]
+    if family in {"scholarship", "specific_scholarship"}:
+        return [term for term in source if "장학" in term or "신청" in term or "성적우수" in term][:4]
+    if family == "academic_admin":
+        return [term for term in source if term in ACADEMIC_ADMIN_TERMS or term in {"신청", "방법", "절차"}][:4]
+    if family == "graduation":
+        preferred = [
+            term
+            for term in source
+            if any(
+                marker in term
+                for marker in (
+                    "졸업",
+                    "학점",
+                    "요건",
+                    "이수",
+                    "자격",
+                    "심사",
+                )
+            )
+        ]
+        return preferred[:4] or ["졸업"]
+    if family == "certificate":
+        return [term for term in source if term in CERTIFICATE_TERMS or "증명서" in term][:4]
+    if family == "institution_history":
+        return [term for term in source if term in HISTORY_TERMS or "연혁" in term][:4]
     if family == "department_curriculum":
         return [term for term in source if term in CURRICULUM_TERMS or "컴퓨터공학" in term][:4]
     if family == "person_title":

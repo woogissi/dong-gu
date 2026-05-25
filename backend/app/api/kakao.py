@@ -9,8 +9,8 @@ from backend.app.api.chat import general_chat_service
 from backend.app.utils.intent_classifier import PrimaryIntentClassifier
 from backend.app.utils.user_lock import acquire_user_lock, release_user_lock
 from backend.app.utils.kakao_template import (
+    kakao_mixed_response,
     kakao_response,
-    kakao_text_card,
 )
 from backend.app.utils.kakao_ui import (
     get_category_from_utterance,
@@ -256,7 +256,7 @@ async def kakao_webhook(request: Request, background_tasks: BackgroundTasks = No
                 },
             }
 
-        # 콜백 URL이 없는 경우에도 RAG -> Ollama 파이프라인을 동기로 실행해 응답합니다.
+        # 콜백 URL이 없는 경우에도 RAG -> OpenAI 파이프라인을 동기로 실행해 응답합니다.
         response_body, final_answer, success, retrieval_log = process_info_sync(utterance)
         log_response_flow(
             request_id=request_id,
@@ -363,7 +363,7 @@ def build_info_response(result, utterance):
         or result_dict.get("answer")
         or getattr(result, "answer_text", None)
         or getattr(result, "answer", None)
-        or "답변을 생성하지 못했습니다."
+        or "\ub2f5\ubcc0\uc744 \uc0dd\uc131\ud558\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4."
     )
 
     category = (
@@ -372,24 +372,92 @@ def build_info_response(result, utterance):
         or get_category_from_utterance(utterance)
     )
 
-    answer = answer.strip()
+    answer = str(answer).strip()
     answer = answer.replace("[DUMMY ANSWER]", "").strip()
 
-    if "문맥:" in answer:
-        answer = answer.split("문맥:")[0].strip()
+    if "\ubb38\ub9e5:" in answer:
+        answer = answer.split("\ubb38\ub9e5:")[0].strip()
+    if "???:" in answer:
+        answer = answer.split("???:")[0].strip()
 
-    title = get_title_by_category(category)
-    link = get_link_url_by_category(category)
+    link = _extract_primary_source_url(result_dict) or get_link_url_by_category(category)
     quick = get_quick_replies_by_context(category, utterance)
 
-    final = f"{answer}\n\n사이트 바로가기: {link}"
+    full_answer = _append_source_link(answer, link)
+    kakao_text = _build_kakao_simple_summary(
+        full_answer=full_answer,
+        utterance=utterance,
+        link=link,
+        result_dict=result_dict,
+    )
 
     return (
-        kakao_text_card(
-            title=title,
-            description=final,
+        kakao_mixed_response(
+            text=kakao_text,
+            title=get_title_by_category(category),
             link_url=link,
             quick_replies=quick,
         ),
-        final,
+        full_answer,
     )
+
+
+def _append_source_link(answer: str, link: str) -> str:
+    answer = (answer or "").strip()
+    link = (link or "").strip()
+    if not link:
+        return answer
+    if link in answer:
+        return answer
+    return f"{answer}\n\n\ucd9c\ucc98/\uc0ac\uc774\ud2b8 \ubc14\ub85c\uac00\uae30: {link}"
+
+
+def _build_kakao_simple_summary(
+    *,
+    full_answer: str,
+    utterance: str,
+    link: str,
+    result_dict: dict,
+    limit: int = 500,
+) -> str:
+    answer = (full_answer or "").strip()
+
+    if len(answer) <= limit:
+        return answer
+
+    first_lines = [line.strip() for line in answer.splitlines() if line.strip()]
+    first_lines = [line for line in first_lines if not _is_source_link_line(line, link)]
+    body = "\n".join(first_lines[:3])
+    return _trim_for_kakao(body, limit)
+
+
+def _trim_for_kakao(text: str, limit: int = 500) -> str:
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    suffix = "\n\uc790\uc138\ud55c \ub0b4\uc6a9\uc740 \ucd9c\ucc98\ub97c \ud655\uc778\ud574 \uc8fc\uc138\uc694."
+    return text[: max(0, limit - len(suffix))].rstrip() + suffix
+
+
+def _is_source_link_line(line: str, link: str) -> bool:
+    text = line or ""
+    if link and link in text:
+        return True
+    return "\ucd9c\ucc98" in text and "\ubc14\ub85c\uac00\uae30" in text
+
+
+def _extract_primary_source_url(result_dict: dict) -> str:
+    for source in result_dict.get("sources") or []:
+        if isinstance(source, dict):
+            url = source.get("source") or source.get("source_url")
+            if url:
+                return str(url)
+    retrieval_log = result_dict.get("retrieval_log") or {}
+    for doc in retrieval_log.get("selected_docs") or []:
+        if isinstance(doc, dict):
+            url = doc.get("source") or doc.get("source_url")
+            if url:
+                return str(url)
+    return ""
+
+

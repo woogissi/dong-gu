@@ -26,7 +26,7 @@ _NOISE_LINE_PATTERNS = [
 def build_context(docs: list[RetrievedDoc]) -> str:
     blocks: list[str] = []
     for index, doc in enumerate(docs, start=1):
-        section_title = doc.metadata.get("section_title") or "섹션 없음"
+        section_title = doc.metadata.get("section_title") or "section 없음"
         score_parts = [
             f"score={doc.score}",
             f"lexical={doc.metadata.get('lexical_score')}",

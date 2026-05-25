@@ -12,6 +12,7 @@ import logging
 import math
 import os
 import re
+import time
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -24,6 +25,7 @@ from rag.preprocess.query_features import (
     required_entity_match_score,
     ui_noise_hits,
 )
+from rag.retrieval.canonical_source import canonical_notice_metadata
 
 try:
     from kiwipiepy import Kiwi
@@ -89,6 +91,33 @@ _STATIC_SOURCE_TYPES = {"static", "index", "menu"}
 _NOISY_SOURCE_TYPES = {"bids", "council_notice", "external_notice"}
 _EXPLICIT_NOTICE_TERMS = {"모집공고", "채용공고", "신청서", "회의자료", "첨부", "첨부파일", "서식", "입찰", "공고"}
 _UI_NOISE_TERMS = ("본문 바로가기", "게시물 좌측으로 이동", "게시물 우측으로 이동", "사이트맵", "로그인", "회원가입", "more", "sns")
+_FAMILY_SEARCH_EXPANSIONS: dict[str, tuple[str, ...]] = {
+    "campus_address": (
+        "가야 캠퍼스",
+        "찾아오시는 길",
+        "캠퍼스안내",
+        "동의대학교 주소",
+    ),
+    "building_location": (
+        "캠퍼스맵",
+        "찾아오시는 길",
+        "가야 캠퍼스",
+        "주소",
+        "정보공학관",
+        "복지문화시설",
+    ),
+    "welfare_facility": ("복지문화시설", "편의·복지", "학생식당", "헌혈의 집", "편의점"),
+    "academic_schedule": ("학사일정", "학사정보", "보강", "보강일정", "지정보강일", "중간시험", "기말시험"),
+    "course_registration": ("수강신청", "2026학년도 1학기 수강신청 안내", "학사공지"),
+    "seasonal_course_registration": ("계절수업", "하계 계절수업", "하계계절수업", "계절학기 수강신청"),
+    "department_curriculum": ("컴퓨터공학과", "이수표", "교육과정", "전공필수"),
+    "scholarship": ("국가장학금", "장학금", "신청기간", "신청방법"),
+    "specific_scholarship": ("성적우수장학금", "성적우수장학생", "장학금 선발안내", "선발기준"),
+    "academic_admin": ("휴학", "전과", "학사정보", "신청 방법", "학사지원팀"),
+    "certificate": ("제증명서 발급", "재학증명서", "성적증명서", "증명서 발급"),
+    "institution_history": ("연도별 연혁", "대학현황", "DEU", "1960년대", "2020년대"),
+    "person_title": ("역대총장", "총장", "7대"),
+}
 logger = logging.getLogger(__name__)
 
 
@@ -200,6 +229,9 @@ def retrieve_documents(
             retrieval_mode = _resolve_retrieval_mode(request)
             if retrieval_mode == "vector":
                 documents = _retrieve_documents_from_database_vector(request)
+                canonical_documents = _retrieve_canonical_documents_from_database_v4(request)
+                if canonical_documents:
+                    documents = _prepend_unique_docs(canonical_documents, documents)
                 return _postprocess_retrieved_docs(documents, request)
 
             if retrieval_mode == "hybrid":
@@ -319,8 +351,21 @@ def _build_db_search_term(request: RetrievalRequest) -> str:
 
 
 def _build_db_search_terms(request: RetrievalRequest) -> list[str]:
+    family = _request_query_family(request)
+    request_text = " ".join([request.query, *(request.query_variants or []), *(request.keywords or [])])
+    if family == "specific_scholarship" and "성적우수" in request_text:
+        return ["성적우수장학금", "성적우수장학생", "성적우수", "선발안내", "선발", "기준", "장학금"]
+    if family == "academic_admin":
+        if "휴학" in request_text:
+            return ["휴학", "휴학신청", "신청", "방법", "절차", "학사지원"]
+        if "전과" in request_text:
+            return ["전과", "전과 신청", "신청기간", "신청", "방법", "학사공지"]
+    if family == "certificate":
+        return ["제증명서", "증명서", "증명서 발급", "재학증명서", "성적증명서", "발급"]
     feature_terms = _request_feature_terms(request)
+    family_expansions = _request_family_search_expansions(request)
     candidate_texts = [
+        *family_expansions,
         *feature_terms,
         *(request.keywords or []),
         *(request.query_variants or []),
@@ -333,7 +378,44 @@ def _build_db_search_terms(request: RetrievalRequest) -> list[str]:
                 continue
             if token and token not in terms:
                 terms.append(token)
-    return terms[:12]
+    return terms[:20]
+
+
+def _request_query_family(request: RetrievalRequest) -> str:
+    query_features = request.log_fields.get("query_features") if isinstance(request.log_fields, dict) else None
+    if isinstance(query_features, dict):
+        return str(query_features.get("family") or "general")
+    return extract_query_features(request.query, request.keywords).family
+
+
+def _request_family_search_expansions(request: RetrievalRequest) -> list[str]:
+    family = _request_query_family(request)
+    query_features = request.log_fields.get("query_features") if isinstance(request.log_fields, dict) else None
+    domain = str(query_features.get("domain") or "") if isinstance(query_features, dict) else ""
+    if family == "general" and domain == "course":
+        family = "course_registration"
+    elif family == "general" and domain == "scholarship":
+        family = "scholarship"
+    expansions = list(_FAMILY_SEARCH_EXPANSIONS.get(family, ()))
+    text = " ".join([request.query, *(request.query_variants or []), *(request.keywords or [])])
+    if family in {"building_location", "campus_address"}:
+        if "편의점" not in text:
+            expansions = [term for term in expansions if term != "복지문화시설"]
+        if "정보공학관" not in text and "23" not in text:
+            expansions = [term for term in expansions if term != "정보공학관"]
+    if family == "welfare_facility":
+        if not any(term in text for term in ("학생식당", "학식", "식당")):
+            expansions = [term for term in expansions if term != "학생식당"]
+        if "헌혈" not in text:
+            expansions = [term for term in expansions if term != "헌혈의 집"]
+    if family == "specific_scholarship":
+        if "성적우수" not in text:
+            expansions = [term for term in expansions if not term.startswith("성적우수")]
+    if family == "seasonal_course_registration":
+        expansions = [*expansions, "2026-하계 계절수업 안내"]
+    if family == "course_registration" and not any(term in text for term in ("계절", "타대학", "마이크로디그리")):
+        expansions.extend(["일반 수강신청", "1학기 수강신청"])
+    return expansions
 
 
 def _request_feature_terms(request: RetrievalRequest) -> list[str]:
@@ -456,6 +538,24 @@ def _retrieve_documents_from_database_vector(request: RetrievalRequest) -> list[
         SELECT doc_id, max(version) AS latest_version
         FROM document_versions
         GROUP BY doc_id
+    ),
+    latest_attachment_presence AS (
+        SELECT chunks.doc_id, bool_or(chunks.section_type = 'attachment') AS has_latest_attachment
+        FROM chunks
+        JOIN document_versions
+          ON document_versions.id = chunks.document_version_id
+        JOIN latest_document_versions
+          ON latest_document_versions.doc_id = chunks.doc_id
+         AND latest_document_versions.latest_version = document_versions.version
+        GROUP BY chunks.doc_id
+    ),
+    latest_attachment_versions AS (
+        SELECT chunks.doc_id, max(document_versions.version) AS latest_attachment_version
+        FROM chunks
+        JOIN document_versions
+          ON document_versions.id = chunks.document_version_id
+        WHERE chunks.section_type = 'attachment'
+        GROUP BY chunks.doc_id
     )
     SELECT
         chunks.chunk_id,
@@ -483,9 +583,18 @@ def _retrieve_documents_from_database_vector(request: RetrievalRequest) -> list[
     LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
     LEFT JOIN latest_document_versions
       ON latest_document_versions.doc_id = chunks.doc_id
+    LEFT JOIN latest_attachment_presence
+      ON latest_attachment_presence.doc_id = chunks.doc_id
+    LEFT JOIN latest_attachment_versions
+      ON latest_attachment_versions.doc_id = chunks.doc_id
     WHERE (
         chunks.document_version_id IS NULL
         OR document_versions.version = latest_document_versions.latest_version
+        OR (
+            chunks.section_type = 'attachment'
+            AND coalesce(latest_attachment_presence.has_latest_attachment, false) = false
+            AND document_versions.version = latest_attachment_versions.latest_attachment_version
+        )
     )
     """.format(category_bonus_sql=category_bonus_sql)
 
@@ -583,23 +692,754 @@ def _retrieve_documents_from_database_hybrid(request: RetrievalRequest) -> list[
             request.query,
             request.strategy,
         )
+    started_at = time.perf_counter()
+    lexical_started_at = time.perf_counter()
     lexical_docs = _retrieve_documents_from_database(request)
+    lexical_ms = (time.perf_counter() - lexical_started_at) * 1000
+    vector_started_at = time.perf_counter()
     vector_docs = _retrieve_documents_from_database_vector(request)
+    vector_ms = (time.perf_counter() - vector_started_at) * 1000
+    merge_started_at = time.perf_counter()
     candidates = merge_retrieval_candidates(lexical_docs, vector_docs)
     docs = _candidates_to_retrieved_docs(candidates, request)
+    merge_ms = (time.perf_counter() - merge_started_at) * 1000
     for doc in docs:
         doc.metadata["hybrid_lexical_candidate_count"] = len(lexical_docs)
         doc.metadata["hybrid_vector_candidate_count"] = len(vector_docs)
         doc.metadata["hybrid_vector_missing"] = not _has_query_vector(request)
+        doc.metadata["hybrid_lexical_ms"] = round(lexical_ms, 3)
+        doc.metadata["hybrid_vector_ms"] = round(vector_ms, 3)
+        doc.metadata["hybrid_merge_ms"] = round(merge_ms, 3)
     logger.info(
-        "hybrid_retrieval_completed query=%r lexical_count=%s vector_count=%s merged_count=%s query_vector_size=%s",
+        "hybrid_retrieval_completed query=%r lexical_count=%s vector_count=%s merged_count=%s query_vector_size=%s lexical_ms=%.1f vector_ms=%.1f merge_ms=%.1f total_ms=%.1f",
         request.query,
         len(lexical_docs),
         len(vector_docs),
         len(docs),
         len(request.query_vector or []),
+        lexical_ms,
+        vector_ms,
+        merge_ms,
+        (time.perf_counter() - started_at) * 1000,
     )
     return docs
+
+
+def _retrieve_canonical_documents_from_database_v2(request: RetrievalRequest) -> list[RetrievedDoc]:
+    query_family = ""
+    if isinstance(request.log_fields, dict):
+        query_family = str(request.log_fields.get("query_family") or "")
+    if query_family not in {"academic_schedule", "course_registration", "seasonal_course_registration"}:
+        return []
+
+    family_terms = {
+        "academic_schedule": ["학사일정", "보강일정", "보강", "scheduleList"],
+        "course_registration": ["수강신청"],
+        "seasonal_course_registration": ["계절수업", "계절학기"],
+    }.get(query_family, [])
+    search_terms = [
+        term.strip()
+        for term in [*_build_db_search_terms(request), *family_terms]
+        if len(term.strip()) >= 2 and term.strip() not in {"기간", "일정", "알려줘"}
+    ][:6]
+    if not search_terms and not family_terms:
+        return []
+
+    ilike_patterns = [f"%{term}%" for term in search_terms] or ["%%__never_match__%%"]
+    family_patterns = [f"%{term}%" for term in family_terms] or ["%%__never_match__%%"]
+    sql = """
+    WITH latest_document_versions AS (
+        SELECT doc_id, max(version) AS latest_version
+        FROM document_versions
+        GROUP BY doc_id
+    )
+    SELECT
+        chunks.chunk_id,
+        chunks.doc_id,
+        chunks.chunk_index,
+        chunks.section_index,
+        chunks.section_type,
+        chunks.section_title,
+        chunks.content,
+        chunks.content_length,
+        chunks.content_hash,
+        document_versions.version,
+        chunks.document_version_id,
+        chunks.metadata AS chunk_metadata,
+        documents.title,
+        documents.source_url,
+        documents.source_type,
+        documents.department,
+        documents.published_at,
+        documents.metadata AS document_metadata
+    FROM chunks
+    JOIN documents ON documents.doc_id = chunks.doc_id
+    LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
+    LEFT JOIN latest_document_versions
+      ON latest_document_versions.doc_id = chunks.doc_id
+    WHERE (
+        chunks.document_version_id IS NULL
+        OR document_versions.version = latest_document_versions.latest_version
+    )
+      AND (
+        coalesce((documents.metadata->>'canonical_notice_family'), '') = %s
+        OR documents.title ILIKE ANY(%s)
+        OR documents.source_url ILIKE ANY(%s)
+      )
+      AND (
+        coalesce((documents.metadata->>'is_canonical_notice'), 'false') = 'true'
+        OR documents.source_type IN ('institution', 'academic_notice', 'academic', 'academic_calendar', 'academic_support', 'notice')
+        OR documents.source_url ILIKE '%%www.deu.ac.kr/www%%'
+        OR documents.source_url ILIKE '%%dess.deu.ac.kr%%'
+      )
+    ORDER BY
+      coalesce(nullif(documents.metadata->>'canonical_source_rank', '')::int, 99) ASC,
+      CASE WHEN coalesce((documents.metadata->>'is_canonical_notice'), 'false') = 'true' THEN 0 ELSE 1 END,
+      CASE WHEN documents.source_url ILIKE '%%dess.deu.ac.kr%%' THEN 0 ELSE 1 END,
+      CASE WHEN documents.source_url ILIKE '%%www.deu.ac.kr/www%%' THEN 0 ELSE 1 END,
+      documents.published_at DESC NULLS LAST,
+      chunks.chunk_index ASC
+    LIMIT 5
+    """
+    try:
+        with _open_db_connection() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute(sql, (query_family, ilike_patterns, family_patterns))
+                rows = cur.fetchall()
+    except psycopg2.Error as exc:
+        logger.exception("canonical_supplement_v3_failed query=%r family=%s error=%s", request.query, query_family, exc)
+        return []
+
+    docs: list[RetrievedDoc] = []
+    for row in rows:
+        document_metadata = _dict_or_empty(row["document_metadata"])
+        canonical_metadata = canonical_notice_metadata(
+            {
+                "title": row["title"] or "",
+                "source_url": row["source_url"] or "",
+                "source_type": row["source_type"] or "",
+                "content_hash": row["content_hash"] or "",
+            }
+        )
+        document_metadata = {**canonical_metadata, **document_metadata}
+        if document_metadata.get("canonical_notice_family") != query_family:
+            continue
+        if not document_metadata.get("is_canonical_notice"):
+            continue
+        chunk_metadata = _dict_or_empty(row["chunk_metadata"])
+        docs.append(
+            RetrievedDoc(
+                doc_id=row["doc_id"],
+                chunk_id=row["chunk_id"],
+                content=row["content"],
+                score=1.05,
+                title=row["title"] or "",
+                source=row["source_url"] or row["source_type"] or "",
+                category=request.category or row["source_type"],
+                metadata={
+                    **document_metadata,
+                    **chunk_metadata,
+                    **request.log_fields,
+                    **_feature_log_fields(request),
+                    "strategy": request.strategy,
+                    "query": request.query,
+                    "keywords": request.keywords,
+                    "filters": request.filters,
+                    "matched_terms": search_terms,
+                    "search_mode": "canonical_source_supplement",
+                    "canonical_source_supplement": True,
+                    "source_type": row["source_type"],
+                    "department": row["department"],
+                    "published_at": row["published_at"],
+                    "chunk_index": row["chunk_index"],
+                    "section_index": row["section_index"],
+                    "section_type": row["section_type"],
+                    "section_title": row["section_title"],
+                    "content_length": row["content_length"],
+                    "content_hash": row["content_hash"],
+                    "version": row["version"],
+                    "document_version_id": row["document_version_id"],
+                },
+            )
+        )
+    return docs
+
+
+def _retrieve_canonical_documents_from_database_v3(request: RetrievalRequest) -> list[RetrievedDoc]:
+    query_family = ""
+    if isinstance(request.log_fields, dict):
+        query_family = str(request.log_fields.get("query_family") or "")
+    if query_family not in {"academic_schedule", "course_registration", "seasonal_course_registration"}:
+        return []
+
+    family_terms = {
+        "academic_schedule": ["학사일정", "보강일정", "보강", "scheduleList"],
+        "course_registration": ["수강신청"],
+        "seasonal_course_registration": ["계절수업", "계절학기"],
+    }.get(query_family, [])
+    search_terms = [
+        term.strip()
+        for term in [*_build_db_search_terms(request), *family_terms]
+        if len(term.strip()) >= 2 and term.strip() not in {"기간", "일정", "알려줘"}
+    ][:6]
+    ilike_patterns = [f"%{term}%" for term in search_terms] or ["%%__never_match__%%"]
+    family_patterns = [f"%{term}%" for term in family_terms] or ["%%__never_match__%%"]
+    sql = """
+    WITH doc_candidates AS (
+        SELECT
+            doc_id,
+            title,
+            source_url,
+            source_type,
+            department,
+            published_at,
+            metadata AS document_metadata,
+            coalesce(nullif(metadata->>'canonical_source_rank', '')::int, 99) AS canonical_rank
+        FROM documents
+        WHERE (
+            coalesce((metadata->>'canonical_notice_family'), '') = %s
+            OR title ILIKE ANY(%s)
+            OR source_url ILIKE ANY(%s)
+        )
+          AND (
+            coalesce((metadata->>'is_canonical_notice'), 'false') = 'true'
+            OR source_type IN ('institution', 'academic_notice', 'academic', 'academic_calendar', 'academic_support', 'notice')
+            OR source_url ILIKE '%%www.deu.ac.kr/www%%'
+            OR source_url ILIKE '%%dess.deu.ac.kr%%'
+          )
+        ORDER BY
+            canonical_rank ASC,
+            CASE WHEN coalesce((metadata->>'is_canonical_notice'), 'false') = 'true' THEN 0 ELSE 1 END,
+            CASE WHEN source_url ILIKE '%%dess.deu.ac.kr%%' THEN 0 ELSE 1 END,
+            CASE WHEN source_url ILIKE '%%www.deu.ac.kr/www%%' THEN 0 ELSE 1 END,
+            published_at DESC NULLS LAST,
+            doc_id ASC
+        LIMIT 10
+    ),
+    latest_document_versions AS (
+        SELECT doc_id, max(version) AS latest_version
+        FROM document_versions
+        WHERE doc_id IN (SELECT doc_id FROM doc_candidates)
+        GROUP BY doc_id
+    ),
+    chunk_candidates AS (
+        SELECT DISTINCT ON (chunks.doc_id)
+            chunks.chunk_id,
+            chunks.doc_id,
+            chunks.chunk_index,
+            chunks.section_index,
+            chunks.section_type,
+            chunks.section_title,
+            chunks.content,
+            chunks.content_length,
+            chunks.content_hash,
+            document_versions.version,
+            chunks.document_version_id,
+            chunks.metadata AS chunk_metadata,
+            doc_candidates.title,
+            doc_candidates.source_url,
+            doc_candidates.source_type,
+            doc_candidates.department,
+            doc_candidates.published_at,
+            doc_candidates.document_metadata,
+            doc_candidates.canonical_rank
+        FROM doc_candidates
+        JOIN chunks ON chunks.doc_id = doc_candidates.doc_id
+        LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
+        LEFT JOIN latest_document_versions
+          ON latest_document_versions.doc_id = chunks.doc_id
+        WHERE (
+            chunks.document_version_id IS NULL
+            OR document_versions.version = latest_document_versions.latest_version
+        )
+        ORDER BY
+            chunks.doc_id,
+            CASE
+                WHEN chunks.section_title ILIKE ANY(%s) THEN 0
+                WHEN chunks.content ILIKE ANY(%s) THEN 0
+                ELSE 1
+            END,
+            chunks.chunk_index ASC
+    )
+    SELECT *
+    FROM chunk_candidates
+    ORDER BY canonical_rank ASC, published_at DESC NULLS LAST, chunk_id ASC
+    LIMIT 5
+    """
+    try:
+        with _open_db_connection() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute(sql, (query_family, ilike_patterns, family_patterns, ilike_patterns, ilike_patterns))
+                rows = cur.fetchall()
+    except psycopg2.Error as exc:
+        logger.exception("canonical_supplement_v3_failed query=%r family=%s error=%s", request.query, query_family, exc)
+        return []
+
+    docs: list[RetrievedDoc] = []
+    for row in rows:
+        document_metadata = _dict_or_empty(row["document_metadata"])
+        canonical_metadata = canonical_notice_metadata(
+            {
+                "title": row["title"] or "",
+                "source_url": row["source_url"] or "",
+                "source_type": row["source_type"] or "",
+                "content_hash": row["content_hash"] or "",
+            }
+        )
+        document_metadata = {**canonical_metadata, **document_metadata}
+        if document_metadata.get("canonical_notice_family") != query_family:
+            continue
+        if not document_metadata.get("is_canonical_notice"):
+            continue
+        chunk_metadata = _dict_or_empty(row["chunk_metadata"])
+        docs.append(
+            RetrievedDoc(
+                doc_id=row["doc_id"],
+                chunk_id=row["chunk_id"],
+                content=row["content"],
+                score=1.1,
+                title=row["title"] or "",
+                source=row["source_url"] or row["source_type"] or "",
+                category=request.category or row["source_type"],
+                metadata={
+                    **document_metadata,
+                    **chunk_metadata,
+                    **request.log_fields,
+                    **_feature_log_fields(request),
+                    "strategy": request.strategy,
+                    "query": request.query,
+                    "keywords": request.keywords,
+                    "filters": request.filters,
+                    "matched_terms": search_terms,
+                    "search_mode": "canonical_source_supplement",
+                    "canonical_source_supplement": True,
+                    "source_type": row["source_type"],
+                    "department": row["department"],
+                    "published_at": row["published_at"],
+                    "chunk_index": row["chunk_index"],
+                    "section_index": row["section_index"],
+                    "section_type": row["section_type"],
+                    "section_title": row["section_title"],
+                    "content_length": row["content_length"],
+                    "content_hash": row["content_hash"],
+                    "version": row["version"],
+                    "document_version_id": row["document_version_id"],
+                },
+            )
+        )
+    return docs
+
+
+def _retrieve_canonical_documents_from_database_v4(request: RetrievalRequest) -> list[RetrievedDoc]:
+    query_family = ""
+    if isinstance(request.log_fields, dict):
+        query_family = str(request.log_fields.get("query_family") or "")
+    if query_family not in {"academic_schedule", "course_registration", "seasonal_course_registration"}:
+        return []
+
+    family_terms = {
+        "academic_schedule": ["학사일정", "보강일정", "보강", "scheduleList"],
+        "course_registration": ["수강신청"],
+        "seasonal_course_registration": ["계절수업", "계절학기"],
+    }.get(query_family, [])
+    search_terms = [
+        term.strip()
+        for term in [*_build_db_search_terms(request), *family_terms]
+        if len(term.strip()) >= 2 and term.strip() not in {"기간", "일정", "알려줘"}
+    ][:6]
+    title_patterns = [f"%{term}%" for term in [*search_terms, *family_terms]] or ["%%__never_match__%%"]
+    primary_detail_patterns = [f"%{term}%" for term in _canonical_notice_primary_detail_terms(query_family)]
+    detail_patterns = [f"%{term}%" for term in _canonical_notice_detail_terms(query_family)]
+    semester_pattern = _canonical_notice_semester_pattern(request.query, query_family)
+
+    docs_sql = """
+    SELECT doc_id, title, source_url, source_type, department, published_at, content_hash, metadata
+    FROM documents
+    WHERE (
+        coalesce((metadata->>'canonical_notice_family'), '') = %s
+        OR title ILIKE ANY(%s)
+        OR source_url ILIKE '%%scheduleList%%'
+    )
+      AND (
+        coalesce((metadata->>'is_canonical_notice'), 'false') = 'true'
+        OR source_type IN ('institution', 'academic_notice', 'academic', 'academic_calendar', 'academic_support', 'notice')
+        OR source_url ILIKE '%%www.deu.ac.kr/www%%'
+        OR source_url ILIKE '%%dess.deu.ac.kr%%'
+      )
+    ORDER BY
+      coalesce(nullif(metadata->>'canonical_source_rank', '')::int, 99) ASC,
+      CASE WHEN coalesce((metadata->>'is_canonical_notice'), 'false') = 'true' THEN 0 ELSE 1 END,
+      published_at DESC NULLS LAST,
+      doc_id ASC
+    LIMIT 300
+    """
+    try:
+        with _open_db_connection() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute(docs_sql, (query_family, title_patterns))
+                doc_rows = cur.fetchall()
+                ranked_doc_rows = _rank_canonical_doc_rows(doc_rows, query_family, request.query, search_terms)
+                if not ranked_doc_rows:
+                    return []
+                doc_ids = [row["doc_id"] for _, row, _ in ranked_doc_rows[:5]]
+                cur.execute(
+                    """
+                    WITH latest_document_versions AS (
+                        SELECT doc_id, max(version) AS latest_version
+                        FROM document_versions
+                        WHERE doc_id = ANY(%s)
+                        GROUP BY doc_id
+                    )
+                    SELECT
+                        chunks.chunk_id,
+                        chunks.doc_id,
+                        chunks.chunk_index,
+                        chunks.section_index,
+                        chunks.section_type,
+                        chunks.section_title,
+                        chunks.content,
+                        chunks.content_length,
+                        chunks.content_hash,
+                        document_versions.version,
+                        chunks.document_version_id,
+                        chunks.metadata AS chunk_metadata,
+                        documents.title,
+                        documents.source_url,
+                        documents.source_type,
+                        documents.department,
+                        documents.published_at,
+                        documents.metadata AS document_metadata
+                    FROM chunks
+                    JOIN documents ON documents.doc_id = chunks.doc_id
+                    LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
+                    LEFT JOIN latest_document_versions
+                      ON latest_document_versions.doc_id = chunks.doc_id
+                    WHERE chunks.doc_id = ANY(%s)
+                      AND (
+                        chunks.document_version_id IS NULL
+                        OR document_versions.version = latest_document_versions.latest_version
+                      )
+                    ORDER BY
+                        array_position(%s, chunks.doc_id),
+                        CASE
+                            WHEN %s <> '' AND chunks.content ILIKE %s AND chunks.content ILIKE ANY(%s) THEN 0
+                            WHEN chunks.content ILIKE ANY(%s) THEN 1
+                            WHEN chunks.section_title ILIKE ANY(%s) THEN 2
+                            WHEN chunks.content ILIKE ANY(%s) THEN 2
+                            WHEN chunks.section_type = 'attachment' AND chunks.content ILIKE ANY(%s) THEN 3
+                            WHEN chunks.section_title ILIKE ANY(%s) THEN 3
+                            WHEN chunks.content ILIKE ANY(%s) THEN 4
+                            ELSE 5
+                        END,
+                        chunks.chunk_index ASC
+                    LIMIT 20
+                    """,
+                    (
+                        doc_ids,
+                        doc_ids,
+                        doc_ids,
+                        semester_pattern,
+                        semester_pattern,
+                        primary_detail_patterns,
+                        primary_detail_patterns,
+                        detail_patterns,
+                        detail_patterns,
+                        title_patterns,
+                        title_patterns,
+                        title_patterns,
+                    ),
+                )
+                chunk_rows = cur.fetchall()
+    except psycopg2.Error as exc:
+        logger.exception("canonical_supplement_v4_failed query=%r family=%s error=%s", request.query, query_family, exc)
+        return []
+
+    chunks_by_doc: dict[str, list[Any]] = {}
+    for row in chunk_rows:
+        chunks_by_doc.setdefault(row["doc_id"], []).append(row)
+
+    docs: list[RetrievedDoc] = []
+    metadata_by_doc = {row["doc_id"]: metadata for _, row, metadata in ranked_doc_rows}
+    for doc_id in doc_ids:
+        for chunk_offset, row in enumerate(chunks_by_doc.get(doc_id, [])[:3]):
+            document_metadata = {**metadata_by_doc.get(doc_id, {}), **_dict_or_empty(row["document_metadata"])}
+            chunk_metadata = _dict_or_empty(row["chunk_metadata"])
+            docs.append(
+                RetrievedDoc(
+                    doc_id=row["doc_id"],
+                    chunk_id=row["chunk_id"],
+                    content=row["content"],
+                    score=1.15 - (chunk_offset * 0.01),
+                    title=row["title"] or "",
+                    source=row["source_url"] or row["source_type"] or "",
+                    category=request.category or row["source_type"],
+                    metadata={
+                        **document_metadata,
+                        **chunk_metadata,
+                        **request.log_fields,
+                        **_feature_log_fields(request),
+                        "strategy": request.strategy,
+                        "query": request.query,
+                        "keywords": request.keywords,
+                        "filters": request.filters,
+                        "matched_terms": search_terms,
+                        "search_mode": "canonical_source_supplement",
+                        "canonical_source_supplement": True,
+                        "canonical_chunk_pack": True,
+                        "source_type": row["source_type"],
+                        "department": row["department"],
+                        "published_at": row["published_at"],
+                        "chunk_index": row["chunk_index"],
+                        "section_index": row["section_index"],
+                        "section_type": row["section_type"],
+                        "section_title": row["section_title"],
+                        "content_length": row["content_length"],
+                        "content_hash": row["content_hash"],
+                        "version": row["version"],
+                        "document_version_id": row["document_version_id"],
+                    },
+                )
+            )
+    return docs
+
+
+def _canonical_notice_primary_detail_terms(query_family: str) -> list[str]:
+    if query_family == "course_registration":
+        return [
+            "수강신청 일자:",
+            "수강신청시작일자",
+        ]
+    if query_family == "seasonal_course_registration":
+        return [
+            "수강신청 일자:",
+            "개설기간",
+        ]
+    if query_family == "academic_schedule":
+        return [
+            "보강일정",
+            "지정보강일",
+            "보강",
+        ]
+    return ["일정"]
+
+
+def _canonical_notice_semester_pattern(query: str, query_family: str) -> str:
+    if query_family != "academic_schedule":
+        return ""
+    query_text = query or ""
+    if "1학기" in query_text or "1 학기" in query_text:
+        return "%2026년 1학기%" if "26" in query_text or "2026" in query_text else "%1학기%"
+    if "2학기" in query_text or "2 학기" in query_text:
+        return "%2026년 2학기%" if "26" in query_text or "2026" in query_text else "%2학기%"
+    return ""
+
+
+def _canonical_notice_detail_terms(query_family: str) -> list[str]:
+    if query_family == "course_registration":
+        return [
+            "수강신청 일자",
+            "수강신청 일자:",
+            "수강신청 및 수강정정 일정",
+            "수강 신청 기간",
+            "수강신청시작일자",
+            "수강정정 일자",
+            "수강정정",
+        ]
+    if query_family == "seasonal_course_registration":
+        return [
+            "계절수업",
+            "수강신청 일자",
+            "수강 신청 기간",
+            "수강료",
+            "개설기간",
+        ]
+    if query_family == "academic_schedule":
+        return [
+            "보강",
+            "보강일정",
+            "지정보강일",
+            "학사일정",
+            "수업일수",
+            "중간시험",
+            "기말시험",
+        ]
+    return ["일정", "기간"]
+
+
+def _rank_canonical_doc_rows(
+    rows: list[Any],
+    query_family: str,
+    query: str,
+    search_terms: list[str],
+) -> list[tuple[float, Any, dict[str, Any]]]:
+    ranked: list[tuple[float, Any, dict[str, Any]]] = []
+    query_text = query or ""
+    for row in rows:
+        db_metadata = _dict_or_empty(row["metadata"])
+        canonical_metadata = canonical_notice_metadata(
+            {
+                "title": row["title"] or "",
+                "source_url": row["source_url"] or "",
+                "source_type": row["source_type"] or "",
+                "content_hash": row["content_hash"] or "",
+            }
+        )
+        metadata = {**canonical_metadata, **db_metadata}
+        if metadata.get("canonical_notice_family") != query_family:
+            continue
+        if not metadata.get("is_canonical_notice"):
+            continue
+        rank = _optional_float(metadata.get("canonical_source_rank")) or 99.0
+        title = str(row["title"] or "")
+        score = 100.0 - rank
+        score += sum(6.0 for term in search_terms if term and term in title)
+        if query_family == "course_registration":
+            noise_terms = ("취소", "장바구니", "신입생", "편입생", "계절", "마이크로디그리")
+            score -= sum(12.0 for term in noise_terms if term in title and term not in query_text)
+            if re.search(r"2026학년도\s*1학기\s*수강신청\s*안내$", title):
+                score += 20.0
+        if query_family == "academic_schedule" and "학사일정" in title:
+            score += 18.0
+        ranked.append((score, row, metadata))
+    ranked.sort(key=lambda item: (item[0], str(item[1]["published_at"] or "")), reverse=True)
+    return ranked
+
+
+def _retrieve_canonical_documents_from_database(request: RetrievalRequest) -> list[RetrievedDoc]:
+    query_family = ""
+    if isinstance(request.log_fields, dict):
+        query_family = str(request.log_fields.get("query_family") or "")
+    if query_family not in {"academic_schedule", "course_registration", "seasonal_course_registration"}:
+        return []
+
+    search_terms = [
+        term
+        for term in _build_db_search_terms(request)
+        if len(term.strip()) >= 2 and term.strip() not in {"기간", "일정", "알려줘"}
+    ][:4]
+    if not search_terms:
+        return []
+    ilike_patterns = [f"%{term}%" for term in search_terms]
+    source_patterns = ["%www.deu.ac.kr/www%", "%dess.deu.ac.kr%"]
+    sql = """
+    WITH latest_document_versions AS (
+        SELECT doc_id, max(version) AS latest_version
+        FROM document_versions
+        GROUP BY doc_id
+    )
+    SELECT
+        chunks.chunk_id,
+        chunks.doc_id,
+        chunks.chunk_index,
+        chunks.section_index,
+        chunks.section_type,
+        chunks.section_title,
+        chunks.content,
+        chunks.content_length,
+        chunks.content_hash,
+        document_versions.version,
+        chunks.document_version_id,
+        chunks.metadata AS chunk_metadata,
+        documents.title,
+        documents.source_url,
+        documents.source_type,
+        documents.department,
+        documents.published_at,
+        documents.metadata AS document_metadata
+    FROM chunks
+    JOIN documents ON documents.doc_id = chunks.doc_id
+    LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
+    LEFT JOIN latest_document_versions
+      ON latest_document_versions.doc_id = chunks.doc_id
+    WHERE (
+        chunks.document_version_id IS NULL
+        OR document_versions.version = latest_document_versions.latest_version
+    )
+      AND documents.source_type <> 'department'
+      AND (
+        documents.source_url ILIKE ANY(%s)
+        OR documents.source_type IN ('institution', 'academic_notice', 'academic')
+      )
+      AND (
+        documents.title ILIKE ANY(%s)
+        OR chunks.section_title ILIKE ANY(%s)
+        OR chunks.content ILIKE ANY(%s)
+      )
+    ORDER BY
+      CASE WHEN documents.source_url ILIKE ANY(%s) THEN 0 ELSE 1 END,
+      documents.published_at DESC NULLS LAST,
+      chunks.chunk_index ASC
+    LIMIT 5
+    """
+    try:
+        with _open_db_connection() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute(
+                    sql,
+                    (
+                        source_patterns,
+                        ilike_patterns,
+                        ilike_patterns,
+                        ilike_patterns,
+                        source_patterns,
+                    ),
+                )
+                rows = cur.fetchall()
+    except psycopg2.Error:
+        return []
+
+    docs: list[RetrievedDoc] = []
+    for row in rows:
+        document_metadata = _dict_or_empty(row["document_metadata"])
+        chunk_metadata = _dict_or_empty(row["chunk_metadata"])
+        docs.append(
+            RetrievedDoc(
+                doc_id=row["doc_id"],
+                chunk_id=row["chunk_id"],
+                content=row["content"],
+                score=0.95,
+                title=row["title"] or "",
+                source=row["source_url"] or row["source_type"] or "",
+                category=request.category or row["source_type"],
+                metadata={
+                    **document_metadata,
+                    **chunk_metadata,
+                    **request.log_fields,
+                    **_feature_log_fields(request),
+                    "strategy": request.strategy,
+                    "query": request.query,
+                    "keywords": request.keywords,
+                    "filters": request.filters,
+                    "matched_terms": search_terms,
+                    "search_mode": "canonical_source_supplement",
+                    "canonical_source_supplement": True,
+                    "source_type": row["source_type"],
+                    "department": row["department"],
+                    "published_at": row["published_at"],
+                    "chunk_index": row["chunk_index"],
+                    "section_index": row["section_index"],
+                    "section_type": row["section_type"],
+                    "section_title": row["section_title"],
+                    "content_length": row["content_length"],
+                    "content_hash": row["content_hash"],
+                    "version": row["version"],
+                    "document_version_id": row["document_version_id"],
+                },
+            )
+        )
+    return docs
+
+
+def _prepend_unique_docs(prefix_docs: list[RetrievedDoc], docs: list[RetrievedDoc]) -> list[RetrievedDoc]:
+    seen: set[str] = set()
+    merged: list[RetrievedDoc] = []
+    for doc in [*prefix_docs, *docs]:
+        key = doc.chunk_id or f"{doc.doc_id}:{doc.metadata.get('chunk_index')}"
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(doc)
+    return merged
 
 
 def merge_retrieval_candidates(
@@ -854,14 +1694,83 @@ def _hybrid_relevance_adjustment(candidate: RetrievalCandidate) -> dict[str, flo
         bonus += 0.08
     if candidate.lexical_score and candidate.vector_score:
         bonus += 0.04
-    if query_family == "building_location" and any(term in f"{title} {content}" for term in ("정보공학관", "건물", "건물번호", "캠퍼스맵", "층")):
-        bonus += 0.18
+    title_content = f"{title} {content}"
+    if query_family == "campus_address" and any(term in title_content for term in ("가야 캠퍼스", "찾아오시는 길", "캠퍼스안내")):
+        bonus += 0.75
+        if "가야 캠퍼스" in title and "campus" in source:
+            bonus += 0.35
+    if query_family == "building_location" and any(
+        term in title_content
+        for term in ("정보공학관", "건물", "건물번호", "캠퍼스맵", "층", "찾아오시는 길", "가야 캠퍼스", "복지문화시설")
+    ):
+        bonus += 0.28
+        if any(term in title for term in ("캠퍼스맵", "찾아오시는 길", "가야 캠퍼스", "복지문화시설")):
+            bonus += 0.35
+    if query_family == "welfare_facility" and any(term in title_content for term in ("복지문화시설", "편의·복지", "학생식당", "헌혈의 집", "편의점")):
+        bonus += 0.75
+        if "복지문화시설" in title:
+            bonus += 0.45
     if query_family == "department_curriculum" and any(term in f"{title} {content}" for term in ("컴퓨터공학", "이수표", "전공필수", "교육과정")):
-        bonus += 0.18
+        bonus += 0.30
+        if "이수표" in title and "컴퓨터공학" in title:
+            bonus += 0.40
+    if query_family == "academic_schedule" and any(term in title_content for term in ("학사일정", "학사정보", "보강")):
+        bonus += 0.45
+        if "학사일정" in title:
+            bonus += 0.45
+    if query_family == "course_registration" and any(term in title_content for term in ("수강신청", "2026학년도 1학기 수강신청")):
+        bonus += 0.40
+        if "수강신청 안내" in title:
+            bonus += 0.35
+    if query_family == "seasonal_course_registration" and any(term in title_content for term in ("계절수업", "계절학기", "하계")):
+        bonus += 0.70
+        if "계절수업 안내" in title or "하계 계절수업" in title:
+            bonus += 0.45
+    if query_family == "scholarship" and "국가장학금" in title_content:
+        bonus += 0.45
+    if query_family == "specific_scholarship" and any(term in title_content for term in ("성적우수장학금", "성적우수장학생", "성적우수")):
+        bonus += 0.85
+    if query_family == "academic_admin" and any(term in title_content for term in ("휴학", "전과", "복학")):
+        bonus += 0.70
+    if query_family == "certificate" and any(term in title_content for term in ("제증명서", "증명서 발급", "재학증명서", "성적증명서")):
+        bonus += 0.80
+    if query_family == "institution_history" and any(term in title_content for term in ("연도별 연혁", "대학현황", "1960년대", "1970년대", "1980년대", "1990년대", "2000년대", "2010년대", "2020년대")):
+        bonus += 0.85
+    if query_family == "person_title" and any(term in title_content for term in ("역대총장", "총장")):
+        bonus += 0.45
 
     penalty = 0.0
     reasons: list[str] = []
-    if source_type in _STATIC_SOURCE_TYPES:
+    relevant_static = (
+        query_family in {
+            "campus_address",
+            "building_location",
+            "welfare_facility",
+            "academic_schedule",
+            "department_curriculum",
+            "academic_admin",
+            "certificate",
+            "institution_history",
+            "person_title",
+        }
+        and any(
+            term in title_content
+            for term in (
+                "캠퍼스맵",
+                "찾아오시는 길",
+                "가야 캠퍼스",
+                "복지문화시설",
+                "학사일정",
+                "이수표",
+                "제증명서",
+                "휴학",
+                "전과",
+                "연혁",
+                "역대총장",
+            )
+        )
+    )
+    if source_type in _STATIC_SOURCE_TYPES and not relevant_static:
         penalty += 0.10
         reasons.append("static_source_type")
     if any(marker in source for marker in ("index.do", "main.do", "/main", "sitemap")):
@@ -886,6 +1795,36 @@ def _hybrid_relevance_adjustment(candidate: RetrievalCandidate) -> dict[str, flo
     if query_family == "building_location" and section_type == "attachment" and required_match == 0.0:
         penalty += 0.20
         reasons.append("building_query_weak_attachment")
+    if query_family == "academic_schedule" and source_type in {"scholarship", "job", "external_notice", "bids"}:
+        penalty += 0.35
+        reasons.append("schedule_query_source_mismatch")
+    if query_family in {"campus_address", "building_location", "welfare_facility"} and source_type in {"job", "scholarship", "external_notice", "bids"}:
+        penalty += 0.35
+        reasons.append("location_query_source_mismatch")
+    if query_family == "building_location" and any(term in title for term in ("국제관광", "학과")) and not any(term in title for term in ("캠퍼스맵", "캠퍼스안내")):
+        penalty += 0.35
+        reasons.append("building_query_department_substring_mismatch")
+    if query_family == "welfare_facility" and "캠퍼스맵" in title and "복지문화시설" not in title_content:
+        penalty += 0.25
+        reasons.append("welfare_query_campus_map_secondary")
+    if query_family == "seasonal_course_registration" and "1학기 수강신청" in title and "계절" not in title_content:
+        penalty += 0.35
+        reasons.append("seasonal_course_general_registration_mismatch")
+    if query_family == "specific_scholarship" and "국가장학금" in title and "성적우수" not in title_content:
+        penalty += 0.40
+        reasons.append("specific_scholarship_wrong_scholarship_name")
+    if query_family == "academic_admin" and source_type == "scholarship":
+        penalty += 0.40
+        reasons.append("academic_admin_scholarship_mismatch")
+    if query_family == "certificate" and "이수표" in title:
+        penalty += 0.35
+        reasons.append("certificate_curriculum_mismatch")
+    if query_family == "institution_history" and source_type in {"job", "scholarship", "external_notice", "bids", "department"}:
+        penalty += 0.40
+        reasons.append("institution_history_source_mismatch")
+    if query_family == "department_curriculum" and any(term in title for term in ("실습실", "마이크로디그리")) and "이수표" not in title:
+        penalty += 0.30
+        reasons.append("curriculum_query_title_mismatch")
 
     return {
         "bonus": round(bonus, 6),
@@ -945,6 +1884,24 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
         FROM document_versions
         GROUP BY doc_id
     ),
+    latest_attachment_presence AS (
+        SELECT chunks.doc_id, bool_or(chunks.section_type = 'attachment') AS has_latest_attachment
+        FROM chunks
+        JOIN document_versions
+          ON document_versions.id = chunks.document_version_id
+        JOIN latest_document_versions
+          ON latest_document_versions.doc_id = chunks.doc_id
+         AND latest_document_versions.latest_version = document_versions.version
+        GROUP BY chunks.doc_id
+    ),
+    latest_attachment_versions AS (
+        SELECT chunks.doc_id, max(document_versions.version) AS latest_attachment_version
+        FROM chunks
+        JOIN document_versions
+          ON document_versions.id = chunks.document_version_id
+        WHERE chunks.section_type = 'attachment'
+        GROUP BY chunks.doc_id
+    ),
     searchable AS (
         SELECT
             chunks.chunk_id,
@@ -975,9 +1932,18 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
         LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
         LEFT JOIN latest_document_versions
           ON latest_document_versions.doc_id = chunks.doc_id
+        LEFT JOIN latest_attachment_presence
+          ON latest_attachment_presence.doc_id = chunks.doc_id
+        LEFT JOIN latest_attachment_versions
+          ON latest_attachment_versions.doc_id = chunks.doc_id
         WHERE (
             chunks.document_version_id IS NULL
             OR document_versions.version = latest_document_versions.latest_version
+            OR (
+                chunks.section_type = 'attachment'
+                AND coalesce(latest_attachment_presence.has_latest_attachment, false) = false
+                AND document_versions.version = latest_attachment_versions.latest_attachment_version
+            )
         )
     """
 

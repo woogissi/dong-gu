@@ -10,15 +10,29 @@ except ImportError:
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
 
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL 환경변수가 설정되지 않았습니다.")
+def _database_dsn() -> str:
+    database_url = (os.getenv("DATABASE_URL") or "").strip()
+    if database_url:
+        if database_url.startswith("postgresql+psycopg2://"):
+            return database_url.replace("postgresql+psycopg2://", "postgresql://", 1)
+        return database_url
+
+    return " ".join(
+        [
+            f"host={os.getenv('POSTGRES_HOST', 'postgres')}",
+            f"port={os.getenv('POSTGRES_PORT', '5432')}",
+            f"dbname={os.getenv('POSTGRES_DB', 'chatbot')}",
+            f"user={os.getenv('POSTGRES_USER', 'chatbot')}",
+            f"password={os.getenv('POSTGRES_PASSWORD', 'chatbot')}",
+        ]
+    )
+
 
 db_pool = SimpleConnectionPool(
     minconn=1,
     maxconn=5,
-    dsn=DATABASE_URL,
+    dsn=_database_dsn(),
 )
 
 

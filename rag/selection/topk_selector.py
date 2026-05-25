@@ -46,27 +46,27 @@ def select_topk_with_diagnostics(
             rejected.append(_rejection(doc, "context_contamination"))
 
     selected: list[RetrievedDoc] = []
-    selected_ids: set[str] = set()
+    selected_doc_counts: dict[str, int] = {}
     for doc in [*exact, *preferred, *static_late]:
-        if doc.doc_id in selected_ids:
+        if selected_doc_counts.get(doc.doc_id, 0) >= max_chunks_per_doc:
             rejected.append(_rejection(doc, "duplicate_doc_id_after_priority"))
             continue
         selected.append(doc)
-        selected_ids.add(doc.doc_id)
+        selected_doc_counts[doc.doc_id] = selected_doc_counts.get(doc.doc_id, 0) + 1
         if len(selected) >= k:
             break
 
     if len(selected) < min(k, min_fallback):
         for doc in deduped:
-            if doc.doc_id in selected_ids:
+            if selected_doc_counts.get(doc.doc_id, 0) >= max_chunks_per_doc:
                 continue
             selected.append(doc)
-            selected_ids.add(doc.doc_id)
+            selected_doc_counts[doc.doc_id] = selected_doc_counts.get(doc.doc_id, 0) + 1
             if len(selected) >= min(k, min_fallback):
                 break
 
     for doc in deduped:
-        if doc.doc_id not in selected_ids and not any(item["chunk_id"] == doc.chunk_id for item in rejected):
+        if doc not in selected and not any(item["chunk_id"] == doc.chunk_id for item in rejected):
             rejected.append(_rejection(doc, "not_selected_topk_limit"))
 
     return {
@@ -100,6 +100,7 @@ def _has_exact_or_strong_match(doc: RetrievedDoc) -> bool:
         or _float_signal(signals, "strong_term_match") >= 0.45
         or _float_signal(signals, "title_match") >= 0.35
         or _float_signal(signals, "section_title_match") >= 0.35
+        or _float_signal(signals, "verified_title_boost") > 0.0
     )
 
 
@@ -135,8 +136,16 @@ def _is_context_contamination_candidate(doc: RetrievedDoc) -> bool:
     )
     noise_score = _float_signal(signals, "noise_score")
     required_entity_match = _float_signal(signals, "required_entity_match")
+    verified_title_boost = _float_signal(signals, "verified_title_boost")
+    query_family_boost = _float_signal(signals, "query_family_boost")
+    strong_term_match = _float_signal(signals, "strong_term_match")
+    exact_query_match = _float_signal(signals, "exact_query_match")
     has_required_terms = bool(doc.metadata.get("required_terms"))
 
+    if verified_title_boost > 0.0:
+        return False
+    if query_family_boost >= 0.6 and heading_relevance <= 0.0 and exact_query_match <= 0.0 and strong_term_match <= 0.45:
+        return True
     if has_required_terms and required_entity_match <= 0.0 and heading_relevance <= 0.0:
         return True
     if noise_score >= 0.8 and _float_signal(signals, "query_family_penalty") < 0.0:

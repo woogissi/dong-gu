@@ -357,6 +357,15 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
     existing_raw = existing_raw_document(source_type, doc_id)
     existing_curated = version_manager.load_existing_document(source_type, doc_id)
     image_text = merge_image_texts(raw_to_save.get("image_texts", []))
+    attachment_urls = [
+        attachment.get("file_url")
+        for attachment in raw_to_save.get("attachments", []) or []
+        if attachment.get("file_url")
+    ]
+    has_reusable_attachment_cache = (
+        not attachment_urls
+        or all(reusable_attachment(existing_raw, file_url) for file_url in attachment_urls)
+    )
     unchanged_without_attachment_work = (
         download_attachments
         and existing_raw is not None
@@ -364,6 +373,7 @@ def save_document_bundle(raw_doc: dict, download_attachments: bool = False) -> N
         and existing_curated.get("raw_text") == raw_to_save.get("raw_text")
         and existing_curated.get("table_text") == raw_to_save.get("table_text")
         and existing_curated.get("image_text") == image_text
+        and has_reusable_attachment_cache
     )
 
     downloaded_attachments = []

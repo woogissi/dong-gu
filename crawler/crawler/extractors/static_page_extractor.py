@@ -3,6 +3,7 @@
 import re
 import hashlib
 import os
+import ssl
 from crawler.utils.content_hash import build_content_hash
 from datetime import datetime, timezone, timedelta
 from urllib.parse import parse_qs, urljoin, urlparse, urldefrag
@@ -15,6 +16,7 @@ from crawler.config.domains import DEPARTMENT_HOSTS
 from crawler.utils.attachment_utils import dedupe_attachments_by_url
 
 import requests
+from requests.adapters import HTTPAdapter
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 
@@ -28,6 +30,18 @@ HEADERS = {
 }
 
 KST = timezone(timedelta(hours=9))
+
+
+class LegacyTLSAdapter(HTTPAdapter):
+    """Adapter for legacy DEU hosts that fail OpenSSL's default security level."""
+
+    def init_poolmanager(self, *args, **kwargs):
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        context.set_ciphers("DEFAULT:@SECLEVEL=1")
+        kwargs["ssl_context"] = context
+        return super().init_poolmanager(*args, **kwargs)
 
 SOCIAL_LINK_HOSTS = {
     "facebook.com",
@@ -360,7 +374,10 @@ class StaticPageExtractor(BaseExtractor):
                 ) from exc
             insecure_ssl_hosts = ("lib.deu.ac.kr",)
             if any(host in url for host in insecure_ssl_hosts) and os.getenv("CRAWLER_ALLOW_INSECURE_SSL") == "1":
-                res = self.session.get(url, timeout=self.timeout, verify=False)       # 도서관 사이트 SSLhandshake failure 해결
+                legacy_session = requests.Session()
+                legacy_session.headers.update(self.session.headers)
+                legacy_session.mount("https://", LegacyTLSAdapter())
+                res = legacy_session.get(url, timeout=self.timeout, verify=False)
                 res.raise_for_status()
                 return FetchResult(
                     url=url,

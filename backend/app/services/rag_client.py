@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from dataclasses import dataclass
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -30,9 +31,18 @@ class RagApiClient:
             method="POST",
         )
 
+        started = time.perf_counter()
         try:
             with urlopen(request, timeout=self.timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
+                body = response.read().decode("utf-8")
+                print(
+                    "[backend timing] "
+                    f"rag_api_call_ms={int(round((time.perf_counter() - started) * 1000))} "
+                    f"payload_bytes={len(payload)} response_bytes={len(body)} "
+                    f"query={text!r}",
+                    flush=True,
+                )
+                return json.loads(body)
         except HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")
             raise RuntimeError(f"RAG API request failed with {exc.code}: {detail}") from exc

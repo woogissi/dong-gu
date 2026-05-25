@@ -1,6 +1,11 @@
-﻿"""RAG pipeline orchestration."""
+"""RAG pipeline orchestration."""
 
+import html
+import json
 import os
+import re
+import time
+from pathlib import Path
 
 from rag.pipeline.state import PipelineState
 from rag.pipeline.preprocessor import QueryPreprocessor
@@ -32,6 +37,11 @@ _MIN_CONTEXT_CHARS_ENV_VAR = "RETRIEVAL_MIN_CONTEXT_CHARS"
 _MAX_DUPLICATE_DOC_RATIO_ENV_VAR = "RETRIEVAL_MAX_DUPLICATE_DOC_RATIO"
 _MAX_TOP_NOISE_SCORE_ENV_VAR = "RETRIEVAL_MAX_TOP_NOISE_SCORE"
 _MIN_TOP_STRONG_MATCH_ENV_VAR = "RETRIEVAL_MIN_TOP_STRONG_MATCH"
+_LOG_BRANCH_CANDIDATES_ENV_VAR = "RAG_LOG_BRANCH_CANDIDATES"
+_MAX_FALLBACK_ATTEMPTS_ENV_VAR = "RAG_MAX_FALLBACK_ATTEMPTS"
+_FALLBACK_ORDER_ENV_VAR = "RAG_FALLBACK_ORDER"
+_VECTOR_ONLY_FAMILIES_ENV_VAR = "RAG_VECTOR_ONLY_FAMILIES"
+_DISABLE_FALLBACK_FOR_MODES_ENV_VAR = "RAG_DISABLE_FALLBACK_FOR_MODES"
 _STARTUP_WARMUP_QUERY = "동의대학교 정보 안내"
 
 
@@ -51,22 +61,23 @@ class ChatPipeline:
         # generator: AnswerGenerator = None 확장
 
     def run(self, query: Query) -> Answer:
+        run_started = time.perf_counter()
         state = PipelineState.from_query(query.text)
         self.last_state = state
 
         try:
-            self._classify_primary_intent(state)
+            self._timed_stage(state, "classify_primary_intent", lambda: self._classify_primary_intent(state))
             if state.primary_intent != "INFO":
                 state.success = True
                 state.error = ""
                 return self._build_direct_answer(state)
 
-            self.preprocessor.run(state)
-            self._embed_query(state)
-            self._retrieve(state)
-            self._select_and_build_context(state)
-            self._generate(state)
-            self._postprocess(state)
+            self._timed_stage(state, "preprocess", lambda: self.preprocessor.run(state))
+            self._timed_stage(state, "embed_query", lambda: self._embed_query(state))
+            self._timed_stage(state, "retrieve", lambda: self._retrieve(state))
+            self._timed_stage(state, "select_and_build_context", lambda: self._select_and_build_context(state))
+            self._timed_stage(state, "generate_answer", lambda: self._generate(state))
+            self._timed_stage(state, "postprocess", lambda: self._postprocess(state))
             state.success = True
             state.error = ""
             return self._build_success_answer(state)
@@ -75,6 +86,53 @@ class ChatPipeline:
             state.error = str(e)
             state.fallback_used = True
             return self._build_fallback_answer(state)
+        finally:
+            state.metadata["total_run_ms"] = self._elapsed_ms(run_started)
+            self._log_timing_summary(state)
+
+    def _timed_stage(self, state: PipelineState, name: str, callback):
+        started = time.perf_counter()
+        try:
+            return callback()
+        finally:
+            state.metadata.setdefault("timings_ms", []).append(
+                {"stage": name, "elapsed_ms": self._elapsed_ms(started)}
+            )
+
+    def _elapsed_ms(self, started: float) -> int:
+        return int(round((time.perf_counter() - started) * 1000))
+
+    def _record_retrieval_timing(
+        self,
+        state: PipelineState | None,
+        *,
+        label: str,
+        mode: str,
+        count: int,
+        started: float,
+    ) -> None:
+        if state is None:
+            return
+        state.metadata.setdefault("retrieval_timings_ms", []).append(
+            {
+                "label": label,
+                "mode": mode,
+                "count": count,
+                "elapsed_ms": self._elapsed_ms(started),
+            }
+        )
+
+    def _log_timing_summary(self, state: PipelineState) -> None:
+        print(
+            "[rag timing] "
+            f"query={state.original_query!r} "
+            f"success={state.success} "
+            f"fallback_used={state.fallback_used} "
+            f"total_ms={state.metadata.get('total_run_ms')} "
+            f"stages={state.metadata.get('timings_ms', [])} "
+            f"retrieval_calls={state.metadata.get('retrieval_timings_ms', [])}",
+            flush=True,
+        )
 
     def _classify_primary_intent(self, state: PipelineState) -> None:
         state.primary_intent = self.intent_classifier.classify(state.original_query)
@@ -129,7 +187,9 @@ class ChatPipeline:
 
     def _retrieve(self, state: PipelineState) -> None:
         request = build_retrieval_request(state)
-        effective_strategy = self._effective_retrieval_strategy(request.strategy)
+        effective_strategy = self._effective_retrieval_strategy(request)
+        if effective_strategy != request.strategy:
+            request = request.model_copy(update={"strategy": effective_strategy})
         state.retrieval_strategy = effective_strategy
         state.retrieval_top_k = request.top_k
         retrieval_request_log = request.model_dump(exclude={"query_vector"})
@@ -137,16 +197,27 @@ class ChatPipeline:
         retrieval_request_log["effective_strategy"] = effective_strategy
         state.metadata["retrieval_request"] = retrieval_request_log
         state.metadata["retrieval_strategy_log"] = {**request.log_fields, "effective_strategy": effective_strategy}
-        branch_log = self._collect_branch_candidates(request)
+        branch_log = self._collect_branch_candidates(request, state)
         if branch_log:
             state.metadata["retrieval_branch_candidates"] = branch_log
-        state.retrieved_docs = retrieve_documents(
-            request=request,
+        retrieve_started = time.perf_counter()
+        state.retrieved_docs = retrieve_documents(request=request)
+        self._record_retrieval_timing(
+            state,
+            label="main",
+            mode=effective_strategy,
+            count=len(state.retrieved_docs or []),
+            started=retrieve_started,
         )
-        quality = self._evaluate_retrieval_quality(state.retrieved_docs, request.top_k)
+        quality = self._evaluate_retrieval_quality(
+            state.retrieved_docs,
+            request.top_k,
+            query=request.query,
+            keywords=request.keywords,
+        )
         state.metadata["retrieval_quality"] = quality
-        if not quality["ok"]:
-            fallback_docs, fallback_log = self._fallback_retrieve(request, quality["reason"])
+        if not quality["ok"] and not self._fallback_disabled_for_mode(effective_strategy):
+            fallback_docs, fallback_log = self._fallback_retrieve(request, quality["reason"], state)
             state.metadata["retrieval_fallback"] = fallback_log
             if fallback_docs:
                 state.fallback_used = True
@@ -161,18 +232,58 @@ class ChatPipeline:
             }
             raise NoRetrievalResultsError("관련 문서를 찾지 못했습니다.")
 
-    def _effective_retrieval_strategy(self, request_strategy: str) -> str:
+    def _effective_retrieval_strategy(self, request) -> str:
         configured_mode = os.getenv(_RETRIEVAL_MODE_ENV_VAR, "").strip().lower()
         if configured_mode in {"lexical", "vector", "hybrid"}:
             return configured_mode
-        if request_strategy == "dense":
+        query_family = ""
+        if isinstance(request.log_fields, dict):
+            query_family = str(request.log_fields.get("query_family") or "")
+        vector_only_families = set(self._csv_env(
+            _VECTOR_ONLY_FAMILIES_ENV_VAR,
+            default=[
+                "department_curriculum",
+                "building_location",
+                "welfare_facility",
+                "campus_address",
+                "person_title",
+                "course_registration",
+                "academic_schedule",
+                "seasonal_course_registration",
+                "specific_scholarship",
+                "graduation",
+                "certificate",
+            ],
+        ))
+        if query_family in vector_only_families:
             return "vector"
-        return "hybrid" if request_strategy == "lexical" else request_strategy
+        if request.strategy == "dense":
+            return "vector"
+        return "hybrid" if request.strategy == "lexical" else request.strategy
 
-    def _evaluate_retrieval_quality(self, docs: list, top_k: int) -> dict:
+    def _fallback_disabled_for_mode(self, mode: str) -> bool:
+        return mode in self._csv_env(_DISABLE_FALLBACK_FOR_MODES_ENV_VAR, default=["vector"])
+
+    def _csv_env(self, name: str, *, default: list[str]) -> list[str]:
+        raw_value = os.getenv(name, "")
+        if not raw_value.strip():
+            return default
+        return [value.strip() for value in raw_value.split(",") if value.strip()]
+
+    def _evaluate_retrieval_quality(
+        self,
+        docs: list,
+        top_k: int,
+        *,
+        query: str = "",
+        keywords: list[str] | None = None,
+    ) -> dict:
         if not docs:
             return {"ok": False, "reason": "empty_result"}
         top_docs = docs[: max(top_k or 1, 1)]
+        required_entity = self._extract_faculty_entity(query, keywords or [])
+        entity_match_count = sum(1 for doc in top_docs[:3] if self._doc_contains_entity(doc, required_entity))
+        top1_entity_match = self._doc_contains_entity(top_docs[0], required_entity) if required_entity else False
         scores = [float(doc.score or 0.0) for doc in top_docs]
         top1_score = scores[0] if scores else 0.0
         avg_topk_score = sum(scores) / len(scores) if scores else 0.0
@@ -196,6 +307,8 @@ class ChatPipeline:
             reason = "excessive_duplicate_doc_ids"
         elif top_doc_noise >= self._float_env(_MAX_TOP_NOISE_SCORE_ENV_VAR, 1.2):
             reason = "top_candidate_noise"
+        elif required_entity and entity_match_count == 0:
+            reason = "no_required_entity_match"
         elif exact_or_title_match_count == 0 and top_strong_match < self._float_env(_MIN_TOP_STRONG_MATCH_ENV_VAR, 0.05):
             reason = "no_exact_or_strong_keyword_match"
         else:
@@ -211,15 +324,19 @@ class ChatPipeline:
             "top_noise_score": max(top_noise, top_doc_noise),
             "top_strong_term_match": top_strong_match,
             "exact_or_title_match_count": exact_or_title_match_count,
+            "required_entity": required_entity,
+            "required_entity_match_count": entity_match_count,
+            "top1_required_entity_match": top1_entity_match,
         }
 
-    def _fallback_retrieve(self, request, reason: str) -> tuple[list, dict]:
+    def _fallback_retrieve(self, request, reason: str, state: PipelineState | None = None) -> tuple[list, dict]:
         original_query = ""
         variants = list(request.query_variants or [])
         if variants:
             original_query = variants[-1]
-        attempts = [
-            (
+        attempt_map = {
+            "vector_only_retry": ("vector_only_retry", request, "vector"),
+            "original_query_no_rewrite": (
                 "original_query_no_rewrite",
                 request.model_copy(
                     update={
@@ -229,28 +346,80 @@ class ChatPipeline:
                         "category": None,
                     }
                 ),
+                "hybrid",
             ),
-            ("relaxed_filters", request.model_copy(update={"filters": {}, "category": None})),
-            ("increase_top_k", request.model_copy(update={"top_k": max((request.top_k or 10) * 2, 20)})),
-            ("lexical_only_retry", request),
-            ("vector_only_retry", request),
-        ]
+            "relaxed_filters": (
+                "relaxed_filters",
+                request.model_copy(update={"filters": {}, "category": None}),
+                "hybrid",
+            ),
+            "increase_top_k": (
+                "increase_top_k",
+                request.model_copy(update={"top_k": max((request.top_k or 10) * 2, 20)}),
+                "hybrid",
+            ),
+            "lexical_only_retry": ("lexical_only_retry", request, "lexical"),
+        }
+        fallback_order = (
+            self._faculty_fallback_order()
+            if self._extract_faculty_entity(request.query, request.keywords)
+            else self._fallback_order()
+        )
+        attempts = [
+            attempt_map[name]
+            for name in fallback_order
+            if name in attempt_map
+        ][: self._max_fallback_attempts()]
         tried = []
-        for name, fallback_request in attempts:
-            mode = "lexical" if name == "lexical_only_retry" else "vector" if name == "vector_only_retry" else "hybrid"
-            docs = self._retrieve_with_mode(fallback_request, mode)
-            quality = self._evaluate_retrieval_quality(docs, fallback_request.top_k)
+        for name, fallback_request, mode in attempts:
+            docs = self._retrieve_with_mode(
+                fallback_request,
+                mode,
+                label=f"fallback_{name}",
+                state=state,
+            )
+            quality = self._evaluate_retrieval_quality(
+                docs,
+                fallback_request.top_k,
+                query=fallback_request.query,
+                keywords=fallback_request.keywords,
+            )
             tried.append({"strategy": name, "mode": mode, "count": len(docs), "quality": quality})
             if docs and quality["ok"]:
                 return docs, {"used": True, "fallback_reason": reason, "selected_strategy": name, "attempts": tried}
         return [], {"used": False, "fallback_reason": reason, "attempts": tried}
 
-    def _collect_branch_candidates(self, request) -> dict:
-        if os.getenv("RAG_LOG_BRANCH_CANDIDATES", "1").strip().lower() in {"0", "false", "off"}:
+    def _fallback_order(self) -> list[str]:
+        configured_order = [
+            value.strip()
+            for value in os.getenv(_FALLBACK_ORDER_ENV_VAR, "").split(",")
+            if value.strip()
+        ]
+        if configured_order:
+            return configured_order
+        return ["vector_only_retry", "original_query_no_rewrite", "relaxed_filters", "increase_top_k", "lexical_only_retry"]
+
+    def _faculty_fallback_order(self) -> list[str]:
+        return ["original_query_no_rewrite", "relaxed_filters", "lexical_only_retry", "vector_only_retry"]
+
+    def _max_fallback_attempts(self) -> int:
+        try:
+            value = int(os.getenv(_MAX_FALLBACK_ATTEMPTS_ENV_VAR, "1"))
+        except ValueError:
+            return 1
+        return max(0, value)
+
+    def _collect_branch_candidates(self, request, state: PipelineState | None = None) -> dict:
+        if os.getenv(_LOG_BRANCH_CANDIDATES_ENV_VAR, "0").strip().lower() in {"0", "false", "off"}:
             return {}
         branches = {}
         for name, mode in (("lexical", "lexical"), ("vector", "vector")):
-            docs = self._retrieve_with_mode(request, mode)[:5]
+            docs = self._retrieve_with_mode(
+                request,
+                mode,
+                label=f"branch_{name}",
+                state=state,
+            )[:5]
             branches[name] = [self._candidate_log_item(rank, doc) for rank, doc in enumerate(docs, start=1)]
         return branches
 
@@ -290,11 +459,118 @@ class ChatPipeline:
             for key in ("exact_phrase_score", "title_match_score", "section_match_score", "lexical_score")
         )
 
-    def _retrieve_with_mode(self, request, mode: str) -> list:
+    def _required_faculty_entity(self, state: PipelineState) -> str:
+        return self._extract_faculty_entity(
+            state.original_query,
+            [
+                *(state.keywords or []),
+                state.rewritten_query,
+                state.normalized_query,
+            ],
+        )
+
+    def _extract_faculty_entity(self, query: str, keywords: list[str] | None = None) -> str:
+        candidates = [query, *(keywords or [])]
+        joined = " ".join(str(value or "") for value in candidates).lower()
+        if not any(term in joined for term in ("교수", "교수님", "교수소개", "교수진", "faculty")):
+            return ""
+        if self._is_department_faculty_list_query(query) and not self._has_explicit_professor_name(query):
+            return ""
+        for text in candidates:
+            value = str(text or "").strip()
+            if not value:
+                continue
+            for pattern in (
+                r"([가-힣]{2,5})\s*교수(?:님)?",
+                r"교수(?:님)?\s*([가-힣]{2,5})",
+            ):
+                match = re.search(pattern, value)
+                if match and self._is_valid_faculty_entity(match.group(1)):
+                    return match.group(1)
+            if re.fullmatch(r"[가-힣]{2,5}", value) and self._is_valid_faculty_entity(value):
+                return value
+        return ""
+
+    def _has_explicit_professor_name(self, query: str) -> bool:
+        for match in re.finditer(r"([가-힣]{2,5})\s*교수(?:님)?", query or ""):
+            if self._is_valid_faculty_entity(match.group(1)):
+                return True
+        for match in re.finditer(r"교수(?:님)?\s*([가-힣]{2,5})", query or ""):
+            if self._is_valid_faculty_entity(match.group(1)):
+                return True
+        return False
+
+    def _is_valid_faculty_entity(self, value: str) -> bool:
+        candidate = str(value or "").strip()
+        if not re.fullmatch(r"[가-힣]{2,5}", candidate):
+            return False
+        if candidate in {"교수", "교수님", "정보", "목록", "소개", "교수진", "전임교수"}:
+            return False
+        return not any(marker in candidate for marker in ("학과", "전공", "학부", "대학원", "목록", "소개"))
+
+    def _faculty_query_type(self, state: PipelineState) -> str:
+        if self._required_faculty_entity(state):
+            return "single_professor"
+        if self._is_department_faculty_list_query(state.original_query):
+            return "department_faculty_list"
+        return "none"
+
+    def _is_department_faculty_list_query(self, query: str) -> bool:
+        text = re.sub(r"\s+", "", query or "").lower()
+        if not any(term in text for term in ("교수목록", "교수소개", "교수진", "전임교수")):
+            return False
+        return any(marker in text for marker in ("학과", "전공", "학부", "대학원"))
+
+    def _extract_department_faculty_name(self, query: str) -> str:
+        compact = re.sub(r"\s+", "", query or "")
+        match = re.search(r"([A-Za-z0-9가-힣&·ㆍ\-\+]+?(?:학과|전공|학부|대학원))", compact)
+        return match.group(1) if match else ""
+
+    def _doc_contains_entity(self, doc, entity: str) -> bool:
+        if not entity:
+            return False
+        text = "\n".join(
+            [
+                str(doc.title or ""),
+                str(doc.metadata.get("section_title") or ""),
+                str(doc.content or ""),
+            ]
+        )
+        return entity.lower() in text.lower()
+
+    def _is_lifelong_faculty_noise(self, doc) -> bool:
+        source_type = str(doc.metadata.get("source_type") or "").lower()
+        source = str(doc.source or "").lower()
+        title = str(doc.title or "").lower()
+        return (
+            source_type == "lifelong"
+            or "lifelong.deu.ac.kr" in source
+            or "creditbank" in source
+            or "평생교육원" in title
+            or "음악학사" in title
+        )
+
+    def _retrieve_with_mode(
+        self,
+        request,
+        mode: str,
+        *,
+        label: str | None = None,
+        state: PipelineState | None = None,
+    ) -> list:
         previous_mode = os.getenv(_RETRIEVAL_MODE_ENV_VAR)
         os.environ[_RETRIEVAL_MODE_ENV_VAR] = mode
+        started = time.perf_counter()
         try:
-            return retrieve_documents(request=request)
+            docs = retrieve_documents(request=request)
+            self._record_retrieval_timing(
+                state,
+                label=label or mode,
+                mode=mode,
+                count=len(docs or []),
+                started=started,
+            )
+            return docs
         finally:
             if previous_mode is None:
                 os.environ.pop(_RETRIEVAL_MODE_ENV_VAR, None)
@@ -321,8 +597,25 @@ class ChatPipeline:
             category=state.category,
             filters=state.filters,
         )
-        selection_result = select_topk_with_diagnostics(state.reranked_docs or state.retrieved_docs)
+        query_features = self._query_features(state)
+        query_family = query_features.get("family") if isinstance(query_features, dict) else None
+        candidate_docs = state.reranked_docs or state.retrieved_docs
+        if query_family == "department_curriculum":
+            candidate_docs = self._filter_department_curriculum_docs(state, candidate_docs)
+        if query_family in {"academic_schedule", "course_registration", "seasonal_course_registration"}:
+            candidate_docs = self._filter_canonical_notice_docs(state, candidate_docs)
+        selection_k = 3
+        max_chunks_per_doc = 4 if query_family == "department_curriculum" else 1
+        if query_family in {"academic_schedule", "course_registration", "seasonal_course_registration"}:
+            max_chunks_per_doc = 3
+        selection_result = select_topk_with_diagnostics(
+            candidate_docs,
+            k=selection_k,
+            max_chunks_per_doc=max_chunks_per_doc,
+        )
         state.selected_docs = selection_result["selected"]
+        self._correct_department_faculty_list_selection(state, candidate_docs)
+        self._correct_faculty_selection(state, candidate_docs)
         state.metadata["selection_diagnostics"] = selection_result
         state.metadata["rerank_comparison"] = self._build_rerank_comparison(state.retrieved_docs, state.reranked_docs, state.selected_docs)
         selection_quality = self._evaluate_selection_quality(state.selected_docs)
@@ -332,6 +625,159 @@ class ChatPipeline:
             retrieval_quality["selection_quality"] = selection_quality
         state.metadata["citation_trace"] = self._build_citation_trace(state.selected_docs)
         state.context = build_context(state.selected_docs)
+
+    def _correct_faculty_selection(self, state: PipelineState, candidate_docs: list) -> None:
+        required_entity = self._required_faculty_entity(state)
+        if not required_entity:
+            state.metadata.setdefault("faculty_query_type", self._faculty_query_type(state))
+            return
+
+        before_docs = list(state.selected_docs)
+        before_trace = self._compact_doc_trace(before_docs)
+        selected_matches = [doc for doc in before_docs if self._doc_contains_entity(doc, required_entity)]
+        replacement_used = False
+        if not selected_matches:
+            selected_matches = [doc for doc in candidate_docs if self._doc_contains_entity(doc, required_entity)]
+            if selected_matches:
+                replacement_used = True
+                selected_ids = {doc.chunk_id for doc in selected_matches[:3]}
+                filler_docs = [
+                    doc
+                    for doc in before_docs
+                    if doc.chunk_id not in selected_ids and not self._is_lifelong_faculty_noise(doc)
+                ]
+                state.selected_docs = [*selected_matches[:3], *filler_docs][:3]
+
+        if selected_matches:
+            original_order = {doc.chunk_id: index for index, doc in enumerate(state.selected_docs)}
+            state.selected_docs = sorted(
+                state.selected_docs,
+                key=lambda doc: (
+                    not self._doc_contains_entity(doc, required_entity),
+                    self._is_lifelong_faculty_noise(doc),
+                    original_order.get(doc.chunk_id, 999),
+                ),
+            )
+
+        after_trace = self._compact_doc_trace(state.selected_docs)
+        match_count = sum(1 for doc in state.selected_docs[:3] if self._doc_contains_entity(doc, required_entity))
+        top1_match = self._doc_contains_entity(state.selected_docs[0], required_entity) if state.selected_docs else False
+        source_correction_applied = before_trace != after_trace
+        state.metadata["required_entity"] = required_entity
+        state.metadata["faculty_query_type"] = "single_professor"
+        state.metadata["required_entity_match_count"] = match_count
+        state.metadata["top1_required_entity_match"] = top1_match
+        state.metadata["source_correction_applied"] = source_correction_applied
+        state.metadata["selected_before_correction"] = before_trace
+        state.metadata["selected_after_correction"] = after_trace
+        state.metadata["faculty_selection_correction"] = {
+            "required_entity": required_entity,
+            "replacement_used": replacement_used,
+            "source_correction_applied": source_correction_applied,
+            "match_count": match_count,
+            "top1_match": top1_match,
+        }
+        retrieval_quality = state.metadata.get("retrieval_quality")
+        if isinstance(retrieval_quality, dict):
+            retrieval_quality.update(
+                {
+                    "required_entity": required_entity,
+                    "required_entity_match_count": match_count,
+                    "top1_required_entity_match": top1_match,
+                    "source_correction_applied": source_correction_applied,
+                }
+            )
+            if match_count == 0:
+                retrieval_quality["ok"] = False
+                retrieval_quality["reason"] = "no_required_entity_match"
+            elif retrieval_quality.get("reason") == "no_required_entity_match":
+                retrieval_quality["ok"] = True
+                retrieval_quality["reason"] = ""
+
+    def _correct_department_faculty_list_selection(self, state: PipelineState, candidate_docs: list) -> None:
+        if self._faculty_query_type(state) != "department_faculty_list":
+            state.metadata.setdefault("department_faculty_list_correction_applied", False)
+            return
+
+        before_docs = list(state.selected_docs)
+        before_trace = self._compact_doc_trace(before_docs)
+        preferred_pool = [
+            *candidate_docs,
+            *(state.reranked_docs or []),
+            *(state.retrieved_docs or []),
+        ]
+        preferred_docs = []
+        seen_preferred: set[str] = set()
+        for doc in preferred_pool:
+            if doc.chunk_id in seen_preferred or not self._is_faculty_list_doc(doc):
+                continue
+            seen_preferred.add(doc.chunk_id)
+            preferred_docs.append(doc)
+        if preferred_docs:
+            preferred_ids = {doc.chunk_id for doc in preferred_docs[:3]}
+            filler_docs = [
+                doc
+                for doc in before_docs
+                if doc.chunk_id not in preferred_ids
+            ]
+            state.selected_docs = [*preferred_docs[:3], *filler_docs][:3]
+        else:
+            original_order = {doc.chunk_id: index for index, doc in enumerate(state.selected_docs)}
+            state.selected_docs = sorted(
+                state.selected_docs,
+                key=lambda doc: (
+                    not self._is_faculty_list_doc(doc),
+                    self._is_department_faculty_noise_doc(doc),
+                    original_order.get(doc.chunk_id, 999),
+                ),
+            )
+
+        after_trace = self._compact_doc_trace(state.selected_docs)
+        correction_applied = before_trace != after_trace
+        state.metadata["faculty_query_type"] = "department_faculty_list"
+        state.metadata["required_entity"] = ""
+        state.metadata["required_entity_match_count"] = 0
+        state.metadata["top1_required_entity_match"] = False
+        state.metadata["department_faculty_list_correction_applied"] = correction_applied
+        state.metadata["selected_before_correction"] = before_trace
+        state.metadata["selected_after_correction"] = after_trace
+        retrieval_quality = state.metadata.get("retrieval_quality")
+        if isinstance(retrieval_quality, dict):
+            retrieval_quality.update(
+                {
+                    "required_entity": "",
+                    "required_entity_match_count": 0,
+                    "top1_required_entity_match": False,
+                    "department_faculty_list_correction_applied": correction_applied,
+                }
+            )
+            if retrieval_quality.get("reason") == "no_required_entity_match":
+                retrieval_quality["ok"] = True
+                retrieval_quality["reason"] = ""
+
+    def _is_faculty_list_doc(self, doc) -> bool:
+        title = str(doc.title or "").lower()
+        return any(term in title for term in ("교수소개", "전임교수", "교수진"))
+
+    def _is_department_faculty_noise_doc(self, doc) -> bool:
+        title = str(doc.title or "").lower()
+        return any(
+            term in title
+            for term in ("학과사무실", "학교생활", "학사일정", "진로", "입학상담", "이수표", "교육과정")
+        )
+
+    def _compact_doc_trace(self, docs: list) -> list[dict]:
+        return [
+            {
+                "rank": rank,
+                "doc_id": doc.doc_id,
+                "chunk_id": doc.chunk_id,
+                "title": doc.title,
+                "source_url": doc.source,
+                "source_type": doc.metadata.get("source_type"),
+            }
+            for rank, doc in enumerate(docs, start=1)
+        ]
 
     def _evaluate_selection_quality(self, docs: list) -> dict:
         if not docs:
@@ -432,15 +878,847 @@ class ChatPipeline:
             return 0.0
 
     def _generate(self, state: PipelineState) -> None:
+        person_title_answer = self._build_person_title_answer(state)
+        if person_title_answer:
+            state.answer_text = person_title_answer
+            return
+        department_faculty_answer = self._build_department_faculty_list_answer(state)
+        if department_faculty_answer:
+            state.answer_text = department_faculty_answer
+            return
+        faculty_answer = self._build_faculty_answer(state)
+        if faculty_answer:
+            state.answer_text = faculty_answer
+            return
+        curriculum_answer = self._build_department_curriculum_answer(state)
+        if curriculum_answer:
+            state.answer_text = curriculum_answer
+            return
+        academic_schedule_answer = self._build_academic_schedule_answer(state)
+        if academic_schedule_answer:
+            state.answer_text = academic_schedule_answer
+            return
+        navigation_answer = self._build_navigation_fallback_answer(state)
+        if navigation_answer:
+            state.answer_text = navigation_answer
+            return
         state.prompt = build_prompt(
             query=state.original_query,
             context=state.context,
         )
         state.answer_text = generate_answer(state.prompt)
 
+    def _build_faculty_answer(self, state: PipelineState) -> str | None:
+        if self._faculty_query_type(state) != "single_professor":
+            return None
+        faculty_name = self._required_faculty_entity(state)
+        if not faculty_name:
+            return None
+        matching_docs = [
+            doc
+            for doc in state.selected_docs
+            if self._doc_contains_entity(doc, faculty_name) and not self._is_lifelong_faculty_noise(doc)
+        ]
+        if not matching_docs:
+            matching_docs = [
+                doc
+                for doc in state.selected_docs
+                if self._doc_contains_entity(doc, faculty_name)
+            ]
+        if not matching_docs:
+            return None
+
+        extracted = self._extract_faculty_fields(matching_docs[0].content or "", faculty_name)
+        if not extracted:
+            return None
+
+        source = matching_docs[0].source or "출처 없음"
+        lines = [f"{faculty_name} 교수님 정보입니다."]
+        for label, value in extracted:
+            lines.append(f"- {label}: {value}")
+        lines.append(f"출처: {source}")
+        state.metadata["faculty_answer"] = {
+            "required_entity": faculty_name,
+            "source_doc_id": matching_docs[0].doc_id,
+            "source_chunk_id": matching_docs[0].chunk_id,
+            "extracted_fields": [{"label": label, "value": value} for label, value in extracted],
+        }
+        return "\n".join(lines)
+
+    def _build_department_faculty_list_answer(self, state: PipelineState) -> str | None:
+        if self._faculty_query_type(state) != "department_faculty_list":
+            return None
+        docs = [
+            doc
+            for doc in [*(state.selected_docs or []), *(state.reranked_docs or []), *(state.retrieved_docs or [])]
+            if self._is_faculty_list_doc(doc)
+        ]
+        if not docs:
+            return None
+        seen_chunks: set[str] = set()
+        unique_docs = []
+        for doc in docs:
+            if doc.chunk_id in seen_chunks:
+                continue
+            seen_chunks.add(doc.chunk_id)
+            unique_docs.append(doc)
+
+        department_name = self._extract_department_faculty_name(state.original_query)
+        for doc in unique_docs[:5]:
+            entries = self._extract_department_faculty_entries(doc.content or "")
+            if len(entries) < 2:
+                continue
+            source = doc.source or "출처 없음"
+            title_name = department_name or self._department_name_from_title(doc.title)
+            heading = f"{title_name} 교수 목록입니다." if title_name else "교수 목록입니다."
+            lines = [heading]
+            for entry in entries[:12]:
+                details = []
+                if entry.get("field"):
+                    details.append(entry["field"])
+                if entry.get("office"):
+                    details.append(f"연구실 {entry['office']}")
+                if entry.get("phone"):
+                    details.append(f"연락처 {entry['phone']}")
+                if entry.get("email"):
+                    details.append(f"E-MAIL {entry['email']}")
+                suffix = " / ".join(details)
+                lines.append(f"- {entry['name']}: {suffix}" if suffix else f"- {entry['name']}")
+            lines.append(f"출처: {source}")
+            state.metadata["department_faculty_list_answer"] = {
+                "source_doc_id": doc.doc_id,
+                "source_chunk_id": doc.chunk_id,
+                "entry_count": len(entries),
+                "department_name": title_name,
+            }
+            return "\n".join(lines)
+        return None
+
+    def _department_name_from_title(self, title: str) -> str:
+        match = re.search(r"([A-Za-z0-9가-힣&·ㆍ\-\+]+?(?:학과|전공|학부|대학원))", title or "")
+        return match.group(1) if match else ""
+
+    def _extract_department_faculty_entries(self, content: str) -> list[dict[str, str]]:
+        normalized_content = (content or "").replace("\\n", "\n")
+        lines = [line.strip() for line in normalized_content.splitlines()]
+        lines = [line for line in lines if line and not self._is_faculty_noise_text(line)]
+        entries: list[dict[str, str]] = []
+        seen_names: set[str] = set()
+        name_indexes = []
+        for index, line in enumerate(lines):
+            match = re.match(r"^([가-힣]{2,5})\s*(?:교수님?)?$", line)
+            if not match:
+                continue
+            name = match.group(1)
+            if not self._is_valid_faculty_entity(name) or self._is_faculty_name_noise(name):
+                continue
+            previous_lines = [
+                previous
+                for previous in lines[max(0, index - 2) : index]
+                if not self._is_faculty_noise_text(previous) and not self._is_faculty_name_noise(previous)
+            ]
+            if any(re.fullmatch(r"[가-힣]{2,5}\s*교수(?:님)?", previous) for previous in previous_lines):
+                continue
+            if any(self._is_valid_faculty_entity(previous) for previous in previous_lines):
+                continue
+            lookahead = "\n".join(lines[index + 1 : min(len(lines), index + 10)])
+            if not any(term in lookahead.lower() for term in ("연구실", "연락처", "e-mail", "email", "이메일")):
+                continue
+            name_indexes.append((index, name))
+        for index, name in name_indexes:
+            if name in seen_names:
+                continue
+            seen_names.add(name)
+            window = lines[index + 1 : min(len(lines), index + 14)]
+            entry = {"name": name, "field": "", "office": "", "phone": "", "email": ""}
+            for offset, line in enumerate(window):
+                lowered = line.lower()
+                if not entry["email"]:
+                    email_match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", line)
+                    if email_match:
+                        entry["email"] = email_match.group(0)
+                if not entry["phone"]:
+                    phone_match = re.search(r"\b0\d{1,2}-\d{3,4}-\d{4}\b", line)
+                    if phone_match:
+                        entry["phone"] = phone_match.group(0)
+                if any(term in lowered for term in ("연구실", "office")) and not entry["office"]:
+                    entry["office"] = self._next_meaningful_line(window, offset)
+                elif any(term in lowered for term in ("연락처", "전화")) and not entry["phone"]:
+                    entry["phone"] = self._next_meaningful_line(window, offset)
+                elif any(term in lowered for term in ("e-mail", "email", "이메일")) and not entry["email"]:
+                    entry["email"] = self._next_meaningful_line(window, offset)
+                elif (
+                    not entry["field"]
+                    and not any(term in lowered for term in ("연구실", "연락처", "e-mail", "email", "이메일", "홈페이지", "학력", "경력"))
+                    and not self._is_valid_faculty_entity(line)
+                ):
+                    entry["field"] = line
+            entries.append(entry)
+        return entries
+
+    def _is_faculty_name_noise(self, value: str) -> bool:
+        return value in {
+            "내용",
+            "검색",
+            "검색어",
+            "검색분류선택",
+            "게시글검색",
+            "연구실",
+            "연락처",
+            "이메일",
+            "홈페이지",
+            "직위",
+            "학력",
+            "경력",
+            "강의분야",
+            "연구분야",
+            "전공명",
+            "공통교양",
+            "전공필수",
+            "전공선택",
+            "교수소개",
+        }
+
+    def _next_meaningful_line(self, lines: list[str], index: int) -> str:
+        for line in lines[index + 1 : index + 4]:
+            if line and not self._is_faculty_noise_text(line):
+                return line
+        return ""
+
+    def _extract_faculty_fields(self, content: str, faculty_name: str) -> list[tuple[str, str]]:
+        normalized_content = (content or "").replace("\\n", "\n")
+        lines = [line.strip() for line in normalized_content.splitlines()]
+        lines = [line for line in lines if line and not self._is_faculty_noise_text(line)]
+        name_indexes = [index for index, line in enumerate(lines) if faculty_name in line]
+        if not name_indexes:
+            return []
+
+        fields: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        labels = {
+            "연구실": "연구실",
+            "연락처": "연락처",
+            "e-mail": "E-MAIL",
+            "email": "E-MAIL",
+            "이메일": "E-MAIL",
+            "연구 분야": "연구 분야",
+            "연구분야": "연구 분야",
+            "강의분야": "강의 분야",
+            "직위": "직위",
+        }
+
+        def add(label: str, value: str) -> None:
+            clean_value = re.sub(r"\s+", " ", value).strip(" :-|")
+            if not clean_value or clean_value == label or label in seen or self._is_faculty_noise_text(clean_value):
+                return
+            seen.add(label)
+            fields.append((label, clean_value))
+
+        for name_index in name_indexes[:2]:
+            window = lines[name_index : min(len(lines), name_index + 40)]
+            if len(window) > 1:
+                first_detail = window[1]
+                if (
+                    not self._is_faculty_noise_text(first_detail)
+                    and not any(marker in first_detail.lower() for marker in labels)
+                    and "교수" not in first_detail
+                ):
+                    add("연구 분야", first_detail)
+            for offset, line in enumerate(window):
+                lowered = line.lower()
+                for marker, label in labels.items():
+                    if marker not in lowered:
+                        continue
+                    inline = re.split(r"[:：|]", line, maxsplit=1)
+                    if len(inline) == 2 and inline[1].strip():
+                        add(label, inline[1])
+                        continue
+                    for next_line in window[offset + 1 : offset + 4]:
+                        if next_line and not any(other in next_line.lower() for other in labels):
+                            add(label, next_line)
+                            break
+            if fields:
+                break
+
+        if not any(label == "E-MAIL" for label, _ in fields):
+            match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "\n".join(lines))
+            if match:
+                add("E-MAIL", match.group(0))
+        if not any(label == "연락처" for label, _ in fields):
+            match = re.search(r"\b0\d{1,2}-\d{3,4}-\d{4}\b", "\n".join(lines))
+            if match:
+                add("연락처", match.group(0))
+        return fields[:6]
+
+    def _is_faculty_noise_text(self, value: str) -> bool:
+        text = re.sub(r"\s+", " ", str(value or "")).strip().lower()
+        if not text:
+            return True
+        noise_values = {
+            "[title]",
+            "[body]",
+            "[attachment]",
+            "content",
+            "body",
+            "게시글 검색",
+            "검색분류선택",
+            "검색어",
+            "검색",
+            "홈페이지",
+            "닫기",
+            "교수소개",
+            "외래교수소개",
+            "겸임교수소개",
+            "전임교수소개",
+        }
+        return text in noise_values
+
+    def _build_navigation_fallback_answer(self, state: PipelineState) -> str | None:
+        query = state.original_query or ""
+        if not state.selected_docs:
+            return None
+        if any(term in query for term in ("조직도", "조직", "부서")):
+            doc = self._first_selected_doc_matching(
+                state,
+                title_terms=("조직도",),
+                source_terms=("deu-organization",),
+                source_types=("institution",),
+            )
+            if doc:
+                source = doc.source or "출처 없음"
+                return (
+                    "동의대학교 조직도는 공식 조직도 페이지에서 확인할 수 있습니다. "
+                    "부서별 조직 관계와 담당 조직을 보려면 아래 출처의 조직도 문서를 참고해 주세요.\n"
+                    f"출처: {source}"
+                )
+        if any(term in query for term in ("분실물", "분실", "lost")):
+            doc = self._first_selected_doc_matching(
+                state,
+                title_terms=("분실물", "분실물센터", "분실물신고"),
+                source_terms=("deu-lostfound", "lostproperty"),
+                source_types=("lostfound", "library"),
+            )
+            if doc:
+                source = doc.source or "출처 없음"
+                if "lib.deu.ac.kr" in source:
+                    return (
+                        "도서관 분실물은 중앙도서관 분실물신고 게시판에서 확인할 수 있습니다. "
+                        "습득물 목록이나 신고 글은 아래 출처의 게시판을 확인해 주세요.\n"
+                        f"출처: {source}"
+                    )
+                return (
+                    "동의대학교 분실물은 공식 분실물센터 게시판에서 확인할 수 있습니다. "
+                    "분실물 조회나 신고는 아래 출처의 게시판을 이용해 주세요.\n"
+                    f"출처: {source}"
+                )
+        return None
+
+    def _first_selected_doc_matching(
+        self,
+        state: PipelineState,
+        *,
+        title_terms: tuple[str, ...] = (),
+        source_terms: tuple[str, ...] = (),
+        source_types: tuple[str, ...] = (),
+    ):
+        for doc in state.selected_docs:
+            title = doc.title or ""
+            source = doc.source or ""
+            source_type = str(doc.metadata.get("source_type") or "")
+            if title_terms and any(term in title for term in title_terms):
+                return doc
+            if source_terms and any(term in source for term in source_terms):
+                return doc
+            if source_types and source_type in source_types:
+                return doc
+        return None
+
+    def _build_person_title_answer(self, state: PipelineState) -> str | None:
+        query_features = self._query_features(state)
+        if not isinstance(query_features, dict) or query_features.get("family") != "person_title":
+            return None
+        ordinal = self._extract_president_ordinal(state.original_query)
+        if ordinal is None:
+            return None
+        president_docs = [
+            doc
+            for doc in state.selected_docs
+            if "총장" in (doc.title or "") and ("역대" in (doc.title or "") or "역대" in (doc.content or ""))
+        ]
+        if not president_docs:
+            return None
+        for doc in president_docs:
+            parsed = self._extract_president_entry(doc.content or "", ordinal)
+            if not parsed:
+                parsed = self._extract_president_entry_from_raw_html(doc.doc_id, ordinal)
+            if not parsed:
+                parsed = self._extract_president_entry_from_reference(doc.doc_id, ordinal)
+            if parsed:
+                source = doc.source or "출처 없음"
+                detail = self._format_president_detail(parsed.get("period") or "")
+                return f"동의대학교 제{ordinal}대 총장은 {parsed['name']}입니다.{detail}\n출처: {source}"
+        return None
+
+    def _extract_president_ordinal(self, query: str) -> int | None:
+        match = re.search(r"(?:제\s*)?(\d{1,2})\s*대\s*총장|(\d{1,2})\s*번째\s*총장", query or "")
+        if not match:
+            return None
+        value = match.group(1) or match.group(2)
+        try:
+            ordinal = int(value)
+        except (TypeError, ValueError):
+            return None
+        return ordinal if 1 <= ordinal <= 50 else None
+
+    def _format_president_detail(self, value: str) -> str:
+        detail = re.sub(r"\s+", " ", value or "").strip()
+        if not detail:
+            return ""
+        label = "재임기간" if re.search(r"(?:19|20)\d{2}", detail) else "추가 정보"
+        return f" {label}: {detail}."
+
+    def _extract_president_entry(self, text: str, ordinal: int) -> dict[str, str] | None:
+        lines = [re.sub(r"\s+", " ", line).strip(" |") for line in (text or "").splitlines()]
+        lines = [line for line in lines if line]
+        marker = rf"(?:제\s*)?(?<!\d){ordinal}\s*대(?!\d)"
+        for index, line in enumerate(lines):
+            if not re.search(marker, line):
+                continue
+            window = " ".join(lines[index : index + 4])
+            parsed = self._parse_president_window(window, ordinal)
+            if parsed:
+                return parsed
+        compact_text = re.sub(r"\s+", " ", text or "")
+        for match in re.finditer(marker, compact_text):
+            window = compact_text[match.start() : min(len(compact_text), match.start() + 180)]
+            parsed = self._parse_president_window(window, ordinal)
+            if parsed:
+                return parsed
+        return None
+
+    def _parse_president_window(self, text: str, ordinal: int) -> dict[str, str] | None:
+        marker = rf"(?:제\s*)?(?<!\d){ordinal}\s*대(?!\d)"
+        pattern = re.compile(
+            marker
+            + r"\s*(?:총장)?\s*"
+            + r"(?P<name>[가-힣]{2,5}(?:\([^)]+\))?)"
+            + r"(?:\s+(?P<period>(?:19|20)\d{2}[.\-~\s년월일]*(?:19|20)?\d{0,4}[.\-~\s년월일]*))?"
+        )
+        match = pattern.search(text)
+        if not match:
+            adjacent_pattern = re.compile(
+                marker
+                + r".{0,80}?"
+                + r"(?P<name>[가-힣]{2,5}(?:\([^)]+\))?)"
+                + r"(?:.{0,20}?(?P<period>(?:19|20)\d{2}[.\-~\s년월일]*(?:19|20)?\d{0,4}[.\-~\s년월일]*))?"
+            )
+            match = adjacent_pattern.search(text)
+        if not match:
+            return None
+        name = (match.group("name") or "").strip()
+        if name in {"총장", "역대총장", "동의대", "동의대학교"}:
+            return None
+        period = re.sub(r"\s+", " ", (match.group("period") or "").strip(" .-~"))
+        return {"name": name, "period": period}
+
+    def _extract_president_entry_from_raw_html(self, doc_id: str, ordinal: int) -> dict[str, str] | None:
+        raw_html = self._load_raw_static_html(doc_id)
+        if not raw_html:
+            return None
+        subject_pattern = rf"(?:제\s*)?(?<!\d){ordinal}\s*대(?!\d)(?:\s*[\u00b7&]\s*\d+\s*대)?\s*(?:총장|학장)"
+        item_pattern = re.compile(
+            r"<li\b[^>]*>.*?"
+            r"<strong[^>]*class=[\"'][^\"']*subject[^\"']*[\"'][^>]*>(?P<subject>.*?)</strong>.*?"
+            r"<span[^>]*class=[\"'][^\"']*nm[^\"']*[\"'][^>]*>(?P<name>.*?)</span>.*?"
+            r"(?:<span[^>]*class=[\"'][^\"']*nm-info[^\"']*[\"'][^>]*>(?P<info>.*?)</span>)?",
+            re.IGNORECASE | re.DOTALL,
+        )
+        for match in item_pattern.finditer(raw_html):
+            subject = self._html_to_text(match.group("subject"))
+            if not re.search(subject_pattern, subject):
+                continue
+            name = self._html_to_text(match.group("name"))
+            info = self._html_to_text(match.group("info") or "")
+            if not name:
+                return None
+            return {"name": name, "period": info}
+        return None
+
+    def _load_raw_static_html(self, doc_id: str) -> str | None:
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", doc_id or ""):
+            return None
+        base_dir = Path("crawler/crawler/data/raw/html")
+        if not base_dir.exists():
+            return None
+        for path in base_dir.rglob(f"{doc_id}.html"):
+            try:
+                return path.read_text(encoding="utf-8")
+            except OSError:
+                return None
+        return None
+
+    def _html_to_text(self, value: str) -> str:
+        text = re.sub(r"<[^>]+>", " ", value or "")
+        text = html.unescape(text)
+        return re.sub(r"\s+", " ", text).strip()
+
+    def _extract_president_entry_from_reference(self, doc_id: str, ordinal: int) -> dict[str, str] | None:
+        resource_path = Path(__file__).resolve().parents[1] / "resources" / "deu_presidents.json"
+        try:
+            records = json.loads(resource_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(records, list):
+            return None
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+            doc_ids = record.get("doc_ids") or []
+            ordinals = record.get("ordinals") or []
+            if doc_id not in doc_ids or ordinal not in ordinals:
+                continue
+            name = str(record.get("name") or "").strip()
+            info = str(record.get("info") or "").strip()
+            if name:
+                return {"name": name, "period": info}
+        return None
+
+    def _build_department_curriculum_answer(self, state: PipelineState) -> str | None:
+        query_features = self._query_features(state)
+        if not isinstance(query_features, dict) or query_features.get("family") != "department_curriculum":
+            return None
+        department_name = self._extract_department_name(state.original_query, state.keywords)
+        year = self._extract_curriculum_year(state.original_query)
+        if not department_name:
+            return None
+
+        matching_docs = [
+            doc
+            for doc in state.selected_docs
+            if department_name in (doc.title or "") and self._is_curriculum_title(doc.title or "")
+        ]
+        if not matching_docs:
+            return None
+        if not year:
+            source = matching_docs[0].source or "출처 없음"
+            return f"{department_name} 이수표는 아래 출처에서 확인할 수 있습니다.\n출처: {source}"
+
+        combined = "\n".join(doc.content or "" for doc in matching_docs)
+        block = self._extract_curriculum_year_block(combined, year, department_name)
+        courses = self._extract_curriculum_courses(block)
+        if not courses:
+            return None
+
+        display_courses = ", ".join(courses[:12])
+        source = matching_docs[0].source or "출처 없음"
+        return (
+            f"{department_name} 이수표 기준 {year}학년 교육과정에는 다음 과목들이 확인됩니다.\n"
+            f"- {display_courses}\n"
+            "PDF 표 추출 특성상 학기 구분은 원본 이수표에서 함께 확인하는 것이 좋습니다.\n"
+            f"출처: {source}"
+        )
+
+    def _build_academic_schedule_answer(self, state: PipelineState) -> str | None:
+        query_features = self._query_features(state)
+        if not isinstance(query_features, dict) or query_features.get("family") != "academic_schedule":
+            return None
+        if "보강" not in state.original_query:
+            return None
+        semester = self._extract_semester_label(state.original_query)
+        if not semester:
+            return None
+
+        combined_text = "\n".join(doc.content or "" for doc in state.selected_docs)
+        block = self._extract_semester_schedule_block(combined_text, semester)
+        rows = self._extract_makeup_schedule_rows(block or combined_text)
+        if not rows:
+            return None
+
+        source = next((doc.source for doc in state.selected_docs if doc.source), "출처 없음")
+        lines = [f"{semester} 보강일정은 다음과 같습니다."]
+        for date, detail in rows[:8]:
+            lines.append(f"- {date}: {detail}")
+        lines.append(f"출처: {source}")
+        return "\n".join(lines)
+
+    def _extract_semester_label(self, query: str) -> str | None:
+        semester_match = re.search(r"([12])\s*학기", query or "")
+        if not semester_match:
+            return None
+        year_match = re.search(r"(20\d{2}|\d{2})\s*년?", query or "")
+        year = "2026"
+        if year_match:
+            year_digits = re.sub(r"\D", "", year_match.group(1))
+            year = f"20{year_digits}" if len(year_digits) == 2 else year_digits[:4]
+        return f"{year}년 {semester_match.group(1)}학기"
+
+    def _extract_semester_schedule_block(self, text: str, semester: str) -> str:
+        if not text or semester not in text:
+            return text
+        candidates: list[tuple[int, str]] = []
+        for match in re.finditer(re.escape(semester), text):
+            start = match.start()
+            next_match = re.search(r"20\d{2}년\s+[12]학기", text[start + len(semester) :])
+            end = start + len(semester) + next_match.start() if next_match else len(text)
+            block = text[start:end]
+            candidates.append((block.count("지정보강일"), block))
+        if not candidates:
+            return text
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        return candidates[0][1]
+
+    def _extract_makeup_schedule_rows(self, text: str) -> list[tuple[str, str]]:
+        rows: list[tuple[str, str]] = []
+        previous_date = ""
+        date_pattern = re.compile(r"^\s*(\d{1,2}월\s+\d{1,2}일|\d{1,2}일)\s*(?:\||$)")
+        for raw_line in (text or "").splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            table_match = re.match(r"^(\d{1,2}월\s+\d{1,2}일|\d{1,2}일)\s*\|\s*(지정보강일.+)$", line)
+            if table_match:
+                rows.append((table_match.group(1), table_match.group(2).strip()))
+                previous_date = table_match.group(1)
+                continue
+            date_match = date_pattern.match(line)
+            if date_match and "지정보강일" not in line:
+                previous_date = date_match.group(1)
+                continue
+            if "지정보강일" in line:
+                detail = line.split("|", 1)[-1].strip()
+                rows.append((previous_date or "일자 확인 필요", detail))
+
+        deduped: list[tuple[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+        for row in rows:
+            if row in seen:
+                continue
+            seen.add(row)
+            deduped.append(row)
+        return deduped
+
+    def _query_features(self, state: PipelineState) -> dict:
+        query_understanding = state.metadata.get("query_understanding", {})
+        if not isinstance(query_understanding, dict):
+            return {}
+        query_features = query_understanding.get("query_features", {})
+        return query_features if isinstance(query_features, dict) else {}
+
+    def _extract_department_name(self, query: str, keywords: list[str] | None = None) -> str | None:
+        candidates = [query, *(keywords or [])]
+        for text in candidates:
+            for match in re.finditer(r"[가-힣A-Za-z0-9·&]+학과", text or ""):
+                value = match.group(0)
+                if len(value) >= 3:
+                    return value
+        return None
+
+    def _extract_curriculum_year(self, query: str) -> int | None:
+        match = re.search(r"([1-4])\s*학년", query or "")
+        return int(match.group(1)) if match else None
+
+    def _is_curriculum_title(self, title: str) -> bool:
+        return "이수표" in title and "교육과정" in title
+
+    def _extract_department_name(self, query: str, keywords: list[str] | None = None) -> str | None:
+        candidates = [query, *(keywords or [])]
+        for text in candidates:
+            for match in re.finditer(r"[A-Za-z0-9가-힣·ㆍ&\-\+]+?학과", text or ""):
+                value = match.group(0)
+                if len(value) >= 3:
+                    return value
+        return None
+
+    def _extract_curriculum_year(self, query: str) -> int | None:
+        match = re.search(r"([1-4])\s*학년", query or "")
+        return int(match.group(1)) if match else None
+
+    def _is_curriculum_title(self, title: str) -> bool:
+        return "이수표" in title and "교육과정" in title
+
+    def _filter_department_curriculum_docs(self, state: PipelineState, docs: list) -> list:
+        department_name = self._extract_department_name(state.original_query, state.keywords)
+        if not department_name:
+            return docs
+
+        exact_docs = [
+            doc
+            for doc in docs
+            if department_name in (doc.title or "") and self._is_curriculum_title(doc.title or "")
+        ]
+        if exact_docs:
+            state.metadata["department_curriculum_selection"] = {
+                "department_name": department_name,
+                "filtered_to_exact_department": True,
+                "candidate_count": len(exact_docs),
+            }
+            return exact_docs
+
+        state.metadata["department_curriculum_selection"] = {
+            "department_name": department_name,
+            "filtered_to_exact_department": False,
+            "candidate_count": len(docs),
+        }
+        return docs
+
+    def _filter_canonical_notice_docs(self, state: PipelineState, docs: list) -> list:
+        canonical_docs = [
+            doc
+            for doc in docs
+            if doc.metadata.get("is_canonical_notice") or doc.metadata.get("canonical_source_supplement")
+        ]
+        if not canonical_docs:
+            state.metadata["canonical_notice_selection"] = {
+                "filtered_to_canonical": False,
+                "candidate_count": len(docs),
+            }
+            return docs
+        filtered = [
+            doc
+            for doc in docs
+            if doc in canonical_docs or str(doc.metadata.get("source_type") or "").lower() != "department"
+        ]
+        state.metadata["canonical_notice_selection"] = {
+            "filtered_to_canonical": True,
+            "canonical_count": len(canonical_docs),
+            "candidate_count": len(filtered),
+        }
+        return filtered or canonical_docs
+
+    def _extract_curriculum_year_block(self, text: str, year: int, department_name: str) -> str:
+        text = text or ""
+        mentoring_block = self._extract_mentoring_year_block(text, year)
+        if mentoring_block and self._extract_curriculum_courses(mentoring_block):
+            return mentoring_block
+
+        starts: list[int] = []
+        year_line_pattern = rf"(?:^|\n)\s*{year}\s+(?!학\s*기)"
+        starts.extend(match.start() for match in re.finditer(year_line_pattern, text))
+        starts.extend(match.start() for match in re.finditer(rf"{year}\s*학년", text))
+        if not starts:
+            return text
+
+        department_stem = department_name.removesuffix("학과")
+        candidates: list[tuple[int, int, str]] = []
+        for start in sorted(set(starts)):
+            next_years = [
+                match.start()
+                for next_year in range(year + 1, 5)
+                for match in re.finditer(rf"(?:^|\n)\s*{next_year}\s+(?!학\s*기)", text[start + 1 :])
+            ]
+            end = start + 1 + min(next_years) if next_years else min(len(text), start + 2200)
+            block = text[start:end]
+            course_count = len(self._extract_curriculum_courses(block))
+            department_bonus = 2 if department_stem and department_stem in block else 0
+            candidates.append((course_count + department_bonus, -start, block))
+
+        candidates.sort(reverse=True)
+        return candidates[0][2] if candidates else text
+
+    def _extract_mentoring_year_block(self, text: str, year: int) -> str | None:
+        mentoring_starts = {
+            1: "지도교수멘토링Ⅰ",
+            2: "지도교수멘토링Ⅲ",
+            3: "지도교수멘토링Ⅴ",
+            4: "지도교수멘토링Ⅶ",
+        }
+        mentoring_next = {
+            1: "지도교수멘토링Ⅲ",
+            2: "지도교수멘토링Ⅴ",
+            3: "지도교수멘토링Ⅶ",
+        }
+        marker = mentoring_starts.get(year)
+        if not marker:
+            return None
+        start = text.find(marker)
+        if start < 0:
+            return None
+        next_marker = mentoring_next.get(year)
+        end = text.find(next_marker, start + len(marker)) if next_marker else -1
+        if end < 0:
+            end = min(len(text), start + 2200)
+        return text[start:end]
+
+    def _extract_curriculum_courses(self, text: str) -> list[str]:
+        courses: list[str] = []
+        seen: set[str] = set()
+        pattern = re.compile(r"\b\d{6}\s+(.+?)\s+\d+(?:\.\d+)?\s+\d+\.\d+/\d+\.\d+")
+        for match in pattern.finditer(text):
+            name = re.sub(r"\s+", " ", match.group(1)).strip(" /")
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            courses.append(name)
+        for name in self._extract_curriculum_courses_without_codes(text):
+            if name in seen:
+                continue
+            seen.add(name)
+            courses.append(name)
+        return courses
+
+    def _extract_curriculum_courses_without_codes(self, text: str) -> list[str]:
+        courses: list[str] = []
+        seen: set[str] = set()
+        stopwords = {
+            "학년",
+            "이수구분",
+            "교과목명",
+            "학점",
+            "시간",
+            "이론",
+            "실습",
+            "공통교양",
+            "전공필수",
+            "전공선택",
+            "계열교양",
+            "균형교양",
+            "자율교양",
+        }
+
+        def add(name: str) -> None:
+            clean = re.sub(r"\s+", " ", name).strip(" -|/")
+            clean = re.sub(r"^(공통교양|전공필수|전공선택|계열교양|균형교양|자율교양)\s+", "", clean)
+            if not clean or clean in stopwords or clean in seen:
+                return
+            if re.fullmatch(r"[\d.]+", clean):
+                return
+            if len(clean) < 2:
+                return
+            seen.add(clean)
+            courses.append(clean)
+
+        for line in (text or "").splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if "|" in stripped:
+                cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+                for index, cell in enumerate(cells[:-1]):
+                    if re.fullmatch(r"\d+(?:\.\d+)?", cells[index + 1] or ""):
+                        add(cell)
+                continue
+
+            plain_pattern = re.compile(
+                r"([가-힣A-Za-z0-9()·/ⅠⅡⅢⅣⅤⅥⅦⅧ-][가-힣A-Za-z0-9()·/ⅠⅡⅢⅣⅤⅥⅦⅧ\s-]{1,}?)\s+"
+                r"\d+(?:\.\d+)?(?:\s+\d+(?:\.\d+)?){1,2}"
+            )
+            for match in plain_pattern.finditer(stripped):
+                add(match.group(1))
+        return courses
+
     def _postprocess(self, state: PipelineState) -> None:
-        # : response validation / polishing
-        pass
+        state.answer_text = self._strip_markdown_formatting(state.answer_text)
+
+    def _strip_markdown_formatting(self, text: str) -> str:
+        if not text:
+            return text
+        cleaned = text.replace("```", "")
+        cleaned = re.sub(r"^\s{0,3}#{1,6}\s*", "", cleaned, flags=re.MULTILINE)
+        cleaned = re.sub(r"\*\*(.*?)\*\*", r"\1", cleaned)
+        cleaned = re.sub(r"__(.*?)__", r"\1", cleaned)
+        cleaned = re.sub(r"`([^`]+)`", r"\1", cleaned)
+        cleaned = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"\1 (\2)", cleaned)
+        return cleaned.strip()
 
     def _build_success_answer(self, state: PipelineState) -> Answer:
         return Answer(

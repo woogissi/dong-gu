@@ -155,6 +155,7 @@ _PROTECTED_KEYWORDS = {
     "기말시험",
     "보강일정",
 }
+_BROAD_SYNONYM_EXPANSIONS = {"국가장학", "교내장학", "근로장학"}
 
 
 def _extract_aho_keywords(query: str) -> list[str]:
@@ -169,6 +170,8 @@ def _apply_synonym_filter(query: str) -> str:
     synonyms: dict[str, None] = {}
     for match in _longest_non_overlapping_matches(query, _KEYWORD_AUTOMATON):
         for synonym in _SYNONYMS.get(match, ()):
+            if synonym in _BROAD_SYNONYM_EXPANSIONS:
+                continue
             if synonym not in query:
                 synonyms[synonym] = None
 

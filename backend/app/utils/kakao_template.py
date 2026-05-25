@@ -68,17 +68,17 @@ def kakao_mixed_response(
             "outputs": [
                 {
                     "simpleText": {
-                        "text": (text or "답변을 생성하지 못했습니다.")[:500]
+                        "text": (text or "\ub2f5\ubcc0\uc744 \uc0dd\uc131\ud558\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.")[:500]
                     }
                 },
                 {
                     "textCard": {
-                        "title": (title or "동의대학교 안내")[:50],
-                        "description": "자세한 내용은 아래 버튼을 통해 확인해주세요.",
+                        "title": (title or "\ub3d9\uc758\ub300\ud559\uad50 \uc548\ub0b4")[:50],
+                        "description": "\uc790\uc138\ud55c \ub0b4\uc6a9\uc740 \uc544\ub798 \ubc84\ud2bc\uc5d0\uc11c \ud655\uc778\ud574 \uc8fc\uc138\uc694.",
                         "buttons": [
                             {
                                 "action": "webLink",
-                                "label": "사이트 바로가기",
+                                "label": "\uc0ac\uc774\ud2b8 \ubc14\ub85c\uac00\uae30",
                                 "webLinkUrl": link_url or "https://www.deu.ac.kr/"
                             }
                         ]

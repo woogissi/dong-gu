@@ -21,7 +21,7 @@ KEYWORD_STRATEGY = "lexical"
 _CATEGORY_DOCUMENT_HINTS: dict[str, list[str]] = {
     "학사": ["academic_notice"],
     "수강": ["academic_notice"],
-    "장학": ["notice"],
+    "장학": ["scholarship", "notice"],
     "등록": ["notice", "academic_notice"],
     "졸업": ["academic_notice"],
     "휴학": ["academic_notice"],
@@ -46,7 +46,9 @@ def build_retrieval_request(state: PipelineState) -> RetrievalRequest:
     filters = _normalize_filters(state.filters)
     filters, dropped_filters = sanitize_filters(filters)
     query_features = extract_query_features(query, state.keywords)
-    category = query_features.category or state.category or _first_value(filters.get("category", []))
+    if query_features.source_boosts and query_features.family != "course_registration":
+        filters["document_category"] = list(query_features.source_boosts)
+    category = state.category or query_features.category or _first_value(filters.get("category", []))
     top_k = state.retrieval_top_k or DEFAULT_TOP_K
     fallback_triggers = _fallback_triggers(
         query=query,

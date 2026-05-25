@@ -1,6 +1,7 @@
 # crawler/run/run_static_discovery.py
 
 import argparse
+import json
 import os
 import time
 
@@ -50,6 +51,56 @@ def merge_image_texts(image_texts: list[dict]) -> str | None:
     return merged if merged else None
 
 
+def existing_raw_document(source_type: str, doc_id: str) -> dict | None:
+    path = RAW_DOC_DIR / source_type / f"{doc_id}.json"
+    if not path.exists():
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else None
+    except Exception as exc:
+        log_error(f"[RAW CACHE READ ERROR] doc_id={doc_id} path={path.as_posix()} error={exc}")
+        return None
+
+
+def merge_attachment_texts(downloaded_attachments: list[dict]) -> str | None:
+    texts = []
+    for item in downloaded_attachments or []:
+        attachment_text = item.get("attachment_text")
+        if not attachment_text:
+            continue
+        file_name = item.get("file_name") or item.get("source_url") or "attachment"
+        texts.append(f"[ATTACHMENT: {file_name}]\n{attachment_text}")
+    merged = "\n\n".join(texts).strip()
+    return merged if merged else None
+
+
+def restore_existing_attachment_payload(raw_doc: dict) -> None:
+    if raw_doc.get("attachment_text"):
+        return
+
+    source_type = raw_doc["source_type"]
+    doc_id = raw_doc["doc_id"]
+    existing_raw = existing_raw_document(source_type, doc_id)
+    existing_curated = version_manager.load_existing_document(source_type, doc_id)
+
+    if existing_raw and not raw_doc.get("downloaded_attachments"):
+        downloaded_attachments = existing_raw.get("downloaded_attachments", []) or []
+        if downloaded_attachments:
+            raw_doc["downloaded_attachments"] = downloaded_attachments
+            if not raw_doc.get("attachments"):
+                raw_doc["attachments"] = existing_raw.get("attachments", [])
+
+    attachment_text = merge_attachment_texts(raw_doc.get("downloaded_attachments", []))
+    if not attachment_text and existing_curated:
+        attachment_text = existing_curated.get("attachment_text")
+
+    if attachment_text:
+        raw_doc["attachment_text"] = attachment_text
+        print(f"[ATTACH RESTORE] doc_id={doc_id} source=existing_artifact text_len={len(attachment_text)}")
+
+
 def build_curated_document(raw_doc: dict, version: int) -> dict:      # raw 정적 문서를 curated 문서로 바꾸는 함수
     normalize = text_cleaner.build_clean_text(         # full_pipeline 보다 더 정제 열심히
         raw_text=raw_doc["raw_text"],
@@ -84,6 +135,7 @@ def save_static_document(raw_doc: dict) -> None:        # 문서의 source_type�
     doc_id = raw_doc["doc_id"]
 
     raw_to_save, raw_path, _html_path = document_store.prepare_raw_document(raw_doc)
+    restore_existing_attachment_payload(raw_to_save)
     image_text = merge_image_texts(raw_to_save.get("image_texts", []))
 
     raw_to_save["content_hash"] = build_content_hash(

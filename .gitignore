@@ -2,6 +2,27 @@
 __pycache__/
 *.pyc
 .venv/
+
+# Local/editor state
+.vscode/
+
+# Runtime logs and generated diagnostics
+*.log
+rag_quality_diagnosis*.json
+reports/
+
+# Local database backups and migration snapshots
+backups/
+*.dump
+*.backup
+*.bak
+*.sql.gz
+
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+
 docs/*
 AGENTS.md
 crawler/data/

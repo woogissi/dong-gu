@@ -1,4 +1,4 @@
-"""Answer generation through a local Ollama Llama model."""
+"""Answer generation through the configured LLM provider."""
 
 from __future__ import annotations
 
@@ -8,17 +8,73 @@ import re
 import urllib.error
 import urllib.request
 
+_DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+_DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 _DEFAULT_OLLAMA_BASE_URL = "http://host.docker.internal:11434"
 _DEFAULT_LLAMA_MODEL = "llama3.2:3b"
 _DEFAULT_TIMEOUT_SECONDS = 90
+_DEFAULT_MAX_TOKENS = 512
 _DEFAULT_NUM_PREDICT = 256
 
 
 def generate_answer(prompt: str) -> str:
     try:
-        return _generate_with_ollama(prompt)
+        return _generate_with_provider(prompt)
     except Exception as exc:
         return _build_extractive_fallback(prompt, error=str(exc))
+
+
+def _generate_with_provider(prompt: str) -> str:
+    provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
+    if provider == "openai":
+        return _generate_with_openai(prompt)
+    if provider == "ollama":
+        return _generate_with_ollama(prompt)
+    raise RuntimeError(f"Unsupported LLM_PROVIDER: {provider}")
+
+
+def _generate_with_openai(prompt: str) -> str:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is not set.")
+
+    base_url = os.getenv("OPENAI_BASE_URL", _DEFAULT_OPENAI_BASE_URL).rstrip("/")
+    model = os.getenv("OPENAI_MODEL", _DEFAULT_OPENAI_MODEL)
+    timeout = float(os.getenv("OPENAI_TIMEOUT_SECONDS", str(_DEFAULT_TIMEOUT_SECONDS)))
+    max_tokens = int(os.getenv("OPENAI_MAX_TOKENS", str(_DEFAULT_MAX_TOKENS)))
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "max_tokens": max_tokens,
+    }
+    request = urllib.request.Request(
+        url=f"{base_url}/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            response_payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"OpenAI HTTP {exc.code}: {body}") from exc
+
+    choices = response_payload.get("choices", [])
+    if not choices:
+        raise RuntimeError("OpenAI returned no choices.")
+    message = choices[0].get("message", {})
+    answer = str(message.get("content", "")).strip()
+    if not answer:
+        raise RuntimeError("OpenAI returned an empty response.")
+    return answer
 
 
 def _generate_with_ollama(prompt: str) -> str:
@@ -80,7 +136,7 @@ def _build_extractive_fallback(prompt: str, *, error: str) -> str:
         return "제공된 문서에서 관련 정보를 찾지 못했습니다."
 
     answer = "\n".join(f"- {sentence.strip()}" for sentence in selected)
-    return f"{answer}\n\n(테스트용 fallback: Llama 연결 실패 - {error})"
+    return f"{answer}\n\n(텍스트 fallback: LLM 연결 실패 - {error})"
 
 
 def _extract_section(prompt: str, section_name: str) -> str:
@@ -104,7 +160,7 @@ def _split_sentences(text: str) -> list[str]:
         if _is_content_line(line.strip())
     ]
     normalized = re.sub(r"\s+", " ", " ".join(content_lines))
-    chunks = re.split(r"(?<=[.!?。])\s+|(?<=다)\s+", normalized)
+    chunks = re.split(r"(?<=[.!?。])\s+|(?<=다\.)\s+", normalized)
     return [chunk.strip(" -")[:240] for chunk in chunks if len(chunk.strip()) >= 20]
 
 
@@ -116,10 +172,16 @@ def _is_content_line(line: str) -> bool:
         "[TITLE]",
         "[BODY]",
         "[ATTACHMENT]",
-        "제목:",
-        "출처:",
-        "게시일:",
-        "내용:",
+        "title:",
+        "source_url:",
+        "source_type:",
+        "content_type:",
+        "published_at:",
+        "scores:",
+        "chunk_id:",
+        "doc_id:",
+        "section:",
+        "content:",
     )
     if line in {"body"}:
         return False

@@ -79,6 +79,69 @@ class RerankerTest(unittest.TestCase):
         self.assertEqual(reranked[0].doc_id, "meal_notice")
         self.assertLess(reranked[1].metadata["rerank_signals"]["missing_strong_terms"], 0)
 
+    def test_faculty_query_prefers_exact_professor_match_over_lifelong_faculty_list(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="lifelong_music",
+                chunk_id="lifelong_music_1",
+                title="동의대학교 평생교육원 > 음악학사 > 교수진소개",
+                content="김민선 교수 김준태 교수 김혜현 교수",
+                score=10.0,
+                source="https://lifelong.deu.ac.kr/CreditBank/MusicIntro_New.aspx",
+                metadata={"source_type": "lifelong"},
+            ),
+            RetrievedDoc(
+                doc_id="computer_faculty",
+                chunk_id="computer_faculty_1",
+                title="교수소개 게시판목록 | 컴퓨터공학과",
+                content="최병윤 교수님\n컴퓨터구조, 정보보호\n연구실\n정보공학관 802호",
+                score=4.0,
+                source="https://swcc.deu.ac.kr/computer/sub02.do",
+                metadata={"source_type": "department"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="최병윤 교수 정보",
+            keywords=["교수", "최병윤", "정보"],
+            category="faculty",
+        )
+
+        self.assertEqual(reranked[0].doc_id, "computer_faculty")
+        self.assertGreater(reranked[0].metadata["rerank_signals"]["faculty_entity_match"], 0)
+        self.assertLess(reranked[1].metadata["rerank_signals"]["faculty_entity_penalty"], 0)
+
+    def test_department_faculty_list_query_does_not_penalize_as_missing_professor_name(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="office",
+                chunk_id="office_1",
+                title="학과사무실-공지사항 게시판목록 | K-뷰티학과",
+                content="학과사무실 안내",
+                score=10.0,
+                metadata={"source_type": "department"},
+            ),
+            RetrievedDoc(
+                doc_id="faculty",
+                chunk_id="faculty_1",
+                title="전임교수 게시판목록 | K-뷰티학과",
+                content="김미용 교수님\n뷰티디자인",
+                score=4.0,
+                metadata={"source_type": "department"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="k-뷰티학과 교수 목록",
+            keywords=["k뷰티학과", "교수", "목록"],
+            category="department",
+        )
+
+        self.assertEqual(reranked[0].metadata["rerank_signals"]["faculty_entity_match"], 0)
+        self.assertEqual(reranked[0].metadata["rerank_signals"]["faculty_entity_penalty"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
