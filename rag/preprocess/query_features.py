@@ -32,6 +32,24 @@ GENERIC_QUERY_TERMS = {
 }
 GENERIC_QUERY_TERMS.update(DOMAIN_BLACKLIST)
 
+GENERIC_FAMILY_INTENT_TERMS = {
+    "운영시간",
+    "이용시간",
+    "시간",
+    "시간표",
+    "방법",
+    "기간",
+    "신청",
+    "정보",
+    "안내",
+    "날짜",
+    "일정",
+    "종류",
+    "확인",
+    "조회",
+}
+GENERIC_QUERY_TERMS.update(GENERIC_FAMILY_INTENT_TERMS)
+
 PROTECTED_LITERAL_TERMS = (
     "정보공학관",
     "국제관",
@@ -139,6 +157,17 @@ SPECIFIC_SCHOLARSHIP_TERMS = {
     "국가근로장학금",
 }
 
+SPECIFIC_SCHOLARSHIP_TERMS.update(
+    {
+        "성적우수장학금",
+        "성적우수장학생",
+        "성적우수 장학금",
+        "성적우수",
+        "근로장학금",
+        "국가근로장학금",
+    }
+)
+
 ACADEMIC_ADMIN_TERMS = {
     "휴학",
     "복학",
@@ -155,6 +184,17 @@ CERTIFICATE_TERMS = {
     "제증명서",
     "발급",
 }
+
+LIBRARY_TERMS = {"도서관", "중앙도서관", "열람실", "자료실", "운영시간"}
+LIBRARY_ANCHOR_TERMS = LIBRARY_TERMS - {"운영시간"}
+SHUTTLE_TERMS = {"통학버스", "셔틀", "셔틀버스", "통버", "버스노선", "시간표", "노선"}
+SHUTTLE_ANCHOR_TERMS = {"통학버스", "셔틀", "셔틀버스", "통버", "버스노선", "버스"}
+TUITION_TERMS = {"등록금", "수업료", "학비", "납부", "고지서", "분납"}
+TUITION_ANCHOR_TERMS = TUITION_TERMS - {"납부"}
+CAREER_TERMS = {"취업", "진로", "현장실습", "IPP", "일학습", "인턴", "취업지원센터"}
+CAREER_ANCHOR_TERMS = CAREER_TERMS
+GRADE_TERMS = {"성적", "학점", "평점", "GPA", "출석"}
+GRADE_ANCHOR_TERMS = GRADE_TERMS
 
 HISTORY_TERMS = {
     "연혁",
@@ -178,6 +218,16 @@ CAMPUS_ADDRESS_TERMS = {
     "동의대학교 주소",
     "동의대 위치",
     "동의대 주소",
+}
+
+DORMITORY_TERMS = {
+    "기숙사",
+    "생활관",
+    "효민생활관",
+    "제2효민생활관",
+    "2효민생활관",
+    "입사",
+    "입사신청",
 }
 
 CURRICULUM_TERMS = {
@@ -287,6 +337,14 @@ def ordered_unique(values: Iterable[str]) -> list[str]:
     return result
 
 
+def _term_hit(terms: Iterable[str], values: set[str], joined: str, raw_text: str) -> bool:
+    for term in terms:
+        normalized = str(term or "").casefold()
+        if normalized and (normalized in values or normalized in joined or normalized in raw_text):
+            return True
+    return False
+
+
 def detect_query_family(query: str, terms: Iterable[str] | None = None) -> str:
     values = {term.casefold() for term in tokenize_koreanish(query)}
     values.update(str(term).casefold() for term in (terms or []) if term)
@@ -296,16 +354,30 @@ def detect_query_family(query: str, terms: Iterable[str] | None = None) -> str:
         return "graduation"
     if any(term.casefold() in raw_text for term in CAMPUS_ADDRESS_TERMS):
         return "campus_address"
-    if any(term.casefold() in values or term.casefold() in joined for term in WELFARE_FACILITY_TERMS):
+    if _term_hit(WELFARE_FACILITY_TERMS, values, joined, raw_text):
         return "welfare_facility"
+    if _term_hit(SPECIFIC_SCHOLARSHIP_TERMS, values, joined, raw_text) and (
+        "장학" in raw_text or "장학생" in raw_text or "장학금" in raw_text or "ν븰" in raw_text
+    ):
+        return "specific_scholarship"
+    if _term_hit(DORMITORY_TERMS, values, joined, raw_text):
+        return "dormitory"
     if any(term.casefold() in values or term.casefold() in joined for term in HISTORY_TERMS):
         return "institution_history"
     if any(term.casefold() in values or term.casefold() in joined for term in CERTIFICATE_TERMS):
         return "certificate"
+    if _term_hit(SHUTTLE_ANCHOR_TERMS, values, joined, raw_text):
+        return "shuttle"
+    if _term_hit(LIBRARY_ANCHOR_TERMS, values, joined, raw_text):
+        return "library"
+    if _term_hit(TUITION_ANCHOR_TERMS, values, joined, raw_text):
+        return "tuition"
+    if _term_hit(CAREER_ANCHOR_TERMS, values, joined, raw_text):
+        return "career"
+    if _term_hit(GRADE_ANCHOR_TERMS, values, joined, raw_text):
+        return "grade"
     if any(term.casefold() in values or term.casefold() in joined for term in ACADEMIC_ADMIN_TERMS):
         return "academic_admin"
-    if any(term.casefold() in values or term.casefold() in joined for term in SPECIFIC_SCHOLARSHIP_TERMS):
-        return "specific_scholarship"
     if any(term.casefold() in values or term.casefold() in joined for term in SEASONAL_COURSE_TERMS) and (
         "수강신청" in joined or "수강" in joined
     ):
@@ -449,6 +521,8 @@ def _required_terms_for_family(family: str, strong_terms: list[str], protected_t
         return [term for term in source if "장학" in term or "신청" in term or "성적우수" in term][:4]
     if family == "academic_admin":
         return [term for term in source if term in ACADEMIC_ADMIN_TERMS or term in {"신청", "방법", "절차"}][:4]
+    if family == "dormitory":
+        return [term for term in source if term in DORMITORY_TERMS or "기숙사" in term or "생활관" in term][:4]
     if family == "graduation":
         preferred = [
             term
@@ -468,6 +542,16 @@ def _required_terms_for_family(family: str, strong_terms: list[str], protected_t
         return preferred[:4] or ["졸업"]
     if family == "certificate":
         return [term for term in source if term in CERTIFICATE_TERMS or "증명서" in term][:4]
+    if family == "library":
+        return [term for term in source if term in LIBRARY_TERMS or "도서관" in term][:4]
+    if family == "shuttle":
+        return [term for term in source if term in SHUTTLE_TERMS or "버스" in term][:4]
+    if family == "tuition":
+        return [term for term in source if term in TUITION_TERMS or "등록금" in term][:4]
+    if family == "career":
+        return [term for term in source if term in CAREER_TERMS or "취업" in term or "실습" in term][:4]
+    if family == "grade":
+        return [term for term in source if term in GRADE_TERMS or "성적" in term or "학점" in term][:4]
     if family == "institution_history":
         return [term for term in source if term in HISTORY_TERMS or "연혁" in term][:4]
     if family == "department_curriculum":

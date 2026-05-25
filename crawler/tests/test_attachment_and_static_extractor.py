@@ -513,6 +513,42 @@ class AttachmentAndStaticExtractorTest(unittest.TestCase):
         self.assertIn("<학교>", doc["raw_text"])
         self.assertIn("<사회>", doc["raw_text"])
 
+    def test_static_page_adds_search_domain_metadata(self) -> None:
+        html = """
+        <html>
+          <head><title>교내식당 | 편의·복지 | 대학생활</title></head>
+          <body>
+            <main id="contents">
+              <h1>교내식당</h1>
+              <p>정보공학관 학생 식당 위치: 정보공학관 2층</p>
+              <p>운영시간 중식 11:00 ~ 15:00</p>
+            </main>
+          </body>
+        </html>
+        """
+        extractor = StaticPageExtractor(allowed_hosts={"www.deu.ac.kr"})
+        extractor.fetch_result = Mock(
+            return_value=type(
+                "Result",
+                (),
+                {
+                    "url": "https://www.deu.ac.kr/www/deu-dining-hall.do",
+                    "status_code": 200,
+                    "headers": {},
+                    "raw_html": html,
+                    "final_url": "https://www.deu.ac.kr/www/deu-dining-hall.do",
+                    "metadata": {},
+                },
+            )()
+        )
+
+        doc = extractor.extract_static_page("cafeteria", "https://www.deu.ac.kr/www/deu-dining-hall.do")
+
+        self.assertEqual(doc["metadata"]["source"]["source_type"], "cafeteria")
+        self.assertEqual(doc["metadata"]["source"]["page_kind"], "static_page")
+        self.assertIn("cafeteria", doc["metadata"]["source"]["domain_hints"])
+        self.assertIn("facility", doc["metadata"]["source"]["domain_hints"])
+
     def test_static_page_extractor_keeps_verify_true_for_has_ssl_errors(self) -> None:
         extractor = StaticPageExtractor(allowed_hosts={"has.deu.ac.kr"})
         extractor.session.get = Mock(side_effect=requests.exceptions.SSLError("certificate expired"))

@@ -47,9 +47,13 @@ def select_topk_with_diagnostics(
 
     selected: list[RetrievedDoc] = []
     selected_doc_counts: dict[str, int] = {}
-    for doc in [*exact, *preferred, *static_late]:
+    prioritized = [*exact, *preferred, *static_late]
+    for index, doc in enumerate(prioritized):
         if selected_doc_counts.get(doc.doc_id, 0) >= max_chunks_per_doc:
             rejected.append(_rejection(doc, "duplicate_doc_id_after_priority"))
+            continue
+        if _would_overfill_source_type(doc, selected, prioritized[index + 1 :], selected_doc_counts, max_chunks_per_doc):
+            rejected.append(_rejection(doc, "source_type_diversity"))
             continue
         selected.append(doc)
         selected_doc_counts[doc.doc_id] = selected_doc_counts.get(doc.doc_id, 0) + 1
@@ -82,13 +86,46 @@ def select_topk_with_diagnostics(
 
 
 def _rejection(doc: RetrievedDoc, reason: str) -> dict:
+    metadata = doc.metadata or {}
     return {
         "doc_id": doc.doc_id,
         "chunk_id": doc.chunk_id,
         "title": doc.title,
         "score": doc.score,
+        "source_type": metadata.get("source_type"),
+        "section_type": metadata.get("section_type"),
+        "section_title": metadata.get("section_title"),
+        "source_url": doc.source,
+        "rerank_score": metadata.get("rerank_score"),
         "reason": reason,
     }
+
+
+def _would_overfill_source_type(
+    doc: RetrievedDoc,
+    selected: list[RetrievedDoc],
+    remaining: list[RetrievedDoc],
+    selected_doc_counts: dict[str, int],
+    max_chunks_per_doc: int,
+) -> bool:
+    if len(selected) < 2:
+        return False
+    source_type = _source_type(doc)
+    if not source_type:
+        return False
+    same_type_count = sum(1 for selected_doc in selected if _source_type(selected_doc) == source_type)
+    if same_type_count < 2:
+        return False
+    return any(
+        _source_type(candidate) != source_type
+        and selected_doc_counts.get(candidate.doc_id, 0) < max_chunks_per_doc
+        and not _is_context_contamination_candidate(candidate)
+        for candidate in remaining
+    )
+
+
+def _source_type(doc: RetrievedDoc) -> str:
+    return str((doc.metadata or {}).get("source_type") or "").strip().lower()
 
 
 def _has_exact_or_strong_match(doc: RetrievedDoc) -> bool:

@@ -1,10 +1,12 @@
 import unittest
+from unittest.mock import patch
 
 from rag.pipeline.preprocessor import QueryPreprocessor
 from rag.pipeline.chat_pipeline import ChatPipeline
 from rag.pipeline.state import PipelineState
 from rag.preprocess.query_features import extract_query_features, sanitize_filters
 from rag.preprocess.normalizer import normalize_query
+from rag.retrieval.retriever import merge_retrieval_candidates
 from rag.retrieval.canonical_source import canonical_notice_metadata
 from rag.schemas.retrieved_doc import RetrievedDoc
 from rag.selection.context_builder import build_context
@@ -256,6 +258,11 @@ class RagQualityFixTest(unittest.TestCase):
 
         self.assertIsNotNone(parsed)
         self.assertEqual(parsed["name"], "강창석(姜昌錫)")
+
+    def test_person_title_parser_does_not_use_reference_fallback_for_9th_president(self) -> None:
+        parsed = ChatPipeline()._extract_president_entry_from_reference("static_7fe939fbbc6bdf3b", 9)
+
+        self.assertIsNone(parsed)
 
     def test_pipeline_defaults_slow_exact_families_to_vector(self) -> None:
         pipeline = ChatPipeline()
@@ -728,6 +735,113 @@ class RagQualityFixTest(unittest.TestCase):
         self.assertNotIn("#", state.answer_text)
         self.assertNotIn("`", state.answer_text)
         self.assertIn("\uc911\uc694", state.answer_text)
+
+    def test_facility_location_answer_uses_info_center_alias(self) -> None:
+        pipeline = ChatPipeline()
+        state = PipelineState.from_query("\uc815\ubcf4\uad00 \uc704\uce58")
+        state.metadata["retrieval_quality"] = {"ok": False, "reason": "no_exact_or_strong_keyword_match"}
+        overview = self._doc(
+            "campus_overview",
+            "\ucea0\ud37c\uc2a4\ub9f5 | \ucea0\ud37c\uc2a4\uc548\ub0b4 | DEU",
+            "\uac74\ubb3c \ubaa9\ub85d \uc815\ubcf4\uacf5\ud559\uad00",
+            9.0,
+            "institution",
+            chunk_id="campus_001",
+            source_url="https://www.deu.ac.kr/www/deu-campus-map.do",
+        )
+        detail = self._doc(
+            "campus_detail",
+            "\ucea0\ud37c\uc2a4\ub9f5 | \ucea0\ud37c\uc2a4\uc548\ub0b4 | DEU",
+            "23 \uc815\ubcf4\uacf5\ud559\uad00\n2F \uac15\uc758\uc2e4, \uad50\uc9c1\uc6d0\uc2dd\ub2f9, \ud559\uc0dd\uc2dd\ub2f9, \ud3b8\uc758\uc810",
+            4.0,
+            "institution",
+            chunk_id="campus_011",
+            source_url="https://www.deu.ac.kr/www/deu-campus-map.do",
+        )
+        state.retrieved_docs = [overview, detail]
+        state.reranked_docs = [overview, detail]
+        state.selected_docs = [overview]
+
+        pipeline._correct_facility_selection(state, state.reranked_docs)
+        answer = pipeline._build_facility_location_answer(state)
+
+        self.assertEqual(state.selected_docs[0].chunk_id, "campus_011")
+        self.assertTrue(state.metadata["facility_alias_applied"])
+        self.assertTrue(state.metadata["facility_evidence_found"])
+        self.assertTrue(state.metadata["retrieval_quality"]["ok"])
+        self.assertIn("\uc815\ubcf4\uacf5\ud559\uad00", answer or "")
+        self.assertIn("23\ubc88 \uac74\ubb3c", answer or "")
+        self.assertNotIn("\uad00\ub828 \uc815\ubcf4\ub97c \ucc3e\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4", answer or "")
+
+    def test_cafeteria_hours_partial_answer_uses_location_evidence(self) -> None:
+        pipeline = ChatPipeline()
+        state = PipelineState.from_query("\uc815\ubcf4\uacf5\ud559\uad00 \uc2dd\ub2f9 \uc6b4\uc601\uc2dc\uac04")
+        welfare = self._doc(
+            "welfare",
+            "\ubcf5\uc9c0\ubb38\ud654\uc2dc\uc124 | \ud3b8\uc758\u00b7\ubcf5\uc9c0 | \ub300\ud559\uc0dd\ud65c",
+            "\uc815\ubcf4\uacf5\ud559\uad00 2\uce35 \ud559\uc0dd\uc2dd\ub2f9, \ud3b8\uc758\uc810, \ud734\uac8c\uc2e4",
+            8.0,
+            "institution",
+            source_url="https://www.deu.ac.kr/www/deu-culture.do",
+        )
+        dorm = self._doc(
+            "dorm",
+            "\ub3d9\uc758\ub300\ud559\uad50 \ud6a8\ubbfc\uc0dd\ud65c\uad00",
+            "\uae30\uc219\uc0ac \uc2dd\ub2f9 \uc774\uc6a9\uc2dc\uac04\uc740 07:30~09:00, 12:00~13:30\uc785\ub2c8\ub2e4.",
+            9.0,
+            "institution",
+            source_url="https://dorm.deu.ac.kr/20/2031.do",
+        )
+        state.selected_docs = [dorm, welfare]
+        state.reranked_docs = [dorm, welfare]
+        state.retrieved_docs = [dorm, welfare]
+
+        pipeline._correct_facility_selection(state, state.reranked_docs)
+        answer = pipeline._build_cafeteria_answer(state)
+
+        self.assertEqual(state.selected_docs[0].doc_id, "welfare")
+        self.assertIn("\uc6b4\uc601\uc2dc\uac04\uc740 \ud655\uc778\ub418\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4", answer or "")
+        self.assertIn("\uc815\ubcf4\uacf5\ud559\uad00 2\uce35", answer or "")
+        self.assertNotIn("07:30~09:00", answer or "")
+        self.assertTrue(state.metadata["facility_partial_answer"])
+
+    def test_hybrid_prefers_dining_hall_for_info_engineering_cafeteria_hours(self) -> None:
+        query_metadata = {
+            "query": "\uc815\ubcf4\uacf5\ud559\uad00 \ud559\uc0dd\uc2dd\ub2f9 \uc6b4\uc601\uc2dc\uac04",
+            "query_family": "welfare_facility",
+            "keywords": ["\uc815\ubcf4\uacf5\ud559\uad00", "\ud559\uc0dd\uc2dd\ub2f9", "\uc6b4\uc601\uc2dc\uac04"],
+            "strong_terms": ["\uc815\ubcf4\uacf5\ud559\uad00", "\ud559\uc0dd\uc2dd\ub2f9", "\uc6b4\uc601\uc2dc\uac04"],
+            "required_terms": ["\ud559\uc0dd\uc2dd\ub2f9"],
+        }
+        culture = self._doc(
+            "culture",
+            "\ubcf5\uc9c0\ubb38\ud654\uc2dc\uc124 | \ud3b8\uc758\u00b7\ubcf5\uc9c0 | \ub300\ud559\uc0dd\ud65c",
+            "\uc815\ubcf4\uacf5\ud559\uad00 2\uce35 \ud559\uc0dd\uc2dd\ub2f9, \ud3b8\uc758\uc810, \ud734\uac8c\uc2e4",
+            1.0,
+            "institution",
+            source_url="https://www.deu.ac.kr/www/deu-culture.do",
+        ).model_copy(update={"metadata": {**query_metadata, "source_type": "institution", "lexical_norm_score": 1.0}})
+        dining = self._doc(
+            "dining",
+            "\uad50\ub0b4\uc2dd\ub2f9 | \ud3b8\uc758\u00b7\ubcf5\uc9c0 | \ub300\ud559\uc0dd\ud65c",
+            "\uc815\ubcf4\uacf5\ud559\uad00 \ud559\uc0dd \uc2dd\ub2f9 \uc704\uce58: \uc815\ubcf4\uacf5\ud559\uad00 2\uce35 \uc6b4\uc601\uc2dc\uac04 \uc911\uc2dd 11:00 ~ 15:00",
+            0.7,
+            "welfare",
+            source_url="https://www.deu.ac.kr/www/deu-dining-hall.do",
+        ).model_copy(update={"metadata": {**query_metadata, "source_type": "welfare", "lexical_norm_score": 0.7}})
+
+        with patch.dict("os.environ", {"HYBRID_SCORE_MODE": "weighted"}, clear=False):
+            merged = merge_retrieval_candidates(
+                lexical_docs=[culture, dining],
+                vector_docs=[
+                    dining.model_copy(update={"score": 1.0, "metadata": {**dining.metadata, "vector_score": 1.0}}),
+                    culture.model_copy(update={"score": 0.8, "metadata": {**culture.metadata, "vector_score": 0.8}}),
+                ],
+            )
+
+        self.assertEqual(merged[0].doc_id, "dining")
+        self.assertIn("deu-dining-hall.do", merged[0].document.source)
+        self.assertGreater(merged[0].document.metadata["hybrid_adjustment"]["bonus"], 1.0)
 
     def _doc(
         self,

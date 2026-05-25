@@ -191,6 +191,25 @@ class PGVectorLoader:
     def ensure_tables(self) -> None:
         with self.conn.cursor() as cur:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+            cur.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_documents_title_trgm ON documents USING GIN (title gin_trgm_ops);")
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_documents_title_tsvector_simple "
+                "ON documents USING GIN (to_tsvector('simple', coalesce(title, '')));"
+            )
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_chunks_content_trgm ON chunks USING GIN (content gin_trgm_ops);")
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_chunks_section_title_trgm "
+                "ON chunks USING GIN (section_title gin_trgm_ops);"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_chunks_content_tsvector_simple "
+                "ON chunks USING GIN (to_tsvector('simple', coalesce(content, '')));"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_chunks_section_title_tsvector_simple "
+                "ON chunks USING GIN (to_tsvector('simple', coalesce(section_title, '')));"
+            )
         self.conn.commit()
         self._column_cache.clear()
 

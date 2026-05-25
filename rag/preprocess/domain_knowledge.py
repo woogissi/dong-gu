@@ -12,14 +12,14 @@ DOMAIN_RULES: dict[str, dict[str, object]] = {
         "synonyms": {"학사": ["학사공지", "학사 안내"], "휴학": ["휴학신청"], "복학": ["복학신청"]},
         "intent_boost": "RAG",
         "category": "academic",
-        "source_boosts": ["academic_notice", "notice", "institution"],
+        "source_boosts": ["academic_support", "academic_notice", "notice", "institution"],
     },
     "course": {
         "keywords": ["수강", "수강신청", "수업", "강의", "정정", "강의계획서", "시간표"],
         "synonyms": {"수강": ["수강신청", "강의신청", "수업신청"], "수업": ["강의"]},
         "intent_boost": "RAG",
         "category": "course",
-        "source_boosts": ["academic_notice", "department", "institution"],
+        "source_boosts": ["academic_notice", "academic_support", "department", "institution"],
     },
     "grade": {
         "keywords": ["성적", "학점", "평점", "GPA", "출석"],
@@ -33,7 +33,7 @@ DOMAIN_RULES: dict[str, dict[str, object]] = {
         "synonyms": {"졸업": ["졸업요건", "졸업학점"]},
         "intent_boost": "RAG",
         "category": "graduation",
-        "source_boosts": ["academic_notice", "department", "institution"],
+        "source_boosts": ["academic_notice", "academic_support", "department", "institution"],
     },
     "scholarship": {
         "keywords": ["장학", "장학금", "국가장학", "교내장학", "근로장학", "학자금"],
@@ -47,7 +47,7 @@ DOMAIN_RULES: dict[str, dict[str, object]] = {
         "synonyms": {"등록금": ["수업료", "학비"], "고지서": ["등록금 고지서"]},
         "intent_boost": "RAG",
         "category": "tuition",
-        "source_boosts": ["academic_notice", "institution", "notice"],
+        "source_boosts": ["academic_notice", "academic_support", "institution", "notice"],
     },
     "career": {
         "keywords": ["취업", "진로", "현장실습", "IPP", "일학습", "인턴", "취업지원센터"],
@@ -99,7 +99,7 @@ DOMAIN_RULES: dict[str, dict[str, object]] = {
         "source_boosts": ["institution", "department", "static", "facility"],
     },
     "library": {
-        "keywords": ["도서관", "중앙도서관", "열람실", "자료실", "운영시간"],
+        "keywords": ["도서관", "중앙도서관", "열람실", "자료실"],
         "synonyms": {"도서관": ["중앙도서관", "열람실"]},
         "intent_boost": "RAG",
         "category": "library",
@@ -117,7 +117,7 @@ DOMAIN_RULES: dict[str, dict[str, object]] = {
         "synonyms": {"통학버스": ["통버", "셔틀", "셔틀버스"], "노선": ["버스노선"]},
         "intent_boost": "RAG",
         "category": "shuttle",
-        "source_boosts": ["institution", "notice"],
+        "source_boosts": ["academic_support", "institution", "notice"],
     },
     "dormitory": {
         "keywords": ["기숙사", "생활관", "효민생활관", "제2효민생활관", "입사"],

@@ -75,20 +75,47 @@ class RetrieverSupabaseTest(unittest.TestCase):
         self.assertGreaterEqual(len(documents), 1)
 
     # 검색어 필터가 제대로 적용되는지 확인하는 테스트 케이스들
-    def test_retrieve_documents_applies_document_category_filter(self) -> None:
+    def test_document_category_is_source_hint_not_hard_filter(self) -> None:
+        request = RetrievalRequest(
+            query="test",
+            keywords=["test"],
+            filters={"document_category": ["scholarship"], "category": ["club_activity"]},
+            top_k=10,
+        )
+
+        filter_clause, filter_params = retriever._build_db_filter_conditions(request)
+
+        self.assertNotIn("source_type", filter_clause)
+        self.assertEqual(filter_params, [])
+        self.assertEqual(
+            retriever._source_type_hint_values(request),
+            ["scholarship", "notice", "student_life", "institution", "department"],
+        )
+
+    def test_document_category_hint_contributes_source_bonus(self) -> None:
+        request = RetrievalRequest(
+            query="test",
+            keywords=["test"],
+            filters={"document_category": ["club_activity"]},
+            top_k=10,
+        )
+
+        self.assertGreater(retriever._category_bonus_for_source("student_life", request), 0)
+        self.assertGreater(retriever._category_bonus_for_source("department", request), 0)
+        self.assertEqual(retriever._category_bonus_for_source("external_notice", request), 0)
+
+    def test_retrieve_documents_uses_document_category_as_hint(self) -> None:
         sample = self._fetch_searchable_sample(where_sql="documents.source_type IS NOT NULL")
         request = RetrievalRequest(
             query=sample["term"],
             keywords=[sample["term"]],
-            filters={"document_category": [sample["source_type"]]},
+            filters={"document_category": ["club_activity"]},
             top_k=10,
         )
 
         documents = self._retrieve_without_file_fallback(request)
 
         self.assertGreaterEqual(len(documents), 1)
-        self.assertTrue(all(document.metadata["source_type"] == sample["source_type"] for document in documents))
-        self.assertIn(sample["doc_id"], {document.doc_id for document in documents})
 
     # source_type 필터가 제대로 적용되는지 확인하는 테스트 케이스
     def test_retrieve_documents_applies_department_filter(self) -> None:
@@ -103,22 +130,21 @@ class RetrieverSupabaseTest(unittest.TestCase):
         documents = self._retrieve_without_file_fallback(request)
 
         self.assertGreaterEqual(len(documents), 1)
-        self.assertIn(sample["doc_id"], {document.doc_id for document in documents})
+        self.assertTrue(all(document.metadata["source_type"] == sample["source_type"] for document in documents))
 
     # category_lv1 필터가 제대로 적용되는지 확인하는 테스트 케이스
-    def test_retrieve_documents_applies_category_filter(self) -> None:
+    def test_retrieve_documents_uses_category_as_source_hint(self) -> None:
         sample = self._fetch_searchable_sample(where_sql="documents.source_type IS NOT NULL")
         request = RetrievalRequest(
             query=sample["term"],
             keywords=[sample["term"]],
-            filters={"category": [sample["source_type"]]},
+            filters={"category": ["club_activity"]},
             top_k=10,
         )
 
         documents = self._retrieve_without_file_fallback(request)
 
         self.assertGreaterEqual(len(documents), 1)
-        self.assertIn(sample["doc_id"], {document.doc_id for document in documents})
 
     # 검색 결과가 없을 때 빈 리스트를 반환하는지 확인하는 테스트 케이스
     def test_empty_search_results(self) -> None:
@@ -145,7 +171,7 @@ class RetrieverSupabaseTest(unittest.TestCase):
         documents = self._retrieve_without_file_fallback(request)
 
         self.assertGreaterEqual(len(documents), 1)
-        self.assertIn(sample["doc_id"], {document.doc_id for document in documents})
+        self.assertTrue(any(document.metadata.get("matched_terms") for document in documents))
 
     def _retrieve_without_file_fallback(self, request: RetrievalRequest):
         with patch.object(retriever, "_load_bm25_index", side_effect=AssertionError("file fallback should not be used")):

@@ -94,6 +94,50 @@ class ShortChunkQualityTest(unittest.TestCase):
         self.assertIn("binary_blocked", statuses)
         self.assertIn("short_chunk_blocked", statuses)
 
+    def test_chunker_drops_low_value_attachment_placeholder_chunks(self) -> None:
+        chunker = DocumentChunker(max_chars=500)
+        doc = {
+            "doc_id": "doc-attachment-placeholder",
+            "version": 1,
+            "source_type": "notice",
+            "title": "첨부 노이즈",
+            "attachment_text": (
+                "[ATTACHMENT: guide.pdf]\n"
+                "목차\n"
+                "<그림 1>\n"
+                "<표 2>\n"
+                "page 3"
+            ),
+            "metadata": {},
+        }
+
+        chunks = chunker.chunk_document(doc)
+        skip_reasons = {item["reason"] for item in doc["metadata"]["quality_skips"]}
+
+        self.assertEqual(chunks, [])
+        self.assertIn("low_value_attachment_chunk", skip_reasons)
+
+    def test_chunker_keeps_attachment_chunk_with_actionable_schedule(self) -> None:
+        chunker = DocumentChunker(max_chars=500)
+        doc = {
+            "doc_id": "doc-attachment-schedule",
+            "version": 1,
+            "source_type": "notice",
+            "title": "첨부 일정",
+            "attachment_text": (
+                "[ATTACHMENT: schedule.pdf]\n"
+                "<표 1>\n"
+                "신청기간: 2026.03.01 ~ 2026.03.15\n"
+                "문의: 학생지원팀 051-890-1234"
+            ),
+            "metadata": {},
+        }
+
+        chunks = chunker.chunk_document(doc)
+
+        self.assertEqual(len(chunks), 1)
+        self.assertIn("2026.03.01", chunks[0]["content"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,4 +1,5 @@
 import time
+import re
 from fastapi import APIRouter, BackgroundTasks, Request
 
 from backend.app.utils.callback import kakao_callback
@@ -380,9 +381,10 @@ def build_info_response(result, utterance):
     if "???:" in answer:
         answer = answer.split("???:")[0].strip()
 
-    link = _extract_primary_source_url(result_dict) or get_link_url_by_category(category)
+    link = _extract_primary_source_url(result_dict) or _extract_first_url(answer) or get_link_url_by_category(category)
     quick = get_quick_replies_by_context(category, utterance)
 
+    answer = _normalize_answer_source_links(answer, link)
     full_answer = _append_source_link(answer, link)
     kakao_text = _build_kakao_simple_summary(
         full_answer=full_answer,
@@ -407,7 +409,7 @@ def _append_source_link(answer: str, link: str) -> str:
     link = (link or "").strip()
     if not link:
         return answer
-    if link in answer:
+    if link in answer or _extract_first_url(answer):
         return answer
     return f"{answer}\n\n\ucd9c\ucc98/\uc0ac\uc774\ud2b8 \ubc14\ub85c\uac00\uae30: {link}"
 
@@ -426,8 +428,13 @@ def _build_kakao_simple_summary(
         return answer
 
     first_lines = [line.strip() for line in answer.splitlines() if line.strip()]
-    first_lines = [line for line in first_lines if not _is_source_link_line(line, link)]
-    body = "\n".join(first_lines[:3])
+    source_line = next((line for line in first_lines if _is_source_link_line(line, link)), "")
+    body_lines = [line for line in first_lines if line != source_line]
+    body = "\n".join(body_lines[:3])
+    if source_line:
+        reserved = len(source_line) + 2
+        body = _trim_for_kakao(body, max(0, limit - reserved))
+        return f"{body}\n\n{source_line}"[:limit].strip()
     return _trim_for_kakao(body, limit)
 
 
@@ -459,5 +466,28 @@ def _extract_primary_source_url(result_dict: dict) -> str:
             if url:
                 return str(url)
     return ""
+
+
+_URL_PATTERN = re.compile(r"https?://[^\s)\]\}>\"']+")
+
+
+def _extract_first_url(text: str) -> str:
+    match = _URL_PATTERN.search(text or "")
+    if not match:
+        return ""
+    return match.group(0).rstrip(".,")
+
+
+def _normalize_answer_source_links(answer: str, link: str) -> str:
+    answer = (answer or "").strip()
+    link = (link or "").strip()
+    if not answer or not link:
+        return answer
+    normalized_lines = []
+    for line in answer.splitlines():
+        if "\ucd9c\ucc98" in line or "\ubc14\ub85c\uac00\uae30" in line:
+            line = _URL_PATTERN.sub(link, line)
+        normalized_lines.append(line)
+    return "\n".join(normalized_lines).strip()
 
 

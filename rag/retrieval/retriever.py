@@ -20,6 +20,7 @@ from typing import Any
 
 from rag.schemas.retrieval import RetrievalRequest
 from rag.schemas.retrieved_doc import RetrievedDoc
+from rag.retrieval.source_policy import allowed_source_types_for_values, forbidden_source_types_for_family
 from rag.preprocess.query_features import (
     extract_query_features,
     required_entity_match_score,
@@ -49,6 +50,7 @@ _HYBRID_SRRF_BETA_ENV_VAR = "HYBRID_SRRF_BETA"
 _RESULT_DEDUPE_ENV_VAR = "RAG_DEDUPE_RESULTS"
 _MAX_RESULTS_PER_DOC_ENV_VAR = "RAG_MAX_RESULTS_PER_DOC"
 _MAX_RESULTS_PER_SOURCE_ENV_VAR = "RAG_MAX_RESULTS_PER_SOURCE"
+_VECTOR_CANDIDATE_LIMIT_ENV_VAR = "RAG_VECTOR_CANDIDATE_LIMIT"
 
 _DEFAULT_TOP_K = 10
 _MIN_DB_SCORE = 0.5
@@ -62,6 +64,7 @@ _DEFAULT_HYBRID_VECTOR_WEIGHT = 0.45
 _DEFAULT_HYBRID_SRRF_BETA = 10.0
 _DEFAULT_MAX_RESULTS_PER_DOC = 2
 _DEFAULT_MAX_RESULTS_PER_SOURCE = 2
+_DEFAULT_VECTOR_CANDIDATE_LIMIT = 1000
 _BM25_K1 = 1.5
 _BM25_B = 0.75
 _TOKEN_PATTERN = re.compile(r"[가-힣A-Za-z0-9]+")
@@ -229,6 +232,8 @@ def retrieve_documents(
             retrieval_mode = _resolve_retrieval_mode(request)
             if retrieval_mode == "vector":
                 documents = _retrieve_documents_from_database_vector(request)
+                if not documents:
+                    documents = _retrieve_relaxed_database_results(request, retrieval_mode)
                 canonical_documents = _retrieve_canonical_documents_from_database_v4(request)
                 if canonical_documents:
                     documents = _prepend_unique_docs(canonical_documents, documents)
@@ -236,6 +241,8 @@ def retrieve_documents(
 
             if retrieval_mode == "hybrid":
                 documents = _retrieve_documents_from_database_hybrid(request)
+                if not documents:
+                    documents = _retrieve_relaxed_database_results(request, retrieval_mode)
                 if documents:
                     return _postprocess_retrieved_docs(documents, request)
 
@@ -305,6 +312,22 @@ def _use_database_retriever() -> bool:
     # 환경 변수가 없어도 supabase 연결을 시도하도록 기본적으로 True 반환
     # (실제 연결 실패 시 파일 기반 검색으로 fallback)
     return True
+
+
+def _retrieve_relaxed_database_results(request: RetrievalRequest, retrieval_mode: str) -> list[RetrievedDoc]:
+    if not request.filters:
+        return []
+    relaxed_request = request.model_copy(update={"filters": {}, "category": None})
+    if retrieval_mode == "vector":
+        documents = _retrieve_documents_from_database_vector(relaxed_request)
+    elif retrieval_mode == "hybrid":
+        documents = _retrieve_documents_from_database_hybrid(relaxed_request)
+    else:
+        documents = _retrieve_documents_from_database(relaxed_request)
+    for document in documents:
+        document.metadata["filters_relaxed"] = True
+        document.metadata["original_filters"] = request.filters
+    return documents
 
 
 def _resolve_retrieval_mode(request: RetrievalRequest) -> str:
@@ -487,19 +510,27 @@ def _build_db_filter_conditions(request: RetrievalRequest) -> tuple[str, list[An
     return " AND ".join(conditions), parameters
 
 
+def _source_type_hint_values(request: RetrievalRequest) -> list[str]:
+    filter_values: list[str] = []
+    for field in ("document_category", "category"):
+        for value in request.filters.get(field, []) or []:
+            if value not in filter_values:
+                filter_values.append(str(value))
+    return allowed_source_types_for_values(filter_values)
+
+
 def _category_bonus_sql(request: RetrievalRequest, source_expression: str) -> tuple[str, list[Any]]:
-    document_categories = request.filters.get("document_category", [])
-    if not document_categories:
+    source_type_hints = _source_type_hint_values(request)
+    if not source_type_hints:
         return "0", []
     return f"CASE WHEN {source_expression} = ANY(%s) THEN %s ELSE 0 END", [
-        document_categories,
+        source_type_hints,
         _CATEGORY_SCORE_BONUS,
     ]
 
 
 def _category_bonus_for_source(source_type: str, request: RetrievalRequest) -> float:
-    document_categories = request.filters.get("document_category", [])
-    if document_categories and source_type in document_categories:
+    if source_type in _source_type_hint_values(request):
         return _CATEGORY_SCORE_BONUS
     return 0.0
 
@@ -533,8 +564,18 @@ def _retrieve_documents_from_database_vector(request: RetrievalRequest) -> list[
         return []
 
     category_bonus_sql, category_bonus_params = _category_bonus_sql(request, "documents.source_type")
+    result_limit = max(request.top_k or _DEFAULT_TOP_K, (request.top_k or _DEFAULT_TOP_K) * 3)
+    candidate_limit = _vector_candidate_limit(result_limit)
     sql = """
-    WITH latest_document_versions AS (
+    WITH nearest_embeddings AS MATERIALIZED (
+        SELECT
+            chunk_id,
+            embedding <=> %s::vector AS vector_distance
+        FROM chunk_embeddings
+        ORDER BY embedding <=> %s::vector
+        LIMIT %s
+    ),
+    latest_document_versions AS (
         SELECT doc_id, max(version) AS latest_version
         FROM document_versions
         GROUP BY doc_id
@@ -576,9 +617,9 @@ def _retrieve_documents_from_database_vector(request: RetrievalRequest) -> list[
         documents.department,
         documents.published_at,
         documents.metadata AS document_metadata,
-        1 - (chunk_embeddings.embedding <=> %s::vector) + {category_bonus_sql} AS vector_score
-    FROM chunk_embeddings
-    JOIN chunks ON chunks.chunk_id = chunk_embeddings.chunk_id
+        1 - nearest_embeddings.vector_distance + {category_bonus_sql} AS vector_score
+    FROM nearest_embeddings
+    JOIN chunks ON chunks.chunk_id = nearest_embeddings.chunk_id
     JOIN documents ON documents.doc_id = chunks.doc_id
     LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
     LEFT JOIN latest_document_versions
@@ -603,7 +644,7 @@ def _retrieve_documents_from_database_vector(request: RetrievalRequest) -> list[
         sql += "\n      AND " + filter_clause
 
     sql += """
-    ORDER BY chunk_embeddings.embedding <=> %s::vector,
+    ORDER BY nearest_embeddings.vector_distance ASC,
              documents.published_at DESC NULLS LAST,
              chunks.chunk_id ASC
     LIMIT %s
@@ -617,10 +658,11 @@ def _retrieve_documents_from_database_vector(request: RetrievalRequest) -> list[
                     sql,
                     (
                         pg_vector,
+                        pg_vector,
+                        candidate_limit,
                         *category_bonus_params,
                         *filter_params,
-                        pg_vector,
-                        max(request.top_k or _DEFAULT_TOP_K, (request.top_k or _DEFAULT_TOP_K) * 3),
+                        result_limit,
                     ),
                 )
                 rows = cur.fetchall()
@@ -683,6 +725,11 @@ def _retrieve_documents_from_database_vector(request: RetrievalRequest) -> list[
             )
         )
     return retrieved_docs
+
+
+def _vector_candidate_limit(result_limit: int) -> int:
+    configured = _int_env(_VECTOR_CANDIDATE_LIMIT_ENV_VAR, _DEFAULT_VECTOR_CANDIDATE_LIMIT)
+    return max(result_limit, configured)
 
 
 def _retrieve_documents_from_database_hybrid(request: RetrievalRequest) -> list[RetrievedDoc]:
@@ -1679,6 +1726,7 @@ def _hybrid_relevance_adjustment(candidate: RetrievalCandidate) -> dict[str, flo
     title = (doc.title or "").lower()
     content = (doc.content or "").lower()
     source = (doc.source or "").lower()
+    query_text = str(metadata.get("query") or "").lower()
     source_type = str(metadata.get("source_type") or "").lower()
     section_type = str(metadata.get("section_type") or "").lower()
     content_length = _safe_int(metadata.get("content_length"), len(doc.content or ""))
@@ -1709,6 +1757,11 @@ def _hybrid_relevance_adjustment(candidate: RetrievalCandidate) -> dict[str, flo
     if query_family == "welfare_facility" and any(term in title_content for term in ("복지문화시설", "편의·복지", "학생식당", "헌혈의 집", "편의점")):
         bonus += 0.75
         if "복지문화시설" in title:
+            bonus += 0.45
+    if _is_info_engineering_cafeteria_hours_query(query_text, keywords) and _has_info_engineering_cafeteria(title_content):
+        if "deu-dining-hall.do" in source:
+            bonus += 1.05
+        elif "운영시간" in title_content:
             bonus += 0.45
     if query_family == "department_curriculum" and any(term in f"{title} {content}" for term in ("컴퓨터공학", "이수표", "전공필수", "교육과정")):
         bonus += 0.30
@@ -1807,6 +1860,13 @@ def _hybrid_relevance_adjustment(candidate: RetrievalCandidate) -> dict[str, flo
     if query_family == "welfare_facility" and "캠퍼스맵" in title and "복지문화시설" not in title_content:
         penalty += 0.25
         reasons.append("welfare_query_campus_map_secondary")
+    if _is_info_engineering_cafeteria_hours_query(query_text, keywords):
+        if _has_info_engineering_cafeteria(title_content) and "운영시간" not in title_content and "deu-dining-hall.do" not in source:
+            penalty += 0.35
+            reasons.append("cafeteria_hours_missing_hours")
+        if any(term in title_content for term in ("기숙사", "생활관", "dormitory")) and "정보공학관" not in title_content:
+            penalty += 0.35
+            reasons.append("cafeteria_hours_wrong_facility")
     if query_family == "seasonal_course_registration" and "1학기 수강신청" in title and "계절" not in title_content:
         penalty += 0.35
         reasons.append("seasonal_course_general_registration_mismatch")
@@ -1834,6 +1894,20 @@ def _hybrid_relevance_adjustment(candidate: RetrievalCandidate) -> dict[str, flo
         "required_entity_match": round(required_match, 6),
         "reasons": reasons,
     }
+
+
+def _is_info_engineering_cafeteria_hours_query(query_text: str, keywords: list[str]) -> bool:
+    text = " ".join([query_text, *keywords])
+    compact = re.sub(r"\s+", "", text)
+    has_info_engineering = any(term in compact for term in ("정보공학관", "정보관", "23번건물", "23번"))
+    has_cafeteria = any(term in compact for term in ("학생식당", "식당", "학식"))
+    has_hours = any(term in compact for term in ("운영시간", "운영", "시간", "몇시", "몇시까지"))
+    return has_info_engineering and has_cafeteria and has_hours
+
+
+def _has_info_engineering_cafeteria(text: str) -> bool:
+    compact = re.sub(r"\s+", "", text or "")
+    return "정보공학관" in compact and any(term in compact for term in ("학생식당", "식당"))
 
 
 def _is_explicit_notice_query(keywords: list[str]) -> bool:
@@ -1952,6 +2026,19 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
         sql += "\n          AND " + filter_clause
 
     sql += f"""
+          AND (
+              (
+                  %s <> ''
+                  AND (
+                      to_tsvector('simple', coalesce(documents.title, '')) @@ to_tsquery('simple', %s)
+                      OR to_tsvector('simple', coalesce(chunks.section_title, '')) @@ to_tsquery('simple', %s)
+                      OR to_tsvector('simple', coalesce(chunks.content, '')) @@ to_tsquery('simple', %s)
+                  )
+              )
+              OR documents.title ILIKE ANY(%s)
+              OR chunks.section_title ILIKE ANY(%s)
+              OR chunks.content ILIKE ANY(%s)
+          )
     ),
     score_components AS (
         SELECT
@@ -1981,10 +2068,6 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
                 %s
             ) AS noise_penalty
         FROM searchable
-        WHERE (
-            (%s <> '' AND search_vector @@ to_tsquery('simple', %s))
-            OR search_text ILIKE ANY(%s)
-        )
     )
     SELECT
         chunk_id,
@@ -2063,6 +2146,13 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
         *filter_params,
         tsquery,
         tsquery,
+        tsquery,
+        tsquery,
+        ilike_patterns,
+        ilike_patterns,
+        ilike_patterns,
+        tsquery,
+        tsquery,
         phrase_patterns,
         phrase_patterns,
         phrase_patterns,
@@ -2081,9 +2171,6 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
         has_boost_terms,
         boost_patterns,
         _NOISE_PENALTY_CAP,
-        tsquery,
-        tsquery,
-        ilike_patterns,
         max(request.top_k or _DEFAULT_TOP_K, (request.top_k or _DEFAULT_TOP_K) * 3),
     ]
 
@@ -2159,9 +2246,22 @@ def _dict_or_empty(value: Any) -> dict[str, Any]:
 
 
 def _postprocess_retrieved_docs(docs: list[RetrievedDoc], request: RetrievalRequest) -> list[RetrievedDoc]:
+    docs = _filter_forbidden_source_types(docs, request)
     docs = _dedupe_retrieved_docs(docs) if _result_dedupe_enabled() else docs
     limit = request.top_k or _DEFAULT_TOP_K
     return docs[:limit]
+
+
+def _filter_forbidden_source_types(docs: list[RetrievedDoc], request: RetrievalRequest) -> list[RetrievedDoc]:
+    forbidden = forbidden_source_types_for_family(_request_query_family(request))
+    if not forbidden:
+        return docs
+    filtered = [
+        doc
+        for doc in docs
+        if str(doc.metadata.get("source_type") or "").strip().lower() not in forbidden
+    ]
+    return filtered if filtered else docs
 
 
 def _dedupe_retrieved_docs(docs: list[RetrievedDoc]) -> list[RetrievedDoc]:
@@ -2170,11 +2270,36 @@ def _dedupe_retrieved_docs(docs: list[RetrievedDoc]) -> list[RetrievedDoc]:
     seen_hashes: set[str] = set()
     doc_counts: dict[str, int] = {}
     source_counts: dict[tuple[str, str], int] = {}
+    canonical_group_counts: dict[str, int] = {}
+    canonical_groups_with_primary = {
+        str(doc.metadata.get("canonical_group") or "").strip()
+        for doc in docs
+        if str(doc.metadata.get("canonical_group") or "").strip()
+        and (
+            doc.metadata.get("is_canonical_notice")
+            or doc.metadata.get("canonical_source_supplement")
+            or str(doc.metadata.get("source_type") or "").strip().lower()
+            in {"academic_notice", "academic", "academic_support", "institution", "notice"}
+        )
+    }
     deduped: list[RetrievedDoc] = []
 
     for doc in docs:
         content_hash = str(doc.metadata.get("content_hash") or "").strip()
         if content_hash and content_hash in seen_hashes:
+            continue
+
+        canonical_group = str(doc.metadata.get("canonical_group") or "").strip()
+        source_type = str(doc.metadata.get("source_type") or "").strip().lower()
+        if (
+            canonical_group
+            and canonical_group in canonical_groups_with_primary
+            and source_type == "department"
+            and not doc.metadata.get("is_canonical_notice")
+            and not doc.metadata.get("canonical_source_supplement")
+        ):
+            continue
+        if canonical_group and canonical_group_counts.get(canonical_group, 0) >= max_per_source:
             continue
 
         doc_count = doc_counts.get(doc.doc_id, 0)
@@ -2190,11 +2315,14 @@ def _dedupe_retrieved_docs(docs: list[RetrievedDoc]) -> list[RetrievedDoc]:
             seen_hashes.add(content_hash)
         doc_counts[doc.doc_id] = doc_count + 1
         source_counts[source_key] = source_count + 1
+        if canonical_group:
+            canonical_group_counts[canonical_group] = canonical_group_counts.get(canonical_group, 0) + 1
         metadata = {
             **doc.metadata,
             "result_dedupe_applied": True,
             "result_dedupe_max_per_doc": max_per_doc,
             "result_dedupe_max_per_source": max_per_source,
+            "result_dedupe_canonical_group": canonical_group or None,
         }
         deduped.append(doc.model_copy(update={"metadata": metadata}))
 

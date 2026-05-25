@@ -47,6 +47,12 @@ class DiscoveryPolicyTest(unittest.TestCase):
 
         self.assertIn("https://www.deu.ac.kr/www/deu-message.do", static_seed_urls)
         self.assertIn("https://www.deu.ac.kr/www/deu-student-council.do", static_seed_urls)
+        self.assertIn("https://www.deu.ac.kr/www/deu-curriculum.do", static_seed_urls)
+        self.assertIn("https://www.deu.ac.kr/www/deu-dining-hall.do", static_seed_urls)
+        self.assertIn("https://www.deu.ac.kr/www/deu-wifi.do", static_seed_urls)
+        self.assertIn("https://www.deu.ac.kr/www/deu-rotc.do", static_seed_urls)
+        self.assertIn("https://www.deu.ac.kr/www/deu-rotc-activities.do", static_seed_urls)
+        self.assertIn("https://www.deu.ac.kr/www/deu-roct-recruit.do", static_seed_urls)
 
     def test_extended_static_seed_catalog_includes_expanded_pages(self) -> None:
         catalog_by_name = {seed["name"]: seed for seed in iter_seed_catalog("static_page")}
@@ -70,11 +76,35 @@ class DiscoveryPolicyTest(unittest.TestCase):
             "https://www.deu.ac.kr/www/deu-today.do?mode=list": "news",
             "https://www.deu.ac.kr/www/deu-foundation-notices.do?mode=list": "foundation_notice",
             "https://www.deu.ac.kr/www/deu-council-notice.do?mode=list": "council_notice",
+            "https://www.deu.ac.kr/www/deu-tuition-notice.do?mode=list": "tuition",
         }
 
         for url, source_type in cases.items():
             with self.subTest(url=url):
                 self.assertEqual(classifier.infer_source_type(url), source_type)
+
+    def test_domain_static_urls_infer_search_policy_source_type(self) -> None:
+        classifier = URLClassifier()
+
+        cases = {
+            "https://www.deu.ac.kr/www/deu-club.do": "club_activity",
+            "https://www.deu.ac.kr/www/deu-dining-hall.do": "cafeteria",
+            "https://www.deu.ac.kr/www/deu-bus.do": "shuttle",
+            "https://www.deu.ac.kr/www/deu-sbus.do": "shuttle",
+        }
+
+        for url, source_type in cases.items():
+            with self.subTest(url=url):
+                self.assertEqual(classifier.infer_source_type(url), source_type)
+
+    def test_domain_seed_source_types_match_rag_policy(self) -> None:
+        catalog_by_name = {seed["name"]: seed for seed in iter_seed_catalog()}
+
+        self.assertEqual(catalog_by_name["deu_club"]["source_type"], "club_activity")
+        self.assertEqual(catalog_by_name["deu_dining_hall"]["source_type"], "cafeteria")
+        self.assertEqual(catalog_by_name["deu_shuttle_bus"]["source_type"], "shuttle")
+        self.assertEqual(catalog_by_name["deu_sbus"]["source_type"], "shuttle")
+        self.assertEqual(catalog_by_name["deu_tuition_notice_list"]["source_type"], "tuition")
 
     def test_department_hosts_infer_department_source_type(self) -> None:
         classifier = URLClassifier()

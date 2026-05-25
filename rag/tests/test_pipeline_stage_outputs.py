@@ -1,20 +1,24 @@
 import json
 import os
-import tempfile
+import shutil
 import unittest
+import uuid
 from pathlib import Path
 from pprint import pprint
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from rag.pipeline.chat_pipeline import ChatPipeline
 from rag.pipeline.state import PipelineState
 from rag.retrieval import retriever
+from rag.schemas.retrieved_doc import RetrievedDoc
 
 
 class PipelineStageOutputTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.chunk_dir = Path(self.temp_dir.name)
+        temp_root = Path.cwd() / ".test_tmp"
+        temp_root.mkdir(exist_ok=True)
+        self.chunk_dir = temp_root / f"chunks_{uuid.uuid4().hex}"
+        self.chunk_dir.mkdir()
         os.environ["RAG_CHUNK_DATA_DIR"] = str(self.chunk_dir)
         os.environ["RAG_USE_DB"] = "0"
         retriever._load_chunk_records.cache_clear()
@@ -51,7 +55,7 @@ class PipelineStageOutputTest(unittest.TestCase):
         retriever._load_bm25_index.cache_clear()
         os.environ.pop("RAG_CHUNK_DATA_DIR", None)
         os.environ.pop("RAG_USE_DB", None)
-        self.temp_dir.cleanup()
+        shutil.rmtree(self.chunk_dir, ignore_errors=True)
 
     def test_pipeline_stage_outputs(self) -> None:
         fake_embedder = Mock()
@@ -82,13 +86,13 @@ class PipelineStageOutputTest(unittest.TestCase):
         pipeline._retrieve(state)
         self._debug_print("after_retrieve", self._snapshot_after_retrieve(state))
 
-        self.assertEqual(state.retrieval_strategy, "hybrid")
+        self.assertEqual(state.retrieval_strategy, "vector")
         self.assertEqual(state.retrieval_top_k, 20)
         self.assertIn("retrieval_request", state.metadata)
         self.assertIn("retrieval_strategy_log", state.metadata)
         self.assertGreaterEqual(len(state.retrieved_docs), 1)
         self.assertEqual(state.retrieved_docs[0].doc_id, "notice_1")
-        self.assertEqual(state.retrieved_docs[0].metadata["strategy"], "lexical")
+        self.assertEqual(state.retrieved_docs[0].metadata["strategy"], "vector")
         self.assertTrue(state.retrieved_docs[0].metadata["matched_tokens"])
 
         pipeline._select_and_build_context(state)
@@ -98,7 +102,70 @@ class PipelineStageOutputTest(unittest.TestCase):
         self.assertGreaterEqual(len(state.selected_docs), 1)
         self.assertIn("rerank_score", state.reranked_docs[0].metadata)
         self.assertIn("rerank_signals", state.reranked_docs[0].metadata)
+        self.assertIn("retrieved_candidate_trace", state.metadata)
+        self.assertIn("reranked_candidate_trace", state.metadata)
+        self.assertIn("selected_candidate_trace", state.metadata)
+        self.assertIn("rejected_candidate_trace", state.metadata)
+        self.assertIn("source_type", state.metadata["selected_candidate_trace"][0])
         self.assertTrue(state.context)
+
+    def test_generate_uses_person_title_rule_before_llm(self) -> None:
+        pipeline = ChatPipeline()
+        state = PipelineState.from_query("9\ub300 \ucd1d\uc7a5")
+        state.metadata["query_understanding"] = {"query_features": {"family": "person_title"}}
+        state.selected_docs = [
+            RetrievedDoc(
+                doc_id="presidents",
+                chunk_id="presidents_1",
+                title="\uc5ed\ub300\ucd1d\uc7a5 | \ucd1d\uc7a5 | DEU",
+                content=(
+                    "\uc81c8\ub300 \ucd1d\uc7a5 \uae40\ud314\ub300\n"
+                    "\uc7ac\uc784\uae30\uac04: 2010. 3. ~ 2014. 2.\n"
+                    "\uc81c9\ub300 \ucd1d\uc7a5 \ud64d\uae38\ub3d9\n"
+                    "\uc7ac\uc784\uae30\uac04: 2014. 3. ~ 2018. 2."
+                ),
+                score=10.0,
+                source="https://example.test/presidents",
+                metadata={"source_type": "institution"},
+            )
+        ]
+        state.prompt = "LLM prompt should not be used"
+
+        with patch("rag.pipeline.chat_pipeline.generate_answer") as mocked_generate:
+            pipeline._generate(state)
+
+        mocked_generate.assert_not_called()
+        self.assertIn("\ud64d\uae38\ub3d9", state.answer_text)
+        self.assertEqual(
+            state.metadata["person_title_answer_rule"]["answer_type"],
+            "president_ordinal",
+        )
+        self.assertTrue(state.metadata["person_title_answer_rule"]["applied"])
+
+    def test_generate_uses_cafeteria_rule_without_structured_extractor(self) -> None:
+        pipeline = ChatPipeline()
+        state = PipelineState.from_query("\uc815\ubcf4\uacf5\ud559\uad00 \uc2dd\ub2f9 \uc6b4\uc601\uc2dc\uac04")
+        state.metadata["query_understanding"] = {"query_features": {"family": "cafeteria"}}
+        state.selected_docs = [
+            RetrievedDoc(
+                doc_id="welfare",
+                chunk_id="welfare_1",
+                title="\ubcf5\uc9c0\ubb38\ud654\uc2dc\uc124 | \ud3b8\uc758\u00b7\ubcf5\uc9c0 | \ub300\ud559\uc0dd\ud65c",
+                content="\uc815\ubcf4\uacf5\ud559\uad00 2\uce35 \ud559\uc0dd\uc2dd\ub2f9, \ud3b8\uc758\uc810, \ud734\uac8c\uc2e4",
+                score=10.0,
+                source="https://www.deu.ac.kr/www/deu-culture.do",
+                metadata={"source_type": "institution"},
+            )
+        ]
+        state.reranked_docs = list(state.selected_docs)
+        state.retrieved_docs = list(state.selected_docs)
+
+        with patch("rag.pipeline.chat_pipeline.generate_answer") as mocked_generate:
+            pipeline._generate(state)
+
+        mocked_generate.assert_not_called()
+        self.assertIn("\uc6b4\uc601\uc2dc\uac04\uc740 \ud655\uc778\ub418\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4", state.answer_text)
+        self.assertIn("\uc815\ubcf4\uacf5\ud559\uad00 2\uce35", state.answer_text)
 
     def _write_chunk_file(self, relative_path: str, payload: list[dict]) -> None:
         file_path = self.chunk_dir / relative_path

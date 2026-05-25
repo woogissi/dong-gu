@@ -68,6 +68,16 @@ SHORT_CHUNK_NOISE_PATTERNS = {
     "login": re.compile(r"(로그인|회원가입|사이트맵|login|join|sitemap)", re.IGNORECASE),
     "search_shell": re.compile(r"(검색어를\s*입력하세요|게시물\s*검색|검색\s*$)"),
 }
+ATTACHMENT_PLACEHOLDER_LINE_PATTERN = re.compile(
+    r"^(\s*[\-–—]*\s*)?(<\s*(그림|표)\s*\d*[-.]?\d*\s*>|\[\s*(그림|표)\s*\d*[-.]?\d*\s*\]|"
+    r"(그림|표)\s*\d+[-.]?\d*|목\s*차|contents?|table\s+of\s+contents|"
+    r"page\s*\d+|\d+\s*/\s*\d+|\d+\s*쪽|-\s*\d+\s*-)\s*$",
+    re.IGNORECASE,
+)
+ATTACHMENT_COVER_LINE_PATTERN = re.compile(
+    r"^(붙임|첨부|별첨|서식|양식|표지|제출서류|작성요령|유의사항)\s*\d*\.?$",
+    re.IGNORECASE,
+)
 
 
 class DocumentChunker:
@@ -191,6 +201,17 @@ class DocumentChunker:
                         "section_title": section.get("section_title") or "body",
                         "text": self.remove_repeated_lines(text),
                         "metadata": section.get("metadata", {}),
+                    }
+                )
+            clean_text = doc.get("normalize")
+            structured_text_len = sum(len(section["text"]) for section in sections)
+            if clean_text and len(self.normalize_text(clean_text)) > max(240, structured_text_len * 2):
+                sections.append(
+                    {
+                        "section_type": "body",
+                        "section_title": "body",
+                        "text": self.remove_repeated_lines(clean_text),
+                        "metadata": {"structure_type": "raw_text_fallback"},
                     }
                 )
         if not sections:
@@ -417,6 +438,42 @@ class DocumentChunker:
             return True
         return False
 
+    def is_low_value_attachment_chunk(self, text: str) -> bool:
+        normalized = re.sub(r"\s+", " ", text).strip()
+        if not normalized:
+            return True
+        if self.short_chunk_quality_score(normalized)["decision"] == "keep":
+            return False
+        if re.search(r"\d{4}[.-]\d{1,2}[.-]\d{1,2}|\d{1,2}:\d{2}|\d{2,4}[-.]\d{3,4}[-.]\d{4}", normalized):
+            return False
+        if re.search(r"(신청|접수|기간|일정|대상|방법|제출|문의|장학|등록금|기숙사|수강)", normalized):
+            return False
+
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if not lines:
+            return True
+
+        placeholder_lines = 0
+        cover_lines = 0
+        short_lines = 0
+        for line in lines:
+            cleaned = line.strip(" -*\t")
+            if ATTACHMENT_PLACEHOLDER_LINE_PATTERN.fullmatch(cleaned):
+                placeholder_lines += 1
+                continue
+            if ATTACHMENT_COVER_LINE_PATTERN.fullmatch(cleaned):
+                cover_lines += 1
+                continue
+            if len(cleaned) <= 4:
+                short_lines += 1
+
+        low_value_lines = placeholder_lines + cover_lines + short_lines
+        if placeholder_lines and low_value_lines == len(lines):
+            return True
+        if len(lines) <= 8 and low_value_lines >= max(2, len(lines) - 1):
+            return True
+        return False
+
     def ui_noise_ratio(self, text: str) -> float:
         tokens = re.findall(r"[가-힣A-Za-z0-9]+", text.lower())
         if not tokens:
@@ -485,6 +542,14 @@ class DocumentChunker:
                         "binary_blocked",
                         "binary_marker_detected",
                         chunk_quality,
+                    )
+                    continue
+                if section.get("section_type") == "attachment" and self.is_low_value_attachment_chunk(section_chunk_text):
+                    record_chunk_skip(
+                        section,
+                        "noise_blocked",
+                        "low_value_attachment_chunk",
+                        {"length": len(section_chunk_text)},
                     )
                     continue
                 if self.skip_stub_chunks and self.is_stub_chunk(section_chunk_text):

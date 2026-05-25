@@ -1,7 +1,7 @@
 import unittest
 
 from rag.schemas.retrieved_doc import RetrievedDoc
-from rag.selection.topk_selector import select_topk
+from rag.selection.topk_selector import select_topk, select_topk_with_diagnostics
 
 
 class TopKSelectorTest(unittest.TestCase):
@@ -45,6 +45,47 @@ class TopKSelectorTest(unittest.TestCase):
         selected = select_topk(docs, k=1)
 
         self.assertEqual(selected[0].doc_id, "facility")
+
+    def test_select_topk_limits_source_type_monopoly_when_alternative_exists(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="notice_a",
+                chunk_id="notice_a_1",
+                title="기숙사 모집 안내 A",
+                content="기숙사 신청기간 안내",
+                score=10.0,
+                metadata={"source_type": "dormitory", "rerank_signals": {"title_match": 0.8}},
+            ),
+            RetrievedDoc(
+                doc_id="notice_b",
+                chunk_id="notice_b_1",
+                title="기숙사 모집 안내 B",
+                content="기숙사 신청기간 안내",
+                score=9.0,
+                metadata={"source_type": "dormitory", "rerank_signals": {"title_match": 0.8}},
+            ),
+            RetrievedDoc(
+                doc_id="notice_c",
+                chunk_id="notice_c_1",
+                title="기숙사 모집 안내 C",
+                content="기숙사 신청기간 안내",
+                score=8.0,
+                metadata={"source_type": "dormitory", "rerank_signals": {"title_match": 0.8}},
+            ),
+            RetrievedDoc(
+                doc_id="academic",
+                chunk_id="academic_1",
+                title="학사 공지 기숙사 신청",
+                content="기숙사 신청 일정 안내",
+                score=7.0,
+                metadata={"source_type": "academic_notice", "rerank_signals": {"title_match": 0.7}},
+            ),
+        ]
+
+        result = select_topk_with_diagnostics(docs, k=3)
+
+        self.assertEqual([doc.doc_id for doc in result["selected"]], ["notice_a", "notice_b", "academic"])
+        self.assertTrue(any(item["reason"] == "source_type_diversity" for item in result["rejected_chunks"]))
 
 
 if __name__ == "__main__":

@@ -489,13 +489,13 @@ SEED_URLS = [       # 해당 크롤러는 밑의 주소의 정보를 크롤링�
     {
         "name": "deu_shuttle_bus",
         "url": "https://www.deu.ac.kr/www/deu-bus.do",
-        "source_type": "campus",
+        "source_type": "shuttle",
         "page_kind": "static_page",
     },
     {
         "name": "deu_dining_hall",
         "url": "https://www.deu.ac.kr/www/deu-dining-hall.do",
-        "source_type": "welfare",
+        "source_type": "cafeteria",
         "page_kind": "static_page",
     },
     {
@@ -944,6 +944,27 @@ SEED_URLS.extend([
     {
         "name": "deu_club",
         "url": "https://www.deu.ac.kr/www/deu-club.do",
+        "source_type": "club_activity",
+        "page_kind": "static_page",
+        "priority": "P2",
+    },
+    {
+        "name": "deu_rotc",
+        "url": "https://www.deu.ac.kr/www/deu-rotc.do",
+        "source_type": "student_life",
+        "page_kind": "static_page",
+        "priority": "P2",
+    },
+    {
+        "name": "deu_rotc_activities",
+        "url": "https://www.deu.ac.kr/www/deu-rotc-activities.do",
+        "source_type": "student_life",
+        "page_kind": "static_page",
+        "priority": "P2",
+    },
+    {
+        "name": "deu_roct_recruit",
+        "url": "https://www.deu.ac.kr/www/deu-roct-recruit.do",
         "source_type": "student_life",
         "page_kind": "static_page",
         "priority": "P2",
@@ -951,8 +972,15 @@ SEED_URLS.extend([
     {
         "name": "deu_sbus",
         "url": "https://www.deu.ac.kr/www/deu-sbus.do",
-        "source_type": "campus",
+        "source_type": "shuttle",
         "page_kind": "static_page",
+        "priority": "P2",
+    },
+    {
+        "name": "deu_tuition_notice_list",
+        "url": "https://www.deu.ac.kr/www/deu-tuition-notice.do?mode=list",
+        "source_type": "tuition",
+        "page_kind": "board_list",
         "priority": "P2",
     },
     {
@@ -1065,6 +1093,14 @@ def _doc_seed_source_type(url: str) -> str:
         return "dormitory"
     if "lib" in host:
         return "library"
+    if "deu-club.do" in path:
+        return "club_activity"
+    if "deu-dining-hall.do" in path:
+        return "cafeteria"
+    if "deu-bus.do" in path or "deu-sbus.do" in path:
+        return "shuttle"
+    if "deu-tuition-notice.do" in path:
+        return "tuition"
     if "teacher" in path:
         return "teacher"
     if "exchange" in path:
@@ -1306,7 +1342,6 @@ https://www.deu.ac.kr/www/deu-college-of-global.do
 https://sanhak.deu.ac.kr/rnd/index.do
 https://dess.deu.ac.kr/?mid=Page6
 https://www.deu.ac.kr/www/academicguide.do
-https://www.deu.ac.kr/www/deu-rotc.do
 https://www.deu.ac.kr/www/deu-reservists.do
 https://www.deu.ac.kr/www/deu-collabo-intro.do
 https://www.isic.co.kr/dongeui/dongeuiIndex.jsp

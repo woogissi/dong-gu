@@ -75,6 +75,14 @@ class URLClassifier:
             return "foundation_notice"
         if "deu-council-notice.do" in lower:
             return "council_notice"
+        if "deu-club.do" in lower:
+            return "club_activity"
+        if "deu-dining-hall.do" in lower:
+            return "cafeteria"
+        if "deu-bus.do" in lower or "deu-sbus.do" in lower:
+            return "shuttle"
+        if "deu-tuition-notice.do" in lower:
+            return "tuition"
         if "ipsi" in lower:
             return "admission"
         if "dorm" in lower:

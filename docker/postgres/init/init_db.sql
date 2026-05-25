@@ -61,6 +61,7 @@ END $$;
 
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 DO $$
 BEGIN
@@ -290,6 +291,9 @@ CREATE INDEX idx_documents_department ON public.documents(department);
 CREATE INDEX idx_documents_published_at ON public.documents(published_at DESC);
 CREATE INDEX idx_documents_collected_at ON public.documents(collected_at DESC);
 CREATE INDEX idx_documents_metadata_gin ON public.documents USING GIN (metadata);
+CREATE INDEX idx_documents_title_trgm ON public.documents USING GIN (title gin_trgm_ops);
+CREATE INDEX idx_documents_title_tsvector_simple ON public.documents
+USING GIN (to_tsvector('simple', coalesce(title, '')));
 
 CREATE INDEX idx_document_versions_doc_id ON public.document_versions(doc_id);
 CREATE INDEX idx_document_versions_created_at ON public.document_versions(created_at DESC);
@@ -308,6 +312,12 @@ CREATE INDEX idx_chunks_document_version_id ON public.chunks(document_version_id
 CREATE INDEX idx_chunks_content_id ON public.chunks(content_id);
 CREATE INDEX idx_chunks_section_type ON public.chunks(section_type);
 CREATE INDEX idx_chunks_metadata_gin ON public.chunks USING GIN (metadata);
+CREATE INDEX idx_chunks_content_trgm ON public.chunks USING GIN (content gin_trgm_ops);
+CREATE INDEX idx_chunks_section_title_trgm ON public.chunks USING GIN (section_title gin_trgm_ops);
+CREATE INDEX idx_chunks_content_tsvector_simple ON public.chunks
+USING GIN (to_tsvector('simple', coalesce(content, '')));
+CREATE INDEX idx_chunks_section_title_tsvector_simple ON public.chunks
+USING GIN (to_tsvector('simple', coalesce(section_title, '')));
 
 CREATE INDEX idx_chunk_embeddings_chunk_id ON public.chunk_embeddings(chunk_id);
 CREATE INDEX idx_chunk_embeddings_embedding_hnsw ON public.chunk_embeddings

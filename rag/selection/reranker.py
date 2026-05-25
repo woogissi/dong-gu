@@ -138,6 +138,7 @@ _DOMAIN_SECTION_TERMS = {
     "institution_history": {"연혁", "연도별 연혁", "대학현황", "1960년대", "2020년대"},
     "welfare_facility": {"복지문화시설", "편의·복지", "학생식당", "헌혈의 집", "편의점", "편의시설"},
     "campus_address": {"가야 캠퍼스", "찾아오시는 길", "캠퍼스안내", "주소"},
+    "dormitory": {"기숙사", "생활관", "효민생활관", "입사", "입사신청"},
     "등록금": {"등록금", "납부", "수납", "고지서"},
 }
 _DOMAIN_REQUIRED_TERMS = {
@@ -156,6 +157,7 @@ _DOMAIN_REQUIRED_TERMS = {
     "institution_history": {"연혁"},
     "welfare_facility": {"복지문화시설"},
     "campus_address": {"가야", "캠퍼스"},
+    "dormitory": {"기숙사", "생활관", "효민생활관"},
     "등록금": {"등록금", "납부", "수납"},
 }
 _SERVICE_DOMAIN_NOISE_SOURCES = {"bids", "council_notice"}
@@ -265,6 +267,7 @@ def _score_doc(
     source_type_noise = _source_type_noise_penalty(doc, keyword_tokens, title_section_text, full_text)
     query_family_boost = _query_family_boost(
         doc=doc,
+        query_text=query.lower(),
         query_family=query_family,
         title_section_text=title_section_text,
         full_text=full_text,
@@ -287,6 +290,7 @@ def _score_doc(
     )
     query_family_penalty = _query_family_penalty(
         doc=doc,
+        query_text=query.lower(),
         query_family=query_family,
         title_section_text=title_section_text,
         full_text=full_text,
@@ -580,12 +584,15 @@ def _reranker_family_name(feature_family: str) -> str:
         return "facility"
     if feature_family == "person_title":
         return "institution"
+    if feature_family == "club_program":
+        return "club_activity"
     return feature_family
 
 
 def _query_family_boost(
     *,
     doc: RetrievedDoc,
+    query_text: str,
     query_family: str,
     title_section_text: str,
     full_text: str,
@@ -599,6 +606,21 @@ def _query_family_boost(
         title_bonus = 1.8 if "복지문화시설" in title_section_text else 0.0
         facility_hits = _term_hits(_DOMAIN_SECTION_TERMS["welfare_facility"], f"{title_section_text}\n{full_text}")
         return min(title_bonus + facility_hits * 0.35, 2.4)
+    if query_family == "dormitory":
+        has_application_intent = _has_dormitory_application_intent(query_text)
+        title_bonus = 1.8 if any(term in title_section_text for term in ("기숙사", "생활관", "효민생활관", "입사신청")) else 0.0
+        source_boost = 0.4 if has_application_intent and _is_dormitory_homepage_like(doc, title_section_text, full_text) else 1.2 if source_type == "dormitory" else 0.0
+        body_hits = _term_hits(_DOMAIN_SECTION_TERMS["dormitory"], full_text)
+        method_bonus = 2.4 if any(term in full_text for term in ("입사신청 방법안내", "입사 신청", "신청기간", "신청 기간")) else 0.0
+        notice_bonus = 1.8 if has_application_intent and _has_dormitory_application_notice(title_section_text, full_text) else 0.0
+        return min(title_bonus + source_boost + body_hits * 0.18 + method_bonus + notice_bonus, 6.2)
+    if query_family == "club_activity":
+        general_club_query = _is_general_club_query(query_text)
+        title_hits = _term_hits({"동아리", "중앙동아리", "학생동아리", "총동아리", "학생활동", "club"}, title_section_text)
+        body_hits = _term_hits({"동아리", "중앙동아리", "학생동아리", "총동아리", "학생활동", "club"}, full_text)
+        source_boost = 0.6 if source_type in {"club_activity", "student_life", "institution"} else 0.0
+        central_bonus = 1.8 if general_club_query and any(term in full_text for term in ("중앙동아리", "동아리 종류", "동아리 가입", "동아리 신청", "학생동아리", "총동아리", "학생활동")) else 0.0
+        return min(title_hits * 0.7 + body_hits * 0.2 + source_boost + central_bonus, 3.4)
     if query_family == "facility":
         section_hits = _term_hits(_FACILITY_SECTION_TERMS, title_section_text)
         source_boost = 0.5 if any(term in source_type for term in ("campus", "facility", "institution")) else 0.0
@@ -609,7 +631,8 @@ def _query_family_boost(
     if query_family == "institution":
         section_hits = _term_hits(_INSTITUTION_SECTION_TERMS, title_section_text)
         source_boost = 0.7 if any(term in source_type for term in _INSTITUTION_SOURCE_TERMS) else 0.0
-        return min(section_hits * 0.65 + source_boost, 1.8)
+        president_bonus = 1.6 if any(term in title_section_text for term in ("역대총장", "총장", "former president", "president")) else 0.0
+        return min(section_hits * 0.65 + source_boost + president_bonus, 2.8)
     if query_family == "academic_schedule":
         title_bonus = 2.0 if "학사일정" in title_section_text else 0.0
         body_hits = _term_hits(_DOMAIN_SECTION_TERMS["academic_schedule"], full_text)
@@ -721,6 +744,7 @@ def _verified_title_boost(query_family: str, title_section_text: str) -> float:
 def _query_family_penalty(
     *,
     doc: RetrievedDoc,
+    query_text: str,
     query_family: str,
     title_section_text: str,
     full_text: str,
@@ -758,6 +782,10 @@ def _query_family_penalty(
         penalty = 0.0
         if "council" in source_type or _term_hits(_INSTITUTION_NOISE_TERMS, title_section_text) > 0:
             penalty -= 1.1
+        if any(term in title_section_text for term in ("총장메시지", "총장 메시지", "president message")):
+            penalty -= 1.8
+        if source_type in {"lifelong", "notice", "external_notice"} and not any(term in title_section_text for term in ("역대총장", "총장")):
+            penalty -= 1.4
         if section_type == "attachment" and _term_hits(_INSTITUTION_SECTION_TERMS, title_section_text) == 0:
             penalty -= 0.7
         return penalty
@@ -765,6 +793,21 @@ def _query_family_penalty(
         return -0.9
     if query_family == "academic_schedule" and source_type in {"scholarship", "job", "external_notice", "bids"}:
         return -1.4
+    if query_family == "dormitory" and source_type in {"scholarship", "job", "external_notice", "bids", "department"}:
+        return -1.6
+    if query_family == "dormitory" and _has_dormitory_application_intent(query_text) and _is_dormitory_homepage_like(doc, title_section_text, full_text):
+        return -1.2
+    if query_family == "club_activity":
+        penalty = 0.0
+        general_club_query = _is_general_club_query(query_text)
+        career_club_doc = any(term in full_text for term in ("학과 진로동아리", "학과진로동아리", "취업동아리", "진로동아리", "취업 동아리", "전공동아리"))
+        if general_club_query and career_club_doc and not any(term in query_text for term in ("진로", "취업", "학과", "전공")):
+            penalty -= 2.0
+        if source_type in {"job", "department"} and general_club_query:
+            penalty -= 0.8
+        if "동아리" not in full_text and "club" not in full_text:
+            penalty -= 1.2
+        return penalty
     if query_family == "academic_schedule" and "학사일정" not in title_section_text and any(term in title_section_text for term in ("수강신청", "계절수업", "장학", "선발", "졸업인증")):
         return -1.6
     if query_family == "course_registration" and any(term in title_section_text for term in ("계절수업", "타대학", "마이크로디그리")):
@@ -811,6 +854,36 @@ def _required_heading_match_score(query_family: str, title_section_text: str) ->
     if required_terms and _term_hits(required_terms, title_section_text) > 0:
         return 0.8
     return 0.0
+
+
+def _has_dormitory_application_intent(query_text: str) -> bool:
+    text = query_text.lower()
+    return any(term in text for term in ("신청", "날짜", "기간", "모집", "입사신청", "입사 신청", "언제", "deadline", "apply"))
+
+
+def _has_dormitory_application_notice(title_section_text: str, full_text: str) -> bool:
+    text = f"{title_section_text}\n{full_text}".lower()
+    return any(term in text for term in ("모집", "신청기간", "신청 기간", "입사신청", "입사 신청", "입사생", "생활관생", "모집 안내", "통합모집"))
+
+
+def _is_dormitory_homepage_like(doc: RetrievedDoc, title_section_text: str, full_text: str) -> bool:
+    source = _normalize_value(doc.source)
+    source_type = _normalize_value(doc.metadata.get("source_type"))
+    section_type = _normalize_value(doc.metadata.get("section_type"))
+    text = f"{title_section_text}\n{full_text}".lower()
+    if _has_dormitory_application_notice(title_section_text, full_text):
+        return False
+    homepage_markers = ("index.do", "main.do", "/main", "intro", "생활관 소개", "효민생활관", "생활관안내")
+    return (
+        source_type == "dormitory"
+        and (section_type in {"body", "static", "menu", ""} or any(marker in source for marker in homepage_markers))
+        and any(marker in text or marker in source for marker in homepage_markers)
+    )
+
+
+def _is_general_club_query(query_text: str) -> bool:
+    text = query_text.lower()
+    return "동아리" in text and not any(term in text for term in ("진로", "취업", "학과", "전공"))
 
 
 def _term_hits(terms: set[str], text: str) -> int:

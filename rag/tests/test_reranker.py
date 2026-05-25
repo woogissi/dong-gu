@@ -50,6 +50,140 @@ class RerankerTest(unittest.TestCase):
 
         self.assertEqual([doc.doc_id for doc in reranked], ["a", "b"])
 
+    def test_dormitory_query_prefers_dormitory_source_over_housing_scholarship(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="housing_scholarship",
+                chunk_id="housing_scholarship_1",
+                title="2026-1학기 주거안정장학금 신청 안내",
+                content="주거안정장학금 지원금 수혜를 위한 오리엔테이션 (기숙사용)",
+                score=10.0,
+                category="scholarship",
+                metadata={"source_type": "scholarship", "section_type": "attachment"},
+            ),
+            RetrievedDoc(
+                doc_id="dorm_apply",
+                chunk_id="dorm_apply_1",
+                title="동의대학교 효민생활관",
+                content="입사신청 방법안내(공통) 효민생활관 행복기숙사 입사 신청 절차",
+                score=4.0,
+                category="dormitory",
+                metadata={"source_type": "dormitory", "section_type": "body"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="기숙사 신청 방법 알려줘",
+            keywords=["기숙사", "생활관", "신청", "입사신청"],
+            category="dormitory",
+            filters={"document_category": ["dormitory", "notice"]},
+        )
+
+        self.assertEqual(reranked[0].doc_id, "dorm_apply")
+        self.assertGreater(reranked[0].metadata["rerank_signals"]["query_family_boost"], 0)
+        self.assertLess(reranked[1].metadata["rerank_signals"]["query_family_penalty"], 0)
+
+    def test_dormitory_application_intent_prefers_notice_over_homepage(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="dorm_home",
+                chunk_id="dorm_home_1",
+                title="동의대학교 효민생활관",
+                content="생활관 소개 생활관안내 시설현황 찾아오시는 길",
+                score=10.0,
+                source="https://dorm.deu.ac.kr/main.do",
+                category="dormitory",
+                metadata={"source_type": "dormitory", "section_type": "body"},
+            ),
+            RetrievedDoc(
+                doc_id="dorm_recruit",
+                chunk_id="dorm_recruit_1",
+                title="2026학년도 1학기 효민생활관 입사생 모집 안내",
+                content="기숙사 입사신청 신청기간 및 제출서류 안내",
+                score=4.0,
+                source="https://dorm.deu.ac.kr/board/notice",
+                category="dormitory",
+                metadata={"source_type": "dormitory", "section_type": "body"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="기숙사 신청 날짜",
+            keywords=["기숙사", "신청", "날짜"],
+            category="dormitory",
+        )
+
+        self.assertEqual(reranked[0].doc_id, "dorm_recruit")
+        self.assertGreater(reranked[0].metadata["rerank_signals"]["query_family_boost"], reranked[1].metadata["rerank_signals"]["query_family_boost"])
+        self.assertLess(reranked[1].metadata["rerank_signals"]["query_family_penalty"], 0)
+
+    def test_general_club_query_prefers_central_club_info_over_department_career_club(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="career_club",
+                chunk_id="career_club_1",
+                title="컴퓨터공학과 학과 진로동아리 모집",
+                content="취업동아리 전공동아리 참여 학생 모집 안내",
+                score=10.0,
+                category="department",
+                metadata={"source_type": "department"},
+            ),
+            RetrievedDoc(
+                doc_id="central_club",
+                chunk_id="central_club_1",
+                title="중앙동아리 안내",
+                content="학생활동 중앙동아리 동아리 종류와 동아리 가입 신청 안내",
+                score=4.0,
+                category="club_activity",
+                metadata={"source_type": "club_activity"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="동아리 종류",
+            keywords=["동아리", "종류"],
+            category="club_activity",
+        )
+
+        self.assertEqual(reranked[0].doc_id, "central_club")
+        self.assertLess(reranked[1].metadata["rerank_signals"]["query_family_penalty"], 0)
+
+    def test_person_title_query_prefers_former_president_page_over_message_noise(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="president_message",
+                chunk_id="president_message_1",
+                title="총장메시지",
+                content="총장 인사말과 대학 소식 안내",
+                score=10.0,
+                category="notice",
+                metadata={"source_type": "notice"},
+            ),
+            RetrievedDoc(
+                doc_id="former_presidents",
+                chunk_id="former_presidents_1",
+                title="역대총장",
+                content="제9대 총장 홍길동 재임기간 안내",
+                score=4.0,
+                category="institution",
+                metadata={"source_type": "institution"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="9대 총장",
+            keywords=["9대", "총장"],
+            category="institution",
+        )
+
+        self.assertEqual(reranked[0].doc_id, "former_presidents")
+        self.assertGreater(reranked[0].metadata["rerank_signals"]["verified_title_boost"], 0)
+        self.assertLess(reranked[1].metadata["rerank_signals"]["query_family_penalty"], 0)
+
     def test_penalizes_high_base_score_documents_missing_core_terms(self) -> None:
         docs = [
             RetrievedDoc(

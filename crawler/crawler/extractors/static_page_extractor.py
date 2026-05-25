@@ -266,6 +266,8 @@ STATIC_NOISE_SELECTORS = [
 ]
 
 STATIC_INCLUDE_SELECTORS = [
+    "#cms-content",
+    ".cms-content",
     ".contents",
     ".content",
     ".sub-content",
@@ -1002,6 +1004,34 @@ class StaticPageExtractor(BaseExtractor):
 
         return None, None
 
+    def domain_metadata(self, source_type: str, page_url: str, title: str, text: str) -> dict:
+        combined = f"{page_url}\n{title}\n{text}".lower()
+        hints_by_source = {
+            "club_activity": ["club_activity", "student_life"],
+            "cafeteria": ["cafeteria", "facility", "welfare"],
+            "shuttle": ["shuttle", "campus"],
+            "library": ["library"],
+            "dormitory": ["dormitory"],
+            "tuition": ["tuition"],
+        }
+        domain_hints = list(hints_by_source.get(source_type, []))
+        keyword_rules = (
+            ("club_activity", ("동아리", "중앙동아리", "학생활동", "club")),
+            ("cafeteria", ("학생식당", "교내식당", "식당", "운영시간", "dining")),
+            ("shuttle", ("셔틀", "통학버스", "deu-bus", "deu-sbus")),
+            ("library", ("도서관", "중앙도서관", "lib.deu.ac.kr")),
+            ("dormitory", ("기숙사", "생활관", "효민생활관", "dorm")),
+            ("tuition", ("등록금", "납부", "고지서", "tuition")),
+        )
+        for hint, terms in keyword_rules:
+            if any(term in combined for term in terms) and hint not in domain_hints:
+                domain_hints.append(hint)
+        return {
+            "source_type": source_type,
+            "page_kind": "static_page",
+            "domain_hints": domain_hints,
+        }
+
     def extract_static_page(self, source_type: str, page_url: str) -> dict:         # 외부에서 호출하는 정적 페이지 추출 메인 함수
         fetch_result = self.fetch_result(page_url)
         canonical_page_url = self.canonicalize_url(fetch_result.final_url or page_url)
@@ -1064,6 +1094,12 @@ class StaticPageExtractor(BaseExtractor):
         content_hash=hash,
         html=html,
         metadata={
+            "source": self.domain_metadata(
+                source_type,
+                canonical_page_url,
+                title,
+                "\n".join(value for value in (raw_text, table_text, merged_image_text) if value),
+            ),
             "fetch": self.fetch_metadata(fetch_result),
             "static_extraction_policy": "main_page" if is_main_page else "static_page",
             "quality_filter": {
