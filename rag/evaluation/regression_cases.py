@@ -8,13 +8,7 @@ document was found.
 
 from __future__ import annotations
 
-
-NOT_FOUND_ANSWER_PATTERNS = (
-    "제공된 문서에서 관련 정보를 찾지 못했습니다",
-    "관련 정보를 찾지 못했습니다",
-    "문서를 찾지 못했습니다",
-    "찾을 수 없습니다",
-)
+from rag.fallback.policy import NOT_FOUND_ANSWER_PATTERNS, has_not_found_answer
 
 REGRESSION_CASES = [
     {
@@ -91,7 +85,7 @@ REGRESSION_CASES = [
 
 
 def answer_has_not_found_pattern(answer: str) -> bool:
-    return any(pattern in (answer or "") for pattern in NOT_FOUND_ANSWER_PATTERNS)
+    return has_not_found_answer(answer)
 
 
 def selected_context_has_not_found_mismatch(result: dict) -> bool:

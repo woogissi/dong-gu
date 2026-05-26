@@ -16,18 +16,23 @@ from rag.schemas.answer import Answer
 from rag.retrieval.retriever import retrieve_documents
 from rag.retrieval.search_strategy import build_retrieval_request
 from rag.retrieval.source_policy import forbidden_source_types_for_family
+from rag.retrieval.quality import retrieval_quality_result, set_retrieval_quality_status
 from rag.selection.topk_selector import select_topk_with_diagnostics
 from rag.selection.context_builder import build_context
 from rag.selection.reranker import rerank_documents
 
 from rag.prompt.prompt_builder import build_prompt
 from rag.llm.answer_generator import generate_answer
+from rag.generation.answer_postprocessor import (
+    repair_negative_answer_with_context,
+    strip_markdown_formatting,
+)
 
 from rag.fallback.fallback_handler import handle_fallback
+from rag.fallback.policy import NO_RETRIEVAL_RESULTS_MESSAGE, has_not_found_answer
 
 from rag.embedding.koe5_embedder import KoE5Embedder
 
-from pprint import pprint
 from threading import Lock
 
 
@@ -44,14 +49,6 @@ _FALLBACK_ORDER_ENV_VAR = "RAG_FALLBACK_ORDER"
 _VECTOR_ONLY_FAMILIES_ENV_VAR = "RAG_VECTOR_ONLY_FAMILIES"
 _DISABLE_FALLBACK_FOR_MODES_ENV_VAR = "RAG_DISABLE_FALLBACK_FOR_MODES"
 _STARTUP_WARMUP_QUERY = "동의대학교 정보 안내"
-
-
-_NEGATIVE_ANSWER_PATTERNS = (
-    "제공된 문서에서 관련 정보를 찾지 못했습니다",
-    "관련 정보를 찾지 못했습니다",
-    "문서를 찾지 못했습니다",
-    "찾을 수 없습니다",
-)
 
 
 class NoRetrievalResultsError(Exception):
@@ -245,7 +242,7 @@ class ChatPipeline:
                 "filters": request.filters,
                 "fallback_triggers": [*request.fallback_triggers, "no_retrieval_results"],
             }
-            raise NoRetrievalResultsError("관련 문서를 찾지 못했습니다.")
+            raise NoRetrievalResultsError(NO_RETRIEVAL_RESULTS_MESSAGE)
 
     def _effective_retrieval_strategy(self, request) -> str:
         configured_mode = os.getenv(_RETRIEVAL_MODE_ENV_VAR, "").strip().lower()
@@ -344,38 +341,15 @@ class ChatPipeline:
         )
 
     def _retrieval_quality_result(self, diagnostic_reason: str, **fields) -> dict:
-        blocking = diagnostic_reason in self._blocking_retrieval_quality_reasons()
-        return {
-            "ok": not blocking,
-            "blocking": blocking,
-            "reason": diagnostic_reason if blocking else "",
-            "diagnostic_ok": not diagnostic_reason,
-            "diagnostic_reason": diagnostic_reason,
-            **fields,
-        }
+        return retrieval_quality_result(diagnostic_reason, **fields)
 
     def _blocking_retrieval_quality_reasons(self) -> set[str]:
-        return {
-            "empty_result",
-            "low_top1_score",
-            "low_avg_score",
-            "short_context",
-            "excessive_duplicate_doc_ids",
-            "top_candidate_noise",
-            "no_required_entity_match",
-        }
+        from rag.retrieval.quality import BLOCKING_RETRIEVAL_QUALITY_REASONS
+
+        return set(BLOCKING_RETRIEVAL_QUALITY_REASONS)
 
     def _set_retrieval_quality_status(self, retrieval_quality: dict, diagnostic_reason: str) -> None:
-        blocking = diagnostic_reason in self._blocking_retrieval_quality_reasons()
-        retrieval_quality.update(
-            {
-                "ok": not blocking,
-                "blocking": blocking,
-                "reason": diagnostic_reason if blocking else "",
-                "diagnostic_ok": not diagnostic_reason,
-                "diagnostic_reason": diagnostic_reason,
-            }
-        )
+        set_retrieval_quality_status(retrieval_quality, diagnostic_reason)
 
     def _fallback_retrieve(self, request, reason: str, state: PipelineState | None = None) -> tuple[list, dict]:
         original_query = ""
@@ -1114,69 +1088,284 @@ class ChatPipeline:
         person_title_answer = self._build_person_title_answer(state)
         if person_title_answer:
             state.metadata["person_title_answer_rule"] = {
-                "applied": True,
+                "applied": False,
                 "rule": "person_title_answer",
                 "answer_type": "president_ordinal",
+                "decision": "evidence",
             }
-            state.answer_text = person_title_answer
-            return
+            self._record_rule_answer_candidate(
+                state,
+                "person_title_answer",
+                person_title_answer,
+                decision="evidence",
+                reason="high_risk_rule_evidence_only",
+            )
         department_faculty_answer = self._build_department_faculty_list_answer(state)
         if department_faculty_answer:
-            state.answer_text = department_faculty_answer
-            return
+            if self._handle_structured_rule_answer(state, "department_faculty_list_answer", department_faculty_answer):
+                return
         faculty_answer = self._build_faculty_answer(state)
         if faculty_answer:
-            state.answer_text = faculty_answer
-            return
+            if self._handle_structured_rule_answer(state, "faculty_answer", faculty_answer):
+                return
         facility_location_answer = self._build_facility_location_answer(state)
         if facility_location_answer:
-            state.answer_text = facility_location_answer
-            return
+            self._record_rule_answer_candidate(
+                state,
+                "facility_location_answer",
+                facility_location_answer,
+                decision="evidence",
+                reason="high_risk_rule_evidence_only",
+            )
         cafeteria_answer = self._build_cafeteria_answer(state)
         if cafeteria_answer:
-            state.answer_text = cafeteria_answer
-            return
+            self._record_rule_answer_candidate(
+                state,
+                "cafeteria_answer",
+                cafeteria_answer,
+                decision="evidence",
+                reason="high_risk_rule_evidence_only",
+            )
         curriculum_answer = self._build_department_curriculum_answer(state)
         if curriculum_answer:
-            state.answer_text = curriculum_answer
-            return
+            if self._handle_structured_rule_answer(state, "department_curriculum_answer", curriculum_answer):
+                return
         academic_schedule_answer = self._build_academic_schedule_answer(state)
         if academic_schedule_answer:
-            state.answer_text = academic_schedule_answer
-            return
+            if self._handle_structured_rule_answer(state, "academic_schedule_answer", academic_schedule_answer):
+                return
         navigation_answer = self._build_navigation_fallback_answer(state)
         if navigation_answer:
-            state.answer_text = navigation_answer
-            return
+            self._record_rule_answer_candidate(
+                state,
+                "navigation_fallback_answer",
+                navigation_answer,
+                decision="evidence",
+                reason="high_risk_rule_evidence_only",
+            )
         state.prompt = build_prompt(
             query=state.original_query,
             context=state.context,
+            structured_evidence=self._structured_evidence_text(state),
         )
-        state.answer_text = generate_answer(state.prompt)
-        state.answer_text = self._repair_negative_answer_with_context(state.answer_text, state)
+        state.metadata["answer_generation_input"] = {
+            "selected_doc_count": len(state.selected_docs or []),
+            "context_chars": len(state.context or ""),
+            "prompt_chars": len(state.prompt or ""),
+            "has_structured_evidence": bool(self._structured_evidence_text(state)),
+        }
+        generated_answer = generate_answer(state.prompt)
+        state.metadata["answer_generation_output"] = {
+            "raw_answer_chars": len(generated_answer or ""),
+            "raw_answer_has_not_found": has_not_found_answer(generated_answer),
+        }
+        state.answer_text = repair_negative_answer_with_context(
+            generated_answer,
+            state.metadata,
+            context=state.context,
+            selected_docs=state.selected_docs,
+            query=state.original_query,
+        )
+        state.metadata["answer_generation_output"].update(
+            {
+                "final_answer_chars": len(state.answer_text or ""),
+                "final_answer_has_not_found": has_not_found_answer(state.answer_text),
+                "negative_answer_repair": state.metadata.get("negative_answer_repair"),
+            }
+        )
+
+    def _handle_structured_rule_answer(self, state: PipelineState, rule: str, answer: str) -> bool:
+        passed, decision, missing_terms, reason = self._structured_rule_gate(state, rule)
+        self._record_rule_answer_candidate(
+            state,
+            rule,
+            answer,
+            decision=decision,
+            reason=reason,
+            missing_terms=missing_terms,
+        )
+        if not passed:
+            return False
+        state.answer_text = answer
+        return True
+
+    def _record_rule_answer_candidate(
+        self,
+        state: PipelineState,
+        rule: str,
+        answer: str,
+        *,
+        decision: str = "final",
+        reason: str = "rule_returned_before_llm",
+        missing_terms: list[str] | None = None,
+    ) -> None:
+        doc = self._rule_answer_source_doc(state, rule)
+        candidate = {
+            "rule": rule,
+            "decision": decision,
+            "confidence": self._rule_answer_confidence(rule, state),
+            "source_doc_id": getattr(doc, "doc_id", None),
+            "source_chunk_id": getattr(doc, "chunk_id", None),
+            "evidence": self._rule_answer_evidence(rule, answer, doc, state),
+            "missing_terms": missing_terms if missing_terms is not None else self._rule_answer_missing_terms(rule, state),
+            "reason": reason,
+        }
+        state.metadata.setdefault("rule_answer_candidates", []).append(candidate)
+
+    def _structured_rule_gate(self, state: PipelineState, rule: str) -> tuple[bool, str, list[str], str]:
+        missing: list[str] = []
+        if rule == "faculty_answer":
+            metadata = state.metadata.get("faculty_answer", {})
+            required_entity = str(metadata.get("required_entity") or "").strip() if isinstance(metadata, dict) else ""
+            fields = metadata.get("extracted_fields") if isinstance(metadata, dict) else None
+            doc = self._rule_answer_source_doc(state, rule)
+            if not required_entity:
+                missing.append("required_entity")
+            if required_entity and (not doc or not self._doc_contains_entity(doc, required_entity)):
+                missing.append("matching_faculty_document")
+            if not isinstance(fields, list) or not fields:
+                missing.append("faculty_fields")
+            if not (isinstance(metadata, dict) and metadata.get("source_doc_id") and metadata.get("source_chunk_id")):
+                missing.append("source_document")
+            return self._structured_gate_result(missing, "faculty_answer_gate")
+
+        if rule == "department_faculty_list_answer":
+            metadata = state.metadata.get("department_faculty_list_answer", {})
+            doc = self._rule_answer_source_doc(state, rule)
+            entry_count = int(metadata.get("entry_count") or 0) if isinstance(metadata, dict) else 0
+            department_name = str(metadata.get("department_name") or "").strip() if isinstance(metadata, dict) else ""
+            if entry_count < 2:
+                missing.append("faculty_entries")
+            if not doc or not self._is_faculty_list_doc(doc):
+                missing.append("faculty_list_document")
+            if not department_name and not self._department_name_from_title(getattr(doc, "title", "") or ""):
+                missing.append("department_or_faculty_title")
+            return self._structured_gate_result(missing, "department_faculty_list_answer_gate")
+
+        if rule == "department_curriculum_answer":
+            metadata = state.metadata.get("department_curriculum_answer", {})
+            course_count = int(metadata.get("course_count") or 0) if isinstance(metadata, dict) else 0
+            if not (isinstance(metadata, dict) and metadata.get("department_name")):
+                missing.append("department_name")
+            if not (isinstance(metadata, dict) and metadata.get("source_doc_id")):
+                missing.append("source_document")
+            if not (isinstance(metadata, dict) and metadata.get("year")):
+                missing.append("curriculum_year")
+            if course_count < 1:
+                missing.append("curriculum_courses")
+            return self._structured_gate_result(missing, "department_curriculum_answer_gate")
+
+        if rule == "academic_schedule_answer":
+            metadata = state.metadata.get("academic_schedule_answer", {})
+            row_count = int(metadata.get("row_count") or 0) if isinstance(metadata, dict) else 0
+            if not (isinstance(metadata, dict) and metadata.get("semester")):
+                missing.append("semester")
+            if not (isinstance(metadata, dict) and metadata.get("source_doc_id")):
+                missing.append("source_document")
+            if row_count < 1:
+                missing.append("schedule_rows")
+            return self._structured_gate_result(missing, "academic_schedule_answer_gate")
+
+        return True, "final", [], "no_gate_required"
+
+    def _structured_gate_result(self, missing: list[str], reason: str) -> tuple[bool, str, list[str], str]:
+        if not missing:
+            return True, "final", [], reason
+        decision = "evidence" if "source_document" not in missing else "rejected"
+        return False, decision, missing, reason
+
+    def _structured_evidence_text(self, state: PipelineState) -> str:
+        evidence_lines = self._format_structured_evidence(state)
+        if not evidence_lines:
+            return ""
+        return "\n".join(evidence_lines).strip()
+
+    def _format_structured_evidence(self, state: PipelineState) -> list[str]:
+        candidates = state.metadata.get("rule_answer_candidates") or []
+        lines: list[str] = []
+        for candidate in candidates:
+            if not isinstance(candidate, dict) or candidate.get("decision") != "evidence":
+                continue
+            parts = [
+                f"rule={candidate.get('rule')}",
+                f"confidence={candidate.get('confidence')}",
+            ]
+            if candidate.get("source_doc_id"):
+                parts.append(f"source_doc_id={candidate.get('source_doc_id')}")
+            if candidate.get("source_chunk_id"):
+                parts.append(f"source_chunk_id={candidate.get('source_chunk_id')}")
+            missing_terms = candidate.get("missing_terms") or []
+            if missing_terms:
+                parts.append("missing_terms=" + ",".join(str(term) for term in missing_terms))
+            lines.append("- " + "; ".join(parts))
+            for evidence in candidate.get("evidence") or []:
+                lines.append(f"  evidence: {evidence}")
+        return lines
+
+    def _rule_answer_source_doc(self, state: PipelineState, rule: str):
+        metadata_key_by_rule = {
+            "department_faculty_list_answer": "department_faculty_list_answer",
+            "faculty_answer": "faculty_answer",
+            "facility_location_answer": "facility_answer",
+            "cafeteria_answer": "facility_answer",
+            "department_curriculum_answer": "department_curriculum_answer",
+            "academic_schedule_answer": "academic_schedule_answer",
+        }
+        metadata = state.metadata.get(metadata_key_by_rule.get(rule, ""), {})
+        source_chunk_id = metadata.get("source_chunk_id") if isinstance(metadata, dict) else None
+        source_doc_id = metadata.get("source_doc_id") if isinstance(metadata, dict) else None
+        docs = [*(state.selected_docs or []), *(state.reranked_docs or []), *(state.retrieved_docs or [])]
+        if source_chunk_id:
+            for doc in docs:
+                if getattr(doc, "chunk_id", None) == source_chunk_id:
+                    return doc
+        if source_doc_id:
+            for doc in docs:
+                if getattr(doc, "doc_id", None) == source_doc_id:
+                    return doc
+        return docs[0] if docs else None
+
+    def _rule_answer_confidence(self, rule: str, state: PipelineState) -> float:
+        if rule in {"faculty_answer", "department_faculty_list_answer", "department_curriculum_answer", "academic_schedule_answer"}:
+            return 0.95
+        if rule == "person_title_answer":
+            return 0.8
+        if rule == "facility_location_answer":
+            return 0.75
+        if rule == "cafeteria_answer":
+            metadata = state.metadata.get("facility_answer", {})
+            if isinstance(metadata, dict) and metadata.get("type") == "cafeteria_hours" and not metadata.get("hours_found"):
+                return 0.55
+            return 0.7
+        if rule == "navigation_fallback_answer":
+            return 0.65
+        return 0.5
+
+    def _rule_answer_evidence(self, rule: str, answer: str, doc, state: PipelineState) -> list[str]:
+        if rule == "cafeteria_answer" and self._rule_answer_missing_terms(rule, state):
+            evidence = []
+            title = (getattr(doc, "title", "") or "").strip()
+            content = re.sub(r"\s+", " ", getattr(doc, "content", "") or "").strip()
+            source = (getattr(doc, "source", "") or "").strip()
+            if title:
+                evidence.append(f"title: {title}")
+            if content:
+                evidence.append(f"content: {content[:240]}")
+            if source:
+                evidence.append(f"source: {source}")
+            return evidence
+        lines = [line.strip() for line in (answer or "").splitlines() if line.strip()]
+        return lines[:3]
+
+    def _rule_answer_missing_terms(self, rule: str, state: PipelineState) -> list[str]:
+        if rule == "cafeteria_answer":
+            metadata = state.metadata.get("facility_answer", {})
+            if isinstance(metadata, dict) and metadata.get("type") == "cafeteria_hours" and not metadata.get("hours_found"):
+                return ["operating_hours"]
+        return []
 
     def _repair_negative_answer_with_context(self, answer: str, state: PipelineState) -> str:
-        if not self._contains_negative_answer(answer):
-            return answer
-        cleaned = self._strip_negative_answer_sentences(answer)
-        if self._has_substantive_answer(cleaned):
-            state.metadata["negative_answer_repair"] = "stripped_negative_sentence"
-            return cleaned
-        return answer
-
-    def _contains_negative_answer(self, answer: str) -> bool:
-        return any(pattern in (answer or "") for pattern in _NEGATIVE_ANSWER_PATTERNS)
-
-    def _strip_negative_answer_sentences(self, answer: str) -> str:
-        text = answer or ""
-        for pattern in _NEGATIVE_ANSWER_PATTERNS:
-            text = text.replace(pattern + ".", "")
-            text = text.replace(pattern, "")
-        return re.sub(r"\n{3,}", "\n\n", text).strip()
-
-    def _has_substantive_answer(self, answer: str) -> bool:
-        normalized = re.sub(r"\s+", " ", answer or "").strip()
-        return len(normalized) >= 40 and not self._contains_negative_answer(normalized)
+        return repair_negative_answer_with_context(answer, state.metadata)
 
     def _build_facility_location_answer(self, state: PipelineState) -> str | None:
         if self._facility_query_type(state) != "building_location":
@@ -1799,6 +1988,13 @@ class ChatPipeline:
             return None
         if not year:
             source = matching_docs[0].source or "출처 없음"
+            state.metadata["department_curriculum_answer"] = {
+                "department_name": department_name,
+                "source_doc_id": matching_docs[0].doc_id,
+                "source_chunk_id": matching_docs[0].chunk_id,
+                "year": None,
+                "course_count": 0,
+            }
             return f"{department_name} 이수표는 아래 출처에서 확인할 수 있습니다.\n출처: {source}"
 
         combined = "\n".join(doc.content or "" for doc in matching_docs)
@@ -1809,6 +2005,13 @@ class ChatPipeline:
 
         display_courses = ", ".join(courses[:12])
         source = matching_docs[0].source or "출처 없음"
+        state.metadata["department_curriculum_answer"] = {
+            "department_name": department_name,
+            "source_doc_id": matching_docs[0].doc_id,
+            "source_chunk_id": matching_docs[0].chunk_id,
+            "year": year,
+            "course_count": len(courses),
+        }
         return (
             f"{department_name} 이수표 기준 {year}학년 교육과정에는 다음 과목들이 확인됩니다.\n"
             f"- {display_courses}\n"
@@ -1833,6 +2036,13 @@ class ChatPipeline:
             return None
 
         source = next((doc.source for doc in state.selected_docs if doc.source), "출처 없음")
+        source_doc = next((doc for doc in state.selected_docs if doc.source), state.selected_docs[0] if state.selected_docs else None)
+        state.metadata["academic_schedule_answer"] = {
+            "semester": semester,
+            "row_count": len(rows),
+            "source_doc_id": getattr(source_doc, "doc_id", None),
+            "source_chunk_id": getattr(source_doc, "chunk_id", None),
+        }
         lines = [f"{semester} 보강일정은 다음과 같습니다."]
         for date, detail in rows[:8]:
             lines.append(f"- {date}: {detail}")
@@ -2105,18 +2315,10 @@ class ChatPipeline:
         return courses
 
     def _postprocess(self, state: PipelineState) -> None:
-        state.answer_text = self._strip_markdown_formatting(state.answer_text)
+        state.answer_text = strip_markdown_formatting(state.answer_text)
 
     def _strip_markdown_formatting(self, text: str) -> str:
-        if not text:
-            return text
-        cleaned = text.replace("```", "")
-        cleaned = re.sub(r"^\s{0,3}#{1,6}\s*", "", cleaned, flags=re.MULTILINE)
-        cleaned = re.sub(r"\*\*(.*?)\*\*", r"\1", cleaned)
-        cleaned = re.sub(r"__(.*?)__", r"\1", cleaned)
-        cleaned = re.sub(r"`([^`]+)`", r"\1", cleaned)
-        cleaned = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"\1 (\2)", cleaned)
-        return cleaned.strip()
+        return strip_markdown_formatting(text)
 
     def _build_success_answer(self, state: PipelineState) -> Answer:
         return Answer(

@@ -105,3 +105,16 @@ def ordered_unique(values: Iterable[str]) -> list[str]:
         deduped.append(normalized)
         seen.add(normalized)
     return deduped
+
+
+def drop_subsumed_terms(terms: Iterable[str]) -> list[str]:
+    """Drop shorter terms that are contained in a longer kept term."""
+
+    ordered = ordered_unique(terms)
+    by_length = sorted(ordered, key=len, reverse=True)
+    kept: list[str] = []
+    for term in by_length:
+        if any(term != other and term in other for other in kept):
+            continue
+        kept.append(term)
+    return sorted(kept, key=ordered.index)

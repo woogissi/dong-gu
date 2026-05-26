@@ -26,6 +26,7 @@ from rag.preprocess.hybrid_keyword_extractor import (
 from rag.preprocess.query_analysis import QueryAnalysisResult
 from rag.preprocess.tokenizer import (
     QUERY_FILLERS,
+    drop_subsumed_terms,
     normalize_token,
     ordered_unique,
     regex_tokens,
@@ -271,7 +272,7 @@ def _detect_entities(
     if "등록금" in detected and _term_matches("고지서", token_set) and "고지서" not in detected:
         detected.append("고지서")
 
-    return _drop_subsumed_terms(_ordered_unique(detected))
+    return drop_subsumed_terms(_ordered_unique(detected))
 
 
 def detect_rewrite_entities(
@@ -333,7 +334,7 @@ def _keyword_terms(
         terms.extend(_GENERIC_INTENT_EXPANSIONS.get(intent, ()))
         terms.extend(_conditional_expansions(query, intent, entities, token_info=token_info))
     terms.extend(_noun_only_terms(query, noun_terms=noun_terms))
-    return _ordered_unique(_drop_subsumed_terms(terms))
+    return _ordered_unique(drop_subsumed_terms(terms))
 
 
 def _safe_keywords(keywords: list[str], token_info: _TokenInfo) -> list[str]:
@@ -431,17 +432,6 @@ def _noun_only_terms(
         return [term for term in kiwi_terms if term not in _FILLERS]
     token_info = _TokenInfo.from_text(query)
     return list(token_info.content_tokens)
-
-
-def _drop_subsumed_terms(terms: list[str]) -> list[str]:
-    ordered = _ordered_unique(terms)
-    by_length = sorted(ordered, key=len, reverse=True)
-    kept: list[str] = []
-    for term in by_length:
-        if any(term != other and term in other for other in kept):
-            continue
-        kept.append(term)
-    return sorted(kept, key=ordered.index)
 
 
 def _is_weak_token(token: str) -> bool:

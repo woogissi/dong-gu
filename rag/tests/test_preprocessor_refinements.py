@@ -2,13 +2,13 @@ import unittest
 from dataclasses import dataclass
 
 from rag.preprocess import hybrid_keyword_extractor as hybrid
-from rag.pipeline.preprocessor import (
-    QueryPreprocessor,
-    _apply_synonym_filter,
-    _build_aho_automaton,
-    _longest_non_overlapping_matches,
-)
+from rag.pipeline.preprocessor import QueryPreprocessor
 from rag.pipeline.state import PipelineState
+from rag.preprocess.lexicon_matcher import (
+    apply_synonym_filter,
+    build_aho_automaton,
+    longest_non_overlapping_matches,
+)
 
 
 @dataclass(frozen=True)
@@ -38,7 +38,7 @@ class PreprocessorRefinementTest(unittest.TestCase):
         hybrid.clear_kiwi_cache()
 
     def test_synonym_filter_drops_subsumed_terms(self) -> None:
-        self.assertEqual(_apply_synonym_filter("장학금 신청"), "장학금 신청 학자금 지원")
+        self.assertEqual(apply_synonym_filter("장학금 신청"), "장학금 신청 학자금 지원")
 
     def test_preprocessor_keeps_normalized_query_free_of_synonym_expansion(self) -> None:
         state = PipelineState.from_query("장학금 신청")
@@ -52,9 +52,9 @@ class PreprocessorRefinementTest(unittest.TestCase):
         self.assertIn("장학금 신청 학자금 지원", state.rewritten_queries)
 
     def test_longest_non_overlapping_match_suppresses_shorter_overlap(self) -> None:
-        automaton = _build_aho_automaton({"국가장학", "장학금", "신청"})
+        automaton = build_aho_automaton({"국가장학", "장학금", "신청"})
 
-        matches = _longest_non_overlapping_matches("국가장학금 신청", automaton)
+        matches = longest_non_overlapping_matches("국가장학금 신청", automaton)
 
         self.assertEqual(matches, ["국가장학", "신청"])
 

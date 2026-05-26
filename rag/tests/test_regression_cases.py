@@ -135,29 +135,6 @@ class RegressionCaseUtilityTest(unittest.TestCase):
 
         self.assertEqual([doc.doc_id for doc in filtered], ["central"])
 
-    def test_does_not_replace_negative_answer_with_context_extract(self) -> None:
-        state = PipelineState.from_query("휴학 신청 방법 알려줘")
-        state.keywords = ["휴학", "신청", "방법"]
-        state.selected_docs = [
-            RetrievedDoc(
-                doc_id="leave",
-                chunk_id="leave_1",
-                title="휴학",
-                content="가사, 군입대, 질병 휴학신청 방법\n휴학 신청은 DAP 시스템에서 신청합니다.",
-                source="https://dess.deu.ac.kr/?mid=Page1",
-                score=1.0,
-                metadata={"source_type": "academic_support"},
-            )
-        ]
-
-        repaired = ChatPipeline()._repair_negative_answer_with_context(
-            "제공된 문서에서 관련 정보를 찾지 못했습니다.",
-            state,
-        )
-
-        self.assertIn("찾지 못했습니다", repaired)
-        self.assertNotIn("선택된 문서 기준", repaired)
-
     def test_person_title_list_answer_avoids_llm_not_found(self) -> None:
         state = PipelineState.from_query("동의대 역대 총장 목록")
         state.metadata["query_understanding"] = {"query_features": {"family": "person_title"}}

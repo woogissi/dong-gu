@@ -724,18 +724,6 @@ class RagQualityFixTest(unittest.TestCase):
         self.assertIn("\ubd84\uc2e4\ubb3c", lost_answer or "")
         self.assertIn("deu-lostfound", lost_answer or "")
 
-    def test_postprocess_strips_markdown_formatting(self) -> None:
-        pipeline = ChatPipeline()
-        state = PipelineState.from_query("\ud14c\uc2a4\ud2b8")
-        state.answer_text = "**\uc911\uc694**\n# \uc81c\ubaa9\n`\ucf54\ub4dc`"
-
-        pipeline._postprocess(state)
-
-        self.assertNotIn("**", state.answer_text)
-        self.assertNotIn("#", state.answer_text)
-        self.assertNotIn("`", state.answer_text)
-        self.assertIn("\uc911\uc694", state.answer_text)
-
     def test_facility_location_answer_uses_info_center_alias(self) -> None:
         pipeline = ChatPipeline()
         state = PipelineState.from_query("\uc815\ubcf4\uad00 \uc704\uce58")

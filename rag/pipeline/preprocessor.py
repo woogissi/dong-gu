@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from collections import deque
-from dataclasses import dataclass, replace
+from dataclasses import replace
 import re
 
 from rag.pipeline.state import PipelineState
-from rag.preprocess.domain_knowledge import ENTITY_LEXICON, ENTITY_SYNONYMS
 from rag.preprocess.normalizer import normalize_query
 from rag.preprocess.keyword_extractor import extract_keywords
 from rag.preprocess.hybrid_keyword_extractor import (
@@ -17,6 +15,10 @@ from rag.preprocess.hybrid_keyword_extractor import (
     is_kiwi_available,
 )
 from rag.preprocess.entity_extractor import build_filters, extract_entities, primary_category
+from rag.preprocess.lexicon_matcher import (
+    apply_synonym_filter,
+    extract_aho_keywords,
+)
 from rag.preprocess.query_analysis import QueryAnalysisResult
 from rag.preprocess.query_features import extract_query_features, sanitize_filters
 from rag.preprocess.query_rewriter import (
@@ -28,104 +30,6 @@ from rag.preprocess.query_rewriter import (
 from rag.preprocess.tokenizer import regex_tokens
 
 
-_SYNONYMS = ENTITY_SYNONYMS
-_AHO_OUTPUT = "_out"
-_AHO_FAIL = "_fail"
-
-
-@dataclass(frozen=True)
-class _AhoMatch:
-    pattern: str
-    start: int
-    end: int
-
-
-def _build_aho_automaton(patterns: set[str]) -> dict[str, object]:
-    root: dict[str, object] = {_AHO_OUTPUT: []}
-
-    for pattern in patterns:
-        if not pattern:
-            continue
-        node = root
-        for char in pattern:
-            node = node.setdefault(char, {_AHO_OUTPUT: []})  # type: ignore[assignment]
-        node[_AHO_OUTPUT].append(pattern)  # type: ignore[index]
-
-    queue: deque[dict[str, object]] = deque()
-    for char, child in tuple(root.items()):
-        if char == _AHO_OUTPUT:
-            continue
-        child[_AHO_FAIL] = root  # type: ignore[index]
-        queue.append(child)  # type: ignore[arg-type]
-
-    while queue:
-        node = queue.popleft()
-        fail_node = node[_AHO_FAIL]  # type: ignore[index]
-        node[_AHO_OUTPUT].extend(fail_node.get(_AHO_OUTPUT, []))  # type: ignore[union-attr,index]
-
-        for char, child in tuple(node.items()):
-            if char in {_AHO_OUTPUT, _AHO_FAIL}:
-                continue
-            next_fail = fail_node
-            while next_fail is not root and char not in next_fail:
-                next_fail = next_fail[_AHO_FAIL]  # type: ignore[index]
-            child[_AHO_FAIL] = next_fail.get(char, root)  # type: ignore[index,union-attr]
-            queue.append(child)  # type: ignore[arg-type]
-
-    return root
-
-
-def _aho_matches(text: str, automaton: dict[str, object]) -> list[str]:
-    return list(dict.fromkeys(match.pattern for match in _aho_match_spans(text, automaton)))
-
-
-def _aho_match_spans(text: str, automaton: dict[str, object]) -> list[_AhoMatch]:
-    node = automaton
-    matches: list[_AhoMatch] = []
-
-    for index, char in enumerate(text):
-        while node is not automaton and char not in node:
-            node = node[_AHO_FAIL]  # type: ignore[index,assignment]
-        node = node.get(char, automaton)  # type: ignore[assignment]
-        for pattern in node.get(_AHO_OUTPUT, []):  # type: ignore[union-attr]
-            start = index - len(pattern) + 1
-            matches.append(_AhoMatch(pattern=pattern, start=start, end=index + 1))
-
-    return matches
-
-
-def _longest_non_overlapping_matches(text: str, automaton: dict[str, object]) -> list[str]:
-    candidates = sorted(
-        _aho_match_spans(text, automaton),
-        key=lambda match: (-(match.end - match.start), match.start, match.pattern),
-    )
-    occupied: list[tuple[int, int]] = []
-    selected: list[_AhoMatch] = []
-
-    for match in candidates:
-        if any(match.start < end and start < match.end for start, end in occupied):
-            continue
-        occupied.append((match.start, match.end))
-        selected.append(match)
-
-    selected.sort(key=lambda match: match.start)
-    return list(dict.fromkeys(match.pattern for match in selected))
-
-
-_LEXICON_PATTERN_TO_KEYWORDS: dict[str, tuple[str, ...]] = {}
-for entity, lexemes in ENTITY_LEXICON.items():
-    terms = {entity, *lexemes}
-    for term in tuple(terms):
-        terms.update(_SYNONYMS.get(term, ()))
-    for term in terms:
-        _LEXICON_PATTERN_TO_KEYWORDS[term] = tuple(dict.fromkeys((
-            *_LEXICON_PATTERN_TO_KEYWORDS.get(term, ()),
-            entity,
-            term,
-            *_SYNONYMS.get(term, ()),
-        )))
-
-_KEYWORD_AUTOMATON = _build_aho_automaton(set(_LEXICON_PATTERN_TO_KEYWORDS))
 _PROTECTED_QUERY_TOKEN_PATTERN = re.compile(
     r"[가-힣A-Za-z0-9]+(?:[-ㆍ·][가-힣A-Za-z0-9]+)*"
 )
@@ -155,42 +59,6 @@ _PROTECTED_KEYWORDS = {
     "기말시험",
     "보강일정",
 }
-_BROAD_SYNONYM_EXPANSIONS = {"국가장학", "교내장학", "근로장학"}
-
-
-def _extract_aho_keywords(query: str) -> list[str]:
-    keywords: dict[str, None] = {}
-    for match in _longest_non_overlapping_matches(query, _KEYWORD_AUTOMATON):
-        for keyword in _LEXICON_PATTERN_TO_KEYWORDS[match]:
-            keywords[keyword] = None
-    return list(keywords)
-
-
-def _apply_synonym_filter(query: str) -> str:
-    synonyms: dict[str, None] = {}
-    for match in _longest_non_overlapping_matches(query, _KEYWORD_AUTOMATON):
-        for synonym in _SYNONYMS.get(match, ()):
-            if synonym in _BROAD_SYNONYM_EXPANSIONS:
-                continue
-            if synonym not in query:
-                synonyms[synonym] = None
-
-    filtered_synonyms = _drop_subsumed_terms(list(synonyms))
-    if not filtered_synonyms:
-        return query
-    return f"{query} {' '.join(filtered_synonyms)}"
-
-
-def _drop_subsumed_terms(terms: list[str]) -> list[str]:
-    ordered = sorted(dict.fromkeys(terms), key=len, reverse=True)
-    kept: list[str] = []
-    for term in ordered:
-        if any(term != other and term in other for other in kept):
-            continue
-        kept.append(term)
-    return sorted(kept, key=terms.index)
-
-
 def _protected_query_terms(query: str, keywords: list[str]) -> list[str]:
     protected: dict[str, None] = {}
     for value in [*keywords, *(_PROTECTED_QUERY_TOKEN_PATTERN.findall(query or ""))]:
@@ -222,9 +90,9 @@ def _append_missing_terms(text: str, missing_terms: list[str]) -> str:
 class QueryPreprocessor:
     def analyze_query_once(self, raw_query: str) -> QueryAnalysisResult:
         normalized_query = normalize_query(raw_query)
-        lexical_query = _apply_synonym_filter(normalized_query)
+        lexical_query = apply_synonym_filter(normalized_query)
 
-        aho_matches = _extract_aho_keywords(lexical_query)
+        aho_matches = extract_aho_keywords(lexical_query)
         lexical_terms = extract_keywords(lexical_query)
         cfg = HybridKeywordConfig.from_env()
         should_analyze_kiwi = cfg.mode != "off" and is_kiwi_available()

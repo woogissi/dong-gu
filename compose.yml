@@ -100,7 +100,7 @@ services:
       start_period: 10s
 
   pgadmin:
-    image: dpage/pgadmin4
+    image: dpage/pgadmin4:9.8
     container_name: donggu-pgadmin
     restart: always
     environment:
