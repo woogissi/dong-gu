@@ -1,0 +1,2772 @@
+{
+  "summary": {
+    "total_queries": 54,
+    "analyzed_cases": 10,
+    "cause_distribution": {
+      "OUT_OF_SCOPE_POLICY_ROUTE": 3,
+      "B_RETRIEVAL_SELECTION_GAP": 1,
+      "D_INTENT_OR_ROUTING_GAP": 5,
+      "C_GENERATION_GAP": 1
+    }
+  },
+  "schema": {
+    "existing_tables": [
+      "query_logs",
+      "response_logs",
+      "retrieval_logs",
+      "retrieval_selected_chunks",
+      "documents",
+      "chunks",
+      "chunk_embeddings",
+      "document_contents",
+      "document_assets",
+      "crawl_logs"
+    ],
+    "columns": [
+      {
+        "table_name": "chunk_embeddings",
+        "column_name": "id",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "NO",
+        "column_default": "nextval('chunk_embeddings_id_seq'::regclass)"
+      },
+      {
+        "table_name": "chunk_embeddings",
+        "column_name": "chunk_id",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "chunk_embeddings",
+        "column_name": "embedding",
+        "data_type": "USER-DEFINED",
+        "udt_name": "vector",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "chunk_embeddings",
+        "column_name": "model_name",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO",
+        "column_default": "'unknown'::text"
+      },
+      {
+        "table_name": "chunk_embeddings",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "chunk_embeddings",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "id",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "NO",
+        "column_default": "nextval('chunks_id_seq'::regclass)"
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "chunk_id",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "doc_id",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "document_version_id",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "content_id",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "chunk_index",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "section_index",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "section_type",
+        "data_type": "USER-DEFINED",
+        "udt_name": "chunk_section_type",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "section_title",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "content",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "content_length",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "content_hash",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "chunking_strategy",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "metadata",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "'{}'::jsonb"
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "chunks",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "crawl_logs",
+        "column_name": "id",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "NO",
+        "column_default": "nextval('crawl_logs_id_seq'::regclass)"
+      },
+      {
+        "table_name": "crawl_logs",
+        "column_name": "job_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()"
+      },
+      {
+        "table_name": "crawl_logs",
+        "column_name": "run_type",
+        "data_type": "USER-DEFINED",
+        "udt_name": "crawl_run_type",
+        "is_nullable": "NO",
+        "column_default": "'manual'::crawl_run_type"
+      },
+      {
+        "table_name": "crawl_logs",
+        "column_name": "stage",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "crawl_logs",
+        "column_name": "source_type",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "crawl_logs",
+        "column_name": "doc_id",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "crawl_logs",
+        "column_name": "url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "crawl_logs",
+        "column_name": "file_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "crawl_logs",
+        "column_name": "file_path",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "crawl_logs",
+        "column_name": "error_type",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "crawl_logs",
+        "column_name": "error_message",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "crawl_logs",
+        "column_name": "traceback",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "crawl_logs",
+        "column_name": "context",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "'{}'::jsonb"
+      },
+      {
+        "table_name": "crawl_logs",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "document_assets",
+        "column_name": "id",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "NO",
+        "column_default": "nextval('document_assets_id_seq'::regclass)"
+      },
+      {
+        "table_name": "document_assets",
+        "column_name": "doc_id",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "document_assets",
+        "column_name": "asset_type",
+        "data_type": "USER-DEFINED",
+        "udt_name": "document_asset_type",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "document_assets",
+        "column_name": "asset_index",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "NO",
+        "column_default": "0"
+      },
+      {
+        "table_name": "document_assets",
+        "column_name": "file_name",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "document_assets",
+        "column_name": "file_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "document_assets",
+        "column_name": "file_ext",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "document_assets",
+        "column_name": "saved_path",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "document_assets",
+        "column_name": "file_size",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "document_assets",
+        "column_name": "content_type",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "document_assets",
+        "column_name": "parser_type",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "document_assets",
+        "column_name": "page_count",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "document_assets",
+        "column_name": "metadata",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "'{}'::jsonb"
+      },
+      {
+        "table_name": "document_assets",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "document_contents",
+        "column_name": "id",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "NO",
+        "column_default": "nextval('document_contents_id_seq'::regclass)"
+      },
+      {
+        "table_name": "document_contents",
+        "column_name": "doc_id",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "document_contents",
+        "column_name": "asset_id",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "document_contents",
+        "column_name": "document_version_id",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "document_contents",
+        "column_name": "content_type",
+        "data_type": "USER-DEFINED",
+        "udt_name": "document_content_type",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "document_contents",
+        "column_name": "content",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "document_contents",
+        "column_name": "parser_type",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "document_contents",
+        "column_name": "parser_version",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "document_contents",
+        "column_name": "language",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": "'ko'::text"
+      },
+      {
+        "table_name": "document_contents",
+        "column_name": "metadata",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "'{}'::jsonb"
+      },
+      {
+        "table_name": "document_contents",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "documents",
+        "column_name": "id",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "NO",
+        "column_default": "nextval('documents_id_seq'::regclass)"
+      },
+      {
+        "table_name": "documents",
+        "column_name": "doc_id",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "documents",
+        "column_name": "source_type",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "documents",
+        "column_name": "page_kind",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "documents",
+        "column_name": "department",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "documents",
+        "column_name": "title",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "documents",
+        "column_name": "source_url",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "documents",
+        "column_name": "published_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "documents",
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "documents",
+        "column_name": "content_hash",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "documents",
+        "column_name": "collected_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "documents",
+        "column_name": "metadata",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "'{}'::jsonb"
+      },
+      {
+        "table_name": "documents",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "documents",
+        "column_name": "db_updated_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "query_logs",
+        "column_name": "id",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "NO",
+        "column_default": "nextval('query_logs_id_seq'::regclass)"
+      },
+      {
+        "table_name": "query_logs",
+        "column_name": "request_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()"
+      },
+      {
+        "table_name": "query_logs",
+        "column_name": "user_id",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "query_logs",
+        "column_name": "question",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "query_logs",
+        "column_name": "intent_type",
+        "data_type": "USER-DEFINED",
+        "udt_name": "intent_type",
+        "is_nullable": "NO",
+        "column_default": "'OTHER'::intent_type"
+      },
+      {
+        "table_name": "query_logs",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "response_logs",
+        "column_name": "id",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "NO",
+        "column_default": "nextval('response_logs_id_seq'::regclass)"
+      },
+      {
+        "table_name": "response_logs",
+        "column_name": "request_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "response_logs",
+        "column_name": "answer_text",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "response_logs",
+        "column_name": "success",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "NO",
+        "column_default": "true"
+      },
+      {
+        "table_name": "response_logs",
+        "column_name": "error_message",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "response_logs",
+        "column_name": "response_time_ms",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "response_logs",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "id",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "NO",
+        "column_default": "nextval('retrieval_logs_id_seq'::regclass)"
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "request_id",
+        "data_type": "uuid",
+        "udt_name": "uuid",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "attempt_no",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "NO",
+        "column_default": "1"
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "stage",
+        "data_type": "USER-DEFINED",
+        "udt_name": "retrieval_stage",
+        "is_nullable": "NO",
+        "column_default": "'initial'::retrieval_stage"
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "original_query",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "normalized_query",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "rewritten_query",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "rewritten_queries",
+        "data_type": "ARRAY",
+        "udt_name": "_text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "keywords",
+        "data_type": "ARRAY",
+        "udt_name": "_text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "entities",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "'{}'::jsonb"
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "filters",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "'{}'::jsonb"
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "category",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "retrieval_strategy",
+        "data_type": "USER-DEFINED",
+        "udt_name": "retrieval_strategy",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "retrieval_top_k",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "retrieval_strategy_log",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "'{}'::jsonb"
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "fallback_used",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "NO",
+        "column_default": "false"
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "retrieved_doc_count",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "reranked_doc_count",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "selected_doc_count",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "context",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "success",
+        "data_type": "boolean",
+        "udt_name": "bool",
+        "is_nullable": "NO",
+        "column_default": "true"
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "error_message",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "metadata",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "'{}'::jsonb"
+      },
+      {
+        "table_name": "retrieval_logs",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "table_name": "retrieval_selected_chunks",
+        "column_name": "id",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "NO",
+        "column_default": "nextval('retrieval_selected_chunks_id_seq'::regclass)"
+      },
+      {
+        "table_name": "retrieval_selected_chunks",
+        "column_name": "retrieval_log_id",
+        "data_type": "bigint",
+        "udt_name": "int8",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_selected_chunks",
+        "column_name": "chunk_id",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_selected_chunks",
+        "column_name": "doc_id",
+        "data_type": "text",
+        "udt_name": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_selected_chunks",
+        "column_name": "rank",
+        "data_type": "integer",
+        "udt_name": "int4",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_selected_chunks",
+        "column_name": "score",
+        "data_type": "double precision",
+        "udt_name": "float8",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_selected_chunks",
+        "column_name": "rerank_score",
+        "data_type": "double precision",
+        "udt_name": "float8",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "table_name": "retrieval_selected_chunks",
+        "column_name": "metadata",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "NO",
+        "column_default": "'{}'::jsonb"
+      },
+      {
+        "table_name": "retrieval_selected_chunks",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "udt_name": "timestamptz",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "table_name": "chunk_embeddings",
+        "constraint_type": "FOREIGN KEY",
+        "constraint_name": "chunk_embeddings_chunk_id_fkey",
+        "columns": "chunk_id",
+        "foreign_table": "chunks",
+        "foreign_columns": "chunk_id"
+      },
+      {
+        "table_name": "chunk_embeddings",
+        "constraint_type": "PRIMARY KEY",
+        "constraint_name": "chunk_embeddings_pkey",
+        "columns": "id",
+        "foreign_table": "chunk_embeddings",
+        "foreign_columns": "id"
+      },
+      {
+        "table_name": "chunk_embeddings",
+        "constraint_type": "UNIQUE",
+        "constraint_name": "chunk_embeddings_chunk_id_model_name_key",
+        "columns": "chunk_id, chunk_id, model_name, model_name",
+        "foreign_table": "chunk_embeddings",
+        "foreign_columns": "model_name, chunk_id, model_name, chunk_id"
+      },
+      {
+        "table_name": "chunks",
+        "constraint_type": "FOREIGN KEY",
+        "constraint_name": "chunks_content_id_fkey",
+        "columns": "content_id",
+        "foreign_table": "document_contents",
+        "foreign_columns": "id"
+      },
+      {
+        "table_name": "chunks",
+        "constraint_type": "FOREIGN KEY",
+        "constraint_name": "chunks_doc_id_fkey",
+        "columns": "doc_id",
+        "foreign_table": "documents",
+        "foreign_columns": "doc_id"
+      },
+      {
+        "table_name": "chunks",
+        "constraint_type": "FOREIGN KEY",
+        "constraint_name": "chunks_document_version_id_fkey",
+        "columns": "document_version_id",
+        "foreign_table": "document_versions",
+        "foreign_columns": "id"
+      },
+      {
+        "table_name": "chunks",
+        "constraint_type": "PRIMARY KEY",
+        "constraint_name": "chunks_pkey",
+        "columns": "id",
+        "foreign_table": "chunks",
+        "foreign_columns": "id"
+      },
+      {
+        "table_name": "chunks",
+        "constraint_type": "UNIQUE",
+        "constraint_name": "chunks_chunk_id_key",
+        "columns": "chunk_id",
+        "foreign_table": "chunks",
+        "foreign_columns": "chunk_id"
+      },
+      {
+        "table_name": "chunks",
+        "constraint_type": "UNIQUE",
+        "constraint_name": "chunks_doc_version_chunk_index_key",
+        "columns": "doc_id, doc_id, doc_id, document_version_id, document_version_id, document_version_id, chunk_index, chunk_index, chunk_index",
+        "foreign_table": "chunks",
+        "foreign_columns": "document_version_id, doc_id, chunk_index, document_version_id, chunk_index, doc_id, document_version_id, doc_id, chunk_index"
+      },
+      {
+        "table_name": "crawl_logs",
+        "constraint_type": "PRIMARY KEY",
+        "constraint_name": "crawl_logs_pkey",
+        "columns": "id",
+        "foreign_table": "crawl_logs",
+        "foreign_columns": "id"
+      },
+      {
+        "table_name": "document_assets",
+        "constraint_type": "FOREIGN KEY",
+        "constraint_name": "document_assets_doc_id_fkey",
+        "columns": "doc_id",
+        "foreign_table": "documents",
+        "foreign_columns": "doc_id"
+      },
+      {
+        "table_name": "document_assets",
+        "constraint_type": "PRIMARY KEY",
+        "constraint_name": "document_assets_pkey",
+        "columns": "id",
+        "foreign_table": "document_assets",
+        "foreign_columns": "id"
+      },
+      {
+        "table_name": "document_assets",
+        "constraint_type": "UNIQUE",
+        "constraint_name": "document_assets_doc_assettype_assetindex_key",
+        "columns": "doc_id, doc_id, doc_id, asset_type, asset_type, asset_type, asset_index, asset_index, asset_index",
+        "foreign_table": "document_assets",
+        "foreign_columns": "doc_id, asset_index, asset_type, doc_id, asset_type, asset_index, doc_id, asset_index, asset_type"
+      },
+      {
+        "table_name": "document_contents",
+        "constraint_type": "FOREIGN KEY",
+        "constraint_name": "document_contents_asset_id_fkey",
+        "columns": "asset_id",
+        "foreign_table": "document_assets",
+        "foreign_columns": "id"
+      },
+      {
+        "table_name": "document_contents",
+        "constraint_type": "FOREIGN KEY",
+        "constraint_name": "document_contents_doc_id_fkey",
+        "columns": "doc_id",
+        "foreign_table": "documents",
+        "foreign_columns": "doc_id"
+      },
+      {
+        "table_name": "document_contents",
+        "constraint_type": "FOREIGN KEY",
+        "constraint_name": "document_contents_document_version_id_fkey",
+        "columns": "document_version_id",
+        "foreign_table": "document_versions",
+        "foreign_columns": "id"
+      },
+      {
+        "table_name": "document_contents",
+        "constraint_type": "PRIMARY KEY",
+        "constraint_name": "document_contents_pkey",
+        "columns": "id",
+        "foreign_table": "document_contents",
+        "foreign_columns": "id"
+      },
+      {
+        "table_name": "documents",
+        "constraint_type": "PRIMARY KEY",
+        "constraint_name": "documents_pkey",
+        "columns": "id",
+        "foreign_table": "documents",
+        "foreign_columns": "id"
+      },
+      {
+        "table_name": "documents",
+        "constraint_type": "UNIQUE",
+        "constraint_name": "documents_doc_id_key",
+        "columns": "doc_id",
+        "foreign_table": "documents",
+        "foreign_columns": "doc_id"
+      },
+      {
+        "table_name": "query_logs",
+        "constraint_type": "PRIMARY KEY",
+        "constraint_name": "query_logs_pkey",
+        "columns": "id",
+        "foreign_table": "query_logs",
+        "foreign_columns": "id"
+      },
+      {
+        "table_name": "query_logs",
+        "constraint_type": "UNIQUE",
+        "constraint_name": "query_logs_request_id_key",
+        "columns": "request_id",
+        "foreign_table": "query_logs",
+        "foreign_columns": "request_id"
+      },
+      {
+        "table_name": "response_logs",
+        "constraint_type": "FOREIGN KEY",
+        "constraint_name": "response_logs_request_id_fkey",
+        "columns": "request_id",
+        "foreign_table": "query_logs",
+        "foreign_columns": "request_id"
+      },
+      {
+        "table_name": "response_logs",
+        "constraint_type": "PRIMARY KEY",
+        "constraint_name": "response_logs_pkey",
+        "columns": "id",
+        "foreign_table": "response_logs",
+        "foreign_columns": "id"
+      },
+      {
+        "table_name": "response_logs",
+        "constraint_type": "UNIQUE",
+        "constraint_name": "response_logs_request_id_key",
+        "columns": "request_id",
+        "foreign_table": "response_logs",
+        "foreign_columns": "request_id"
+      },
+      {
+        "table_name": "retrieval_logs",
+        "constraint_type": "FOREIGN KEY",
+        "constraint_name": "retrieval_logs_request_id_fkey",
+        "columns": "request_id",
+        "foreign_table": "query_logs",
+        "foreign_columns": "request_id"
+      },
+      {
+        "table_name": "retrieval_logs",
+        "constraint_type": "PRIMARY KEY",
+        "constraint_name": "retrieval_logs_pkey",
+        "columns": "id",
+        "foreign_table": "retrieval_logs",
+        "foreign_columns": "id"
+      },
+      {
+        "table_name": "retrieval_logs",
+        "constraint_type": "UNIQUE",
+        "constraint_name": "retrieval_logs_request_attempt_stage_key",
+        "columns": "request_id, request_id, request_id, attempt_no, attempt_no, attempt_no, stage, stage, stage",
+        "foreign_table": "retrieval_logs",
+        "foreign_columns": "request_id, stage, attempt_no, request_id, stage, attempt_no, request_id, stage, attempt_no"
+      },
+      {
+        "table_name": "retrieval_selected_chunks",
+        "constraint_type": "FOREIGN KEY",
+        "constraint_name": "retrieval_selected_chunks_chunk_id_fkey",
+        "columns": "chunk_id",
+        "foreign_table": "chunks",
+        "foreign_columns": "chunk_id"
+      },
+      {
+        "table_name": "retrieval_selected_chunks",
+        "constraint_type": "FOREIGN KEY",
+        "constraint_name": "retrieval_selected_chunks_retrieval_log_id_fkey",
+        "columns": "retrieval_log_id",
+        "foreign_table": "retrieval_logs",
+        "foreign_columns": "id"
+      },
+      {
+        "table_name": "retrieval_selected_chunks",
+        "constraint_type": "PRIMARY KEY",
+        "constraint_name": "retrieval_selected_chunks_pkey",
+        "columns": "id",
+        "foreign_table": "retrieval_selected_chunks",
+        "foreign_columns": "id"
+      },
+      {
+        "table_name": "retrieval_selected_chunks",
+        "constraint_type": "UNIQUE",
+        "constraint_name": "retrieval_selected_chunks_log_rank_key",
+        "columns": "retrieval_log_id, retrieval_log_id, rank, rank",
+        "foreign_table": "retrieval_selected_chunks",
+        "foreign_columns": "retrieval_log_id, rank, rank, retrieval_log_id"
+      }
+    ],
+    "row_counts": {
+      "query_logs": 54,
+      "response_logs": 54,
+      "retrieval_logs": 42,
+      "retrieval_selected_chunks": 79,
+      "documents": 1226,
+      "chunks": 7192,
+      "chunk_embeddings": 7192,
+      "document_contents": 3325,
+      "document_assets": 5020,
+      "crawl_logs": 164
+    },
+    "join_paths": {
+      "query_logs_to_retrieval_logs": "query_logs.request_id = retrieval_logs.request_id",
+      "retrieval_logs_to_selected_chunks": "retrieval_logs.id = retrieval_selected_chunks.retrieval_log_id",
+      "query_logs_to_response_logs": "query_logs.request_id = response_logs.request_id",
+      "selected_chunk_to_source": "retrieval_selected_chunks.chunk_id = chunks.chunk_id; chunks.doc_id = documents.doc_id"
+    }
+  },
+  "corpus_quality": {
+    "coverage_gaps": [
+      {
+        "gap": "documents_without_chunks",
+        "count": 0
+      },
+      {
+        "gap": "chunks_without_embeddings",
+        "count": 0
+      },
+      {
+        "gap": "documents_without_contents",
+        "count": 0
+      },
+      {
+        "gap": "assets_without_extracted_content",
+        "count": 4532
+      },
+      {
+        "gap": "very_short_chunks_lt_120",
+        "count": 88
+      }
+    ],
+    "recent_crawl_errors": [
+      {
+        "created_at": "2026-05-19 04:22:56.707087+09:00",
+        "stage": "attachment_download",
+        "source_type": "pluscenter",
+        "doc_id": "static_0b44ebe73a9dbbd9",
+        "target": "https://deuhome.deu.ac.kr/pluscenter/course.do",
+        "error_type": "HTTPError",
+        "error_message": "404 Client Error:  for url: https://deuhome.deu.ac.kr/_res/deu/edulife/img/sub/popup.png"
+      },
+      {
+        "created_at": "2026-05-19 04:19:21.512302+09:00",
+        "stage": "static_page",
+        "source_type": "library",
+        "doc_id": null,
+        "target": "https://lib.deu.ac.kr/lib/SlimaPlus.csp",
+        "error_type": "SSLError",
+        "error_message": "HTTPSConnectionPool(host='lib.deu.ac.kr', port=443): Max retries exceeded with url: /lib/SlimaPlus.csp (Caused by SSLError(SSLError(1, '[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] ssl/tls alert handshake failure (_ssl.c:1016)')))"
+      },
+      {
+        "created_at": "2026-05-19 04:19:18.258649+09:00",
+        "stage": "static_page",
+        "source_type": "admission",
+        "doc_id": null,
+        "target": "https://ipsi.deu.ac.kr/main/intro.html",
+        "error_type": "HTTPError",
+        "error_message": "404 Client Error: 404 for url: https://ipsi.deu.ac.kr/main/intro.html"
+      },
+      {
+        "created_at": "2026-05-19 04:19:06.221732+09:00",
+        "stage": "static_page",
+        "source_type": "bhcoss",
+        "doc_id": null,
+        "target": "https://www.deu.ac.kr/www/academic_calendar",
+        "error_type": "HTTPError",
+        "error_message": "404 Client Error:  for url: https://www.deu.ac.kr/www/academic_calendar"
+      },
+      {
+        "created_at": "2026-05-19 04:17:46.365418+09:00",
+        "stage": "static_page",
+        "source_type": "disability_support",
+        "doc_id": null,
+        "target": "https://www.deu.ac.kr/cms/etcResourceOpen.do?site=%24cms%24O4o&key=%24cms%24EwBmDYH0AcBsEMB2A6aATAZkA",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://www.deu.ac.kr/cms/etcResourceOpen.do?site=%24cms%24O4o&key=%24cms%24EwBmDYH0AcBsEMB2A6aATAZkA content_type=application/pdf"
+      },
+      {
+        "created_at": "2026-05-19 04:17:39.995181+09:00",
+        "stage": "static_page",
+        "source_type": "it_service",
+        "doc_id": null,
+        "target": "https://www.deu.ac.kr/cms/etcResourceDown.do?site=$cms$O4o&key=$cms$BYUwng9grgdg5gWgLYEMZRQGwBQGcAuUAJiDPgJQB0ADkQGZA",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://www.deu.ac.kr/cms/etcResourceDown.do?site=$cms$O4o&key=$cms$BYUwng9grgdg5gWgLYEMZRQGwBQGcAuUAJiDPgJQB0ADkQGZA content_type=application/pdf"
+      },
+      {
+        "created_at": "2026-05-19 04:17:35.551684+09:00",
+        "stage": "static_page",
+        "source_type": "it_service",
+        "doc_id": null,
+        "target": "https://www.deu.ac.kr/cms/etcResourceOpen.do?site=%24cms%24O4o&key=%24cms%24OIexHMBsFMHUQE4GsDOAHAhgY2gfQLIYB2ArhpAHRoAmAZkA",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://www.deu.ac.kr/cms/etcResourceOpen.do?site=%24cms%24O4o&key=%24cms%24OIexHMBsFMHUQE4GsDOAHAhgY2gfQLIYB2ArhpAHRoAmAZkA content_type=application/pdf"
+      },
+      {
+        "created_at": "2026-05-19 04:17:33.227236+09:00",
+        "stage": "static_page",
+        "source_type": "it_service",
+        "doc_id": null,
+        "target": "https://www.deu.ac.kr/cms/etcResourceOpen.do?site=%24cms%24O4o&key=%24cms%24MICwhgdg5gpg+gBTAZ2QdwPYCcAmA6ABxwDMg",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://www.deu.ac.kr/cms/etcResourceOpen.do?site=%24cms%24O4o&key=%24cms%24MICwhgdg5gpg+gBTAZ2QdwPYCcAmA6ABxwDMg content_type=application/pdf"
+      },
+      {
+        "created_at": "2026-05-19 04:16:45.031821+09:00",
+        "stage": "static_page",
+        "source_type": "admission",
+        "doc_id": null,
+        "target": "https://www.deu.ac.kr/www/board/5",
+        "error_type": "HTTPError",
+        "error_message": "404 Client Error:  for url: https://www.deu.ac.kr/www/board/5"
+      },
+      {
+        "created_at": "2026-05-19 04:16:42.796508+09:00",
+        "stage": "static_page",
+        "source_type": "it_service",
+        "doc_id": null,
+        "target": "https://www.deu.ac.kr/cms/etcResourceOpen.do?site=%24cms%24O4o&key=%24cms%24LISwxgTg9gzlBmAXAzANgKwH1gEMB2ArjgDYB0ADgCbxA",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://www.deu.ac.kr/cms/etcResourceOpen.do?site=%24cms%24O4o&key=%24cms%24LISwxgTg9gzlBmAXAzANgKwH1gEMB2ArjgDYB0ADgCbxA content_type=application/pdf"
+      },
+      {
+        "created_at": "2026-05-19 04:12:38.412479+09:00",
+        "stage": "static_page",
+        "source_type": "library",
+        "doc_id": null,
+        "target": "https://lib.deu.ac.kr/main_main.mir",
+        "error_type": "SSLError",
+        "error_message": "HTTPSConnectionPool(host='lib.deu.ac.kr', port=443): Max retries exceeded with url: /main_main.mir (Caused by SSLError(SSLError(1, '[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] ssl/tls alert handshake failure (_ssl.c:1016)')))"
+      },
+      {
+        "created_at": "2026-05-19 04:08:58.332915+09:00",
+        "stage": "static_page",
+        "source_type": "admission",
+        "doc_id": null,
+        "target": "https://ipsi.deu.ac.kr/file/pdfDown.pdf?sfn=20260210065952301_2026%ED%95%99%EB%85%84%EB%8F%84%20%EC%A0%84%EA%B8%B0%20%ED%8E%B8%EC%9E%85%EC%83%9D%20%EB%AA%A8%EC%A7%91%EC%9A%94%EA%B0",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://ipsi.deu.ac.kr/file/pdfDown.pdf?sfn=20260210065952301_2026%ED%95%99%EB%85%84%EB%8F%84%20%EC%A0%84%EA%B8%B0%20%ED%8E%B8%EC%9E%85%EC%83%9D%20%EB%AA%A8%EC%A7%91%EC%9A%94%EA%B0%95(%EB%8F%99%EC%9D%98%EB%8C%8"
+      },
+      {
+        "created_at": "2026-05-19 04:08:56.015958+09:00",
+        "stage": "static_page",
+        "source_type": "admission",
+        "doc_id": null,
+        "target": "https://ipsi.deu.ac.kr/file/pdfDown.pdf?sfn=20240718114925216_2025%ED%95%99%EB%85%84%EB%8F%84%20%EB%8F%99%EC%9D%98%EB%8C%80%ED%95%99%EA%B5%90%20%ED%95%99%EC%83%9D%EB%B6%80%EC%A2%85",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://ipsi.deu.ac.kr/file/pdfDown.pdf?sfn=20240718114925216_2025%ED%95%99%EB%85%84%EB%8F%84%20%EB%8F%99%EC%9D%98%EB%8C%80%ED%95%99%EA%B5%90%20%ED%95%99%EC%83%9D%EB%B6%80%EC%A2%85%ED%95%A9%EC%A0%84%ED%98%95%20"
+      },
+      {
+        "created_at": "2026-05-19 04:08:51.474871+09:00",
+        "stage": "static_page",
+        "source_type": "admission",
+        "doc_id": null,
+        "target": "https://ipsi.deu.ac.kr/file/download.do?sfn=20260210064902894_2026%ed%95%99%eb%85%84%eb%8f%84+%ec%a0%84%ea%b8%b0+%ed%8e%b8%ec%9e%85%ec%83%9d+%eb%aa%a8%ec%a7%91%ec%9a%94%ea%b0%95(%e",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://ipsi.deu.ac.kr/file/download.do?sfn=20260210064902894_2026%ed%95%99%eb%85%84%eb%8f%84+%ec%a0%84%ea%b8%b0+%ed%8e%b8%ec%9e%85%ec%83%9d+%eb%aa%a8%ec%a7%91%ec%9a%94%ea%b0%95(%eb%8f%99%ec%9d%98%eb%8c%80).hwp"
+      },
+      {
+        "created_at": "2026-05-19 04:08:49.152355+09:00",
+        "stage": "static_page",
+        "source_type": "admission",
+        "doc_id": null,
+        "target": "https://ipsi.deu.ac.kr/file/download.do?sfn=20260210064902801_2026%ed%95%99%eb%85%84%eb%8f%84+%ec%a0%84%ea%b8%b0+%ed%8e%b8%ec%9e%85%ec%83%9d+%eb%aa%a8%ec%a7%91%ec%9a%94%ea%b0%95(%e",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://ipsi.deu.ac.kr/file/download.do?sfn=20260210064902801_2026%ed%95%99%eb%85%84%eb%8f%84+%ec%a0%84%ea%b8%b0+%ed%8e%b8%ec%9e%85%ec%83%9d+%eb%aa%a8%ec%a7%91%ec%9a%94%ea%b0%95(%eb%8f%99%ec%9d%98%eb%8c%80).pdf"
+      },
+      {
+        "created_at": "2026-05-19 04:08:46.857328+09:00",
+        "stage": "static_page",
+        "source_type": "admission",
+        "doc_id": null,
+        "target": "https://ipsi.deu.ac.kr/file/download.do?sfn=20251229094856738_2026%ed%95%99%eb%85%84%eb%8f%84+%ec%a0%95%ec%8b%9c+%eb%aa%a8%ec%a7%91%ec%9a%94%ea%b0%95(%eb%8f%99%ec%9d%98%eb%8c%80).h",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://ipsi.deu.ac.kr/file/download.do?sfn=20251229094856738_2026%ed%95%99%eb%85%84%eb%8f%84+%ec%a0%95%ec%8b%9c+%eb%aa%a8%ec%a7%91%ec%9a%94%ea%b0%95(%eb%8f%99%ec%9d%98%eb%8c%80).hwp&sfp=common%2f&ofn=2026%ed%9"
+      },
+      {
+        "created_at": "2026-05-19 04:08:44.457661+09:00",
+        "stage": "static_page",
+        "source_type": "admission",
+        "doc_id": null,
+        "target": "https://ipsi.deu.ac.kr/file/download.do?sfn=20251229094856660_2026%ed%95%99%eb%85%84%eb%8f%84+%ec%a0%95%ec%8b%9c+%eb%aa%a8%ec%a7%91%ec%9a%94%ea%b0%95(%eb%8f%99%ec%9d%98%eb%8c%80).p",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://ipsi.deu.ac.kr/file/download.do?sfn=20251229094856660_2026%ed%95%99%eb%85%84%eb%8f%84+%ec%a0%95%ec%8b%9c+%eb%aa%a8%ec%a7%91%ec%9a%94%ea%b0%95(%eb%8f%99%ec%9d%98%eb%8c%80).pdf&sfp=common%2f&ofn=2026%ed%9"
+      },
+      {
+        "created_at": "2026-05-19 04:08:42.083913+09:00",
+        "stage": "static_page",
+        "source_type": "admission",
+        "doc_id": null,
+        "target": "https://ipsi.deu.ac.kr/file/download.do?sfn=20251014062047235_2026%ed%95%99%eb%85%84%eb%8f%84+%ec%88%98%ec%8b%9c+%eb%aa%a8%ec%a7%91%ec%9a%94%ea%b0%95(%eb%8f%99%ec%9d%98%eb%8c%80).h",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://ipsi.deu.ac.kr/file/download.do?sfn=20251014062047235_2026%ed%95%99%eb%85%84%eb%8f%84+%ec%88%98%ec%8b%9c+%eb%aa%a8%ec%a7%91%ec%9a%94%ea%b0%95(%eb%8f%99%ec%9d%98%eb%8c%80).hwp&sfp=common%2f&ofn=2026%ed%9"
+      },
+      {
+        "created_at": "2026-05-19 04:08:39.770739+09:00",
+        "stage": "static_page",
+        "source_type": "admission",
+        "doc_id": null,
+        "target": "https://ipsi.deu.ac.kr/file/download.do?sfn=20251014062047048_2026%ed%95%99%eb%85%84%eb%8f%84+%ec%88%98%ec%8b%9c+%eb%aa%a8%ec%a7%91%ec%9a%94%ea%b0%95(%eb%8f%99%ec%9d%98%eb%8c%80).p",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://ipsi.deu.ac.kr/file/download.do?sfn=20251014062047048_2026%ed%95%99%eb%85%84%eb%8f%84+%ec%88%98%ec%8b%9c+%eb%aa%a8%ec%a7%91%ec%9a%94%ea%b0%95(%eb%8f%99%ec%9d%98%eb%8c%80).pdf&sfp=common%2f&ofn=2026%ed%9"
+      },
+      {
+        "created_at": "2026-05-19 04:07:15.383111+09:00",
+        "stage": "static_page",
+        "source_type": "library",
+        "doc_id": null,
+        "target": "https://lib.deu.ac.kr/intro_map.mir",
+        "error_type": "SSLError",
+        "error_message": "HTTPSConnectionPool(host='lib.deu.ac.kr', port=443): Max retries exceeded with url: /intro_map.mir (Caused by SSLError(SSLError(1, '[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] ssl/tls alert handshake failure (_ssl.c:1016)')))"
+      },
+      {
+        "created_at": "2026-05-19 04:07:12.109321+09:00",
+        "stage": "static_page",
+        "source_type": "library",
+        "doc_id": null,
+        "target": "https://lib.deu.ac.kr/intro_staff.mir",
+        "error_type": "SSLError",
+        "error_message": "HTTPSConnectionPool(host='lib.deu.ac.kr', port=443): Max retries exceeded with url: /intro_staff.mir (Caused by SSLError(SSLError(1, '[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] ssl/tls alert handshake failure (_ssl.c:1016)')))"
+      },
+      {
+        "created_at": "2026-05-19 04:07:08.845959+09:00",
+        "stage": "static_page",
+        "source_type": "library",
+        "doc_id": null,
+        "target": "https://lib.deu.ac.kr/intro_data.mir",
+        "error_type": "SSLError",
+        "error_message": "HTTPSConnectionPool(host='lib.deu.ac.kr', port=443): Max retries exceeded with url: /intro_data.mir (Caused by SSLError(SSLError(1, '[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] ssl/tls alert handshake failure (_ssl.c:1016)')))"
+      },
+      {
+        "created_at": "2026-05-19 04:06:48.471396+09:00",
+        "stage": "static_page",
+        "source_type": "exchange",
+        "doc_id": null,
+        "target": "https://deuhome.deu.ac.kr/exchange/sub06_03_01.do?mode=download&articleNo=34710&attachNo=64631",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://deuhome.deu.ac.kr/exchange/sub06_03_01.do?mode=download&articleNo=34710&attachNo=64631 content_type=application/octet-stream"
+      },
+      {
+        "created_at": "2026-05-19 04:06:46.020108+09:00",
+        "stage": "static_page",
+        "source_type": "exchange",
+        "doc_id": null,
+        "target": "https://deuhome.deu.ac.kr/exchange/sub01_04_04.do?mode=download&articleNo=27802&attachNo=57806",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://deuhome.deu.ac.kr/exchange/sub01_04_04.do?mode=download&articleNo=27802&attachNo=57806 content_type=application/octet-stream"
+      },
+      {
+        "created_at": "2026-05-19 04:06:43.512756+09:00",
+        "stage": "static_page",
+        "source_type": "exchange",
+        "doc_id": null,
+        "target": "https://deuhome.deu.ac.kr/exchange/sub01_04_03.do?mode=download&articleNo=27801&attachNo=57802",
+        "error_type": "ValueError",
+        "error_message": "non-html static response: url=https://deuhome.deu.ac.kr/exchange/sub01_04_03.do?mode=download&articleNo=27801&attachNo=57802 content_type=application/octet-stream"
+      }
+    ],
+    "thin_recent_documents": [
+      {
+        "doc_id": "deu_external_notice_85674",
+        "source_type": "external_notice",
+        "department": "관리자",
+        "title": "[한국농어촌공사] 「제24회 한국농촌계획대전」",
+        "published_at": "2026-05-18 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=0&articleLimit=10&articleNo=85674&mode=view",
+        "chunks": 1,
+        "chars": 131
+      },
+      {
+        "doc_id": "deu_external_notice_85678",
+        "source_type": "external_notice",
+        "department": "관리자",
+        "title": "[한국농어촌공사] 「제21회 한국농촌건축대전」",
+        "published_at": "2026-05-18 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=0&articleLimit=10&articleNo=85678&mode=view",
+        "chunks": 1,
+        "chars": 151
+      },
+      {
+        "doc_id": "deu_external_notice_85696",
+        "source_type": "external_notice",
+        "department": "학생지원팀",
+        "title": "2026 아르코무대예술아카데미 부산문화회관 'Behind the Curtain' 교육생 모집",
+        "published_at": "2026-05-18 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=0&articleLimit=10&articleNo=85696&mode=view",
+        "chunks": 1,
+        "chars": 186
+      },
+      {
+        "doc_id": "deu_external_notice_85596",
+        "source_type": "external_notice",
+        "department": "학생지원팀",
+        "title": "2026년 군포시청소년수련원(충남 청양) 이용 안내",
+        "published_at": "2026-05-14 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=0&articleLimit=10&articleNo=85596&mode=view",
+        "chunks": 1,
+        "chars": 144
+      },
+      {
+        "doc_id": "deu_external_notice_85582",
+        "source_type": "external_notice",
+        "department": "관리자",
+        "title": "[해양수산부] 제13회 해양수산 비즈니스·공공서비스 공모전",
+        "published_at": "2026-05-14 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=0&articleLimit=10&articleNo=85582&mode=view",
+        "chunks": 1,
+        "chars": 144
+      },
+      {
+        "doc_id": "deu_external_notice_85575",
+        "source_type": "external_notice",
+        "department": "관리자",
+        "title": "[부마민주항쟁기념재단] 제7회 부마항쟁문학상 공모 알림",
+        "published_at": "2026-05-14 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=0&articleLimit=10&articleNo=85575&mode=view",
+        "chunks": 1,
+        "chars": 160
+      },
+      {
+        "doc_id": "deu_external_notice_85573",
+        "source_type": "external_notice",
+        "department": "관리자",
+        "title": "[기술보증기금] 「2026년도 대국민 혁신 아이디어 공모전」",
+        "published_at": "2026-05-14 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=10&articleLimit=10&articleNo=85573&mode=view",
+        "chunks": 1,
+        "chars": 171
+      },
+      {
+        "doc_id": "deu_external_notice_85574",
+        "source_type": "external_notice",
+        "department": "관리자",
+        "title": "[대한적십자사] 부산 도시농업 체험 프로그램 「SMART 씨앗봉사단」 2기 교육생 모집",
+        "published_at": "2026-05-14 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=0&articleLimit=10&articleNo=85574&mode=view",
+        "chunks": 1,
+        "chars": 184
+      },
+      {
+        "doc_id": "deu_foundation_notice_85595",
+        "source_type": "foundation_notice",
+        "department": "동의학원",
+        "title": "이사회 주요사항 사전 공개(667차 이사회)",
+        "published_at": "2026-05-14 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-foundation-notices.do?article.offset=0&articleLimit=10&articleNo=85595&mode=view",
+        "chunks": 1,
+        "chars": 264
+      },
+      {
+        "doc_id": "deu_external_notice_85514",
+        "source_type": "external_notice",
+        "department": "학생지원팀",
+        "title": "제22회 부산미래과학자상 공모",
+        "published_at": "2026-05-13 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=10&articleLimit=10&articleNo=85514&mode=view",
+        "chunks": 1,
+        "chars": 112
+      },
+      {
+        "doc_id": "deu_external_notice_85544",
+        "source_type": "external_notice",
+        "department": "학생지원팀",
+        "title": "해병대 장교 진로 설명회 및 사관후보생 141기 모집 공고",
+        "published_at": "2026-05-13 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=10&articleLimit=10&articleNo=85544&mode=view",
+        "chunks": 1,
+        "chars": 150
+      },
+      {
+        "doc_id": "deu_ctl_85510",
+        "source_type": "ctl",
+        "department": "교육혁신원",
+        "title": "[학습지원] 2026학년도 DEU 학습심리검사 신청 안내",
+        "published_at": "2026-05-13 00:00:00+09:00",
+        "source_url": "https://ctl.deu.ac.kr/ctl/sub06_01.do?article.offset=0&articleLimit=10&articleNo=85510&mode=view",
+        "chunks": 1,
+        "chars": 156
+      },
+      {
+        "doc_id": "deu_institution_85546",
+        "source_type": "institution",
+        "department": "박물관",
+        "title": "박물관 월간 소식지(2026년 4월 호)",
+        "published_at": "2026-05-13 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-museum-notice.do?article.offset=0&articleLimit=10&articleNo=85546&mode=view",
+        "chunks": 1,
+        "chars": 162
+      },
+      {
+        "doc_id": "deu_external_notice_85449",
+        "source_type": "external_notice",
+        "department": "학생지원팀",
+        "title": "「2026년 대학생 작품제작·참여지원 사업」 안내",
+        "published_at": "2026-05-12 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=10&articleLimit=10&articleNo=85449&mode=view",
+        "chunks": 1,
+        "chars": 134
+      },
+      {
+        "doc_id": "deu_academic_notice_85461",
+        "source_type": "academic_notice",
+        "department": "학사지원팀",
+        "title": "2026-하계계절수업 조기취업(창업)에 따른 출석 인정 신청 안내",
+        "published_at": "2026-05-12 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=0&articleLimit=10&articleNo=85461&mode=view",
+        "chunks": 1,
+        "chars": 219
+      },
+      {
+        "doc_id": "deu_ctl_85466",
+        "source_type": "ctl",
+        "department": "교수학습개발센터",
+        "title": "[학습지원] 2026-1학기 AI･EdTech 기반 에듀테크 활용 학습법 특강-캔바(Canva) 활용 특강 모집",
+        "published_at": "2026-05-12 00:00:00+09:00",
+        "source_url": "https://ctl.deu.ac.kr/ctl/sub06_01.do?article.offset=0&articleLimit=10&articleNo=85466&mode=view",
+        "chunks": 1,
+        "chars": 226
+      },
+      {
+        "doc_id": "deu_institution_85472",
+        "source_type": "institution",
+        "department": "박물관",
+        "title": "[대학혁신지원사업] 글로벌 공동체 의식 함양 및 시민역량 강화 프로그램 2차 참가자 모집",
+        "published_at": "2026-05-12 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-museum-notice.do?article.offset=0&articleLimit=10&articleNo=85472&mode=view",
+        "chunks": 1,
+        "chars": 263
+      },
+      {
+        "doc_id": "deu_education_85475",
+        "source_type": "education",
+        "department": "박물관",
+        "title": "[대학혁신지원사업] 글로벌 공동체 의식 함양 및 시민역량 강화 프로그램 2차 참가자 모집",
+        "published_at": "2026-05-12 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-education.do?article.offset=0&articleLimit=10&articleNo=85475&mode=view",
+        "chunks": 1,
+        "chars": 265
+      },
+      {
+        "doc_id": "deu_external_notice_85356",
+        "source_type": "external_notice",
+        "department": "관리자",
+        "title": "[한국과학창의재단] 2026 AI에듀톤(Edu-thon)대회 참가 안내",
+        "published_at": "2026-05-11 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=10&articleLimit=10&articleNo=85356&mode=view",
+        "chunks": 1,
+        "chars": 198
+      },
+      {
+        "doc_id": "deu_job_85306",
+        "source_type": "job",
+        "department": "효민생활관",
+        "title": "동의대학교 효민생활관관리팀 학사조교 모집 안내",
+        "published_at": "2026-05-08 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-job.do?article.offset=0&articleLimit=10&articleNo=85306&mode=view",
+        "chunks": 1,
+        "chars": 156
+      },
+      {
+        "doc_id": "deu_external_notice_85345",
+        "source_type": "external_notice",
+        "department": "관리자",
+        "title": "[국토교통과학기술진흥원] 2026년 국토교통기술대전 Student's Day 프로그램",
+        "published_at": "2026-05-08 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=10&articleLimit=10&articleNo=85345&mode=view",
+        "chunks": 1,
+        "chars": 211
+      },
+      {
+        "doc_id": "deu_external_notice_85168",
+        "source_type": "external_notice",
+        "department": "학생지원팀",
+        "title": "2026국회의장배 청년 토론대회 안내",
+        "published_at": "2026-05-07 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=20&articleLimit=10&articleNo=85168&mode=view",
+        "chunks": 1,
+        "chars": 127
+      },
+      {
+        "doc_id": "deu_external_notice_85173",
+        "source_type": "external_notice",
+        "department": "학생지원팀",
+        "title": "[성동장애인종합복지관] 알기쉬운 우리동네 만들기 안내",
+        "published_at": "2026-05-07 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=20&articleLimit=10&articleNo=85173&mode=view",
+        "chunks": 1,
+        "chars": 135
+      },
+      {
+        "doc_id": "deu_external_notice_85175",
+        "source_type": "external_notice",
+        "department": "학생지원팀",
+        "title": "'2025년 귀속 정기분 근로장려금 자녀장려금' 신청 안내",
+        "published_at": "2026-05-07 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=10&articleLimit=10&articleNo=85175&mode=view",
+        "chunks": 1,
+        "chars": 142
+      },
+      {
+        "doc_id": "deu_external_notice_85236",
+        "source_type": "external_notice",
+        "department": "학생지원팀",
+        "title": "학교 밖 청소년 학습지도(검정고시) 멘토모집",
+        "published_at": "2026-05-07 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=10&articleLimit=10&articleNo=85236&mode=view",
+        "chunks": 1,
+        "chars": 152
+      },
+      {
+        "doc_id": "deu_notice_85238",
+        "source_type": "notice",
+        "department": "학생지원팀",
+        "title": "2026년 축제·행사 사고 예방을 위한 안전수칙 안내",
+        "published_at": "2026-05-07 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-notice.do?article.offset=0&articleLimit=10&articleNo=85238&mode=view",
+        "chunks": 1,
+        "chars": 156
+      },
+      {
+        "doc_id": "deu_education_85079",
+        "source_type": "education",
+        "department": "미래교육원",
+        "title": "[정부지원] AI와 빅데이터를 활용한 인지중재 실버케어 개발자(자바풀스택) 훈련생 모집 안내",
+        "published_at": "2026-05-07 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-education.do?article.offset=0&articleLimit=10&articleNo=85079&mode=view",
+        "chunks": 1,
+        "chars": 199
+      },
+      {
+        "doc_id": "deu_external_notice_84928",
+        "source_type": "external_notice",
+        "department": "학생지원팀",
+        "title": "2026 양자정보 경진대회 안내",
+        "published_at": "2026-05-06 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=20&articleLimit=10&articleNo=84928&mode=view",
+        "chunks": 1,
+        "chars": 106
+      },
+      {
+        "doc_id": "deu_notice_84805",
+        "source_type": "notice",
+        "department": "안전관리팀",
+        "title": "지정 흡연구역 이용 안내",
+        "published_at": "2026-04-30 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-notice.do?article.offset=0&articleLimit=10&articleNo=84805&mode=view",
+        "chunks": 1,
+        "chars": 99
+      },
+      {
+        "doc_id": "deu_external_notice_84840",
+        "source_type": "external_notice",
+        "department": "학생지원팀",
+        "title": "「2026 작당페스타」홍보",
+        "published_at": "2026-04-30 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=20&articleLimit=10&articleNo=84840&mode=view",
+        "chunks": 1,
+        "chars": 111
+      },
+      {
+        "doc_id": "deu_external_notice_84834",
+        "source_type": "external_notice",
+        "department": "관리자",
+        "title": "학교로 찾아가는 AI 교육 프로그램 in 부산 대학생 멘토 모집(~5/7)",
+        "published_at": "2026-04-30 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=20&articleLimit=10&articleNo=84834&mode=view",
+        "chunks": 1,
+        "chars": 134
+      },
+      {
+        "doc_id": "deu_external_notice_84746",
+        "source_type": "external_notice",
+        "department": "관리자",
+        "title": "근로/자녀장려금 신청안내",
+        "published_at": "2026-04-29 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=20&articleLimit=10&articleNo=84746&mode=view",
+        "chunks": 1,
+        "chars": 143
+      },
+      {
+        "doc_id": "deu_external_notice_84736",
+        "source_type": "external_notice",
+        "department": "학생지원팀",
+        "title": "제6기 그린리모델링 대학생기자단 모집 공고 안내",
+        "published_at": "2026-04-29 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=20&articleLimit=10&articleNo=84736&mode=view",
+        "chunks": 1,
+        "chars": 160
+      },
+      {
+        "doc_id": "deu_external_notice_84744",
+        "source_type": "external_notice",
+        "department": "관리자",
+        "title": "[유네스코한국위원회] '유네스코 청년-개발협력 프로그램(Youth BRIDGE)' 참가 안내",
+        "published_at": "2026-04-29 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=20&articleLimit=10&articleNo=84744&mode=view",
+        "chunks": 1,
+        "chars": 166
+      },
+      {
+        "doc_id": "deu_external_notice_84703",
+        "source_type": "external_notice",
+        "department": "관리자",
+        "title": "[육군 인사사령부] '26년 육군 학사장교 모집",
+        "published_at": "2026-04-28 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=30&articleLimit=10&articleNo=84703&mode=view",
+        "chunks": 1,
+        "chars": 136
+      },
+      {
+        "doc_id": "deu_external_notice_84677",
+        "source_type": "external_notice",
+        "department": "관리자",
+        "title": "[부산정보산업진흥원] 「2026 파이콘 부산」행사",
+        "published_at": "2026-04-28 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=30&articleLimit=10&articleNo=84677&mode=view",
+        "chunks": 1,
+        "chars": 141
+      },
+      {
+        "doc_id": "deu_ctl_84685",
+        "source_type": "ctl",
+        "department": "교육혁신원",
+        "title": "[학습지원] 2026-1학기 학습컨설팅 신청 안내",
+        "published_at": "2026-04-28 00:00:00+09:00",
+        "source_url": "https://ctl.deu.ac.kr/ctl/sub06_01.do?article.offset=0&articleLimit=10&articleNo=84685&mode=view",
+        "chunks": 1,
+        "chars": 157
+      },
+      {
+        "doc_id": "deu_external_notice_84670",
+        "source_type": "external_notice",
+        "department": "관리자",
+        "title": "[기상청] 「2026 날씨 빅데이터 콘테스트」 개최 알림",
+        "published_at": "2026-04-28 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-external.do?article.offset=30&articleLimit=10&articleNo=84670&mode=view",
+        "chunks": 1,
+        "chars": 160
+      },
+      {
+        "doc_id": "deu_education_84690",
+        "source_type": "education",
+        "department": "미래교육원",
+        "title": "[미래교육원]<정부지원> CAD&CATIA 기반 3D설계전문가 양성과정 훈련생모집(4학년)",
+        "published_at": "2026-04-28 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-education.do?article.offset=10&articleLimit=10&articleNo=84690&mode=view",
+        "chunks": 1,
+        "chars": 188
+      },
+      {
+        "doc_id": "deu_job_84708",
+        "source_type": "job",
+        "department": "산학협력단",
+        "title": "동의대학교 산학협력단 [청년사회서비스사업단 제공인력] 채용 공고",
+        "published_at": "2026-04-28 00:00:00+09:00",
+        "source_url": "https://www.deu.ac.kr/www/deu-job.do?article.offset=0&articleLimit=10&articleNo=84708&mode=view",
+        "chunks": 1,
+        "chars": 192
+      }
+    ]
+  },
+  "cases": [
+    {
+      "query_id": 330,
+      "request_id": "a65dc0fb-e621-4a3a-9dea-571264da4ac9",
+      "user_query": "시발련아",
+      "intent": "PROFANITY",
+      "rewritten_query": null,
+      "extracted_keywords": null,
+      "category": null,
+      "filters": null,
+      "retrieved_doc_count": null,
+      "reranked_doc_count": null,
+      "selected_doc_count": null,
+      "fallback_used": null,
+      "retrieval_strategy": null,
+      "retrieval_strategy_log": null,
+      "final_answer": "부적절한 표현은 사용할 수 없어요.",
+      "created_at": "2026-05-19 16:04:23.077160+09:00",
+      "stage_diagnosis": {
+        "query_analysis": {},
+        "query_terms": [
+          "시발련아"
+        ],
+        "evidence": {
+          "exists": false,
+          "precise_terms": [
+            "시발련아"
+          ],
+          "top_db_matches": []
+        },
+        "lexical_top": [],
+        "vector_top": [],
+        "hybrid_top": [],
+        "reranked_top": [],
+        "selected_top": [],
+        "evidence_ranks": {},
+        "stage_classification": {
+          "bucket": "OUT_OF_SCOPE_POLICY_ROUTE",
+          "stage": "log_only",
+          "reason": "The request was classified as profanity and intentionally did not enter RAG retrieval."
+        }
+      }
+    },
+    {
+      "query_id": 329,
+      "request_id": "4ad50925-b8a1-4f70-a959-7a4ae9e61351",
+      "user_query": "시발",
+      "intent": "PROFANITY",
+      "rewritten_query": null,
+      "extracted_keywords": null,
+      "category": null,
+      "filters": null,
+      "retrieved_doc_count": null,
+      "reranked_doc_count": null,
+      "selected_doc_count": null,
+      "fallback_used": null,
+      "retrieval_strategy": null,
+      "retrieval_strategy_log": null,
+      "final_answer": "부적절한 표현은 사용할 수 없어요.",
+      "created_at": "2026-05-19 16:04:19.094141+09:00",
+      "stage_diagnosis": {
+        "query_analysis": {},
+        "query_terms": [
+          "시발"
+        ],
+        "evidence": {
+          "exists": false,
+          "precise_terms": [],
+          "top_db_matches": []
+        },
+        "lexical_top": [],
+        "vector_top": [],
+        "hybrid_top": [],
+        "reranked_top": [],
+        "selected_top": [],
+        "evidence_ranks": {},
+        "stage_classification": {
+          "bucket": "OUT_OF_SCOPE_POLICY_ROUTE",
+          "stage": "log_only",
+          "reason": "The request was classified as profanity and intentionally did not enter RAG retrieval."
+        }
+      }
+    },
+    {
+      "query_id": 320,
+      "request_id": "518ee983-c471-49e6-adcc-09e454097de3",
+      "user_query": "학교내 편의점 어디에 있어",
+      "intent": "INFO",
+      "rewritten_query": null,
+      "extracted_keywords": [],
+      "category": null,
+      "filters": {},
+      "retrieved_doc_count": 0,
+      "reranked_doc_count": 0,
+      "selected_doc_count": 0,
+      "fallback_used": false,
+      "retrieval_strategy": "keyword",
+      "retrieval_strategy_log": {},
+      "final_answer": "안녕하세요. 동의대학교 정보 안내를 도와드리고 있어요. 학사, 장학, 기숙사, 통학버스 같은 학교 정보를 물어봐 주세요.\n\n사이트 바로가기: https://www.deu.ac.kr/",
+      "created_at": "2026-05-19 15:57:23.706379+09:00",
+      "stage_diagnosis": {
+        "query_analysis": {},
+        "query_terms": [
+          "학교내",
+          "편의점",
+          "어디에",
+          "있어"
+        ],
+        "evidence": {
+          "exists": true,
+          "precise_terms": [
+            "학교내",
+            "편의점",
+            "어디에"
+          ],
+          "top_db_matches": [
+            {
+              "doc_id": "deu_bids_84650",
+              "chunk_id": "deu_bids_84650_v001_chunk_025",
+              "title": "[입찰공고] 산학협력단 제2026-03호_(동의대학교 산학협력단) [RISE] AI 기본소양 확대를 위한 <AIx6> 융합 프로그램 개발",
+              "source_type": "bids",
+              "department": "산학협력단",
+              "published_at": "2026-04-27 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-bids.do?article.offset=0&articleLimit=10&articleNo=84650&mode=view",
+              "chunk_len": 902,
+              "strong_term_hits": 1,
+              "content_preview": "[TITLE]\n[입찰공고] 산학협력단 제2026-03호_(동의대학교 산학협력단) [RISE] AI 기본소양 확대를 위한 <AIx6> 융합 프로그램 개발\n\n[ATTACHMENT]\n3. (최종)제안요청서_[RISE] AI 기본소양 확대를 위한＜AI×6＞ 융합 프로그램 개발.hwp\n\n는 행위, 정당한 권한 없이 허용된 권한을 초과하여 다른 사람의 개인정보를 훼손, 멸실, 변경, 위조 또는 유출하는 행위를 하여서는 아니 된다.\n\n○ 대학교내의 모든 정보와 자원은 대학 당국이 본인에게 부여한 권한 내에서 허가 받은 사용 목적과 용도로만 사용하여야 한다.\n\n○ 대학 내의 모든 정보와 자원의 사용권을 소유하고 있는 자는 책임 있고 윤리적인 태도로 사"
+            },
+            {
+              "doc_id": "deu_notice_84258",
+              "chunk_id": "deu_notice_84258_v001_chunk_004",
+              "title": "국제학생증 지원행사(2026년 4월29일~2026년 5월12일)-신한은행",
+              "source_type": "notice",
+              "department": "학사지원팀",
+              "published_at": "2026-04-14 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-notice.do?article.offset=10&articleLimit=10&articleNo=84258&mode=view",
+              "chunk_len": 987,
+              "strong_term_hits": 1,
+              "content_preview": "[TITLE]\n국제학생증 지원행사(2026년 4월29일~2026년 5월12일)-신한은행\n\n[ATTACHMENT]\n동의대 국제학생증 안내장 (1).jpeg\n\n 주민등록증 또는 운전면히증올 준비한 후 진행해주세요\n*신한카드 SOL트래블 체크카드 유의사항은 SOL트래블 체크카드 안내장울 참고해주세요.\nX\n본상품의 연회비는 없습니다 * 본광고는 법령 및 내부통제기준에 따른 관련 절차루 거처 제공되니다: * 신한은행은 예금자보호법상 부보금움기관이다 신한카드는 부보금움기관이 아입니다: * 별도의 법적인 계약이\n없는한 신한금움그룹 관계사들은 상호 채무릎 보증하지 않습니다: * 이카드상품올가입(계약하시기 전에 '상품설명서' 및 '약관올반드시 읽어보시기"
+            },
+            {
+              "doc_id": "deu_education_83964",
+              "chunk_id": "deu_education_83964_v001_chunk_038",
+              "title": "[RISE] 2026 캠퍼스 특허유니버시아드대회 모집 안내",
+              "source_type": "education",
+              "department": "RISE사업단",
+              "published_at": "2026-04-03 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-education.do?article.offset=20&articleLimit=10&articleNo=83964&mode=view",
+              "chunk_len": 967,
+              "strong_term_hits": 1,
+              "content_preview": "[TITLE]\n[RISE] 2026 캠퍼스 특허유니버시아드대회 모집 안내\n\n[ATTACHMENT]\n[붙임3]_2026년_캠퍼스_특허_유니버시아드_문제출제현황(특허전략수립).pdf\n\n① 출제 부문 특허전략수립 ② 출제 주제휴머노이드 로봇 상용화 ③ 출제 분야 ■ IT·전기·전자 □ 조선·기계·금속 □ 화학·생명·에너지\n\n- 6 -\n출제 문제휴머노이드 로봇 상용화를 고려한 핵심 기술·제어·병목 영역에 대한, 특허 빅데이터 분석 기반의 종합 특허전략 수립▣[기술 또는 문제에 대한 간단한 배경설명]휴머노이드 로봇은 이동, 조작, 제어, 인공지능 기술이 하나의 시스템으로 통합되는 대표적인 복합 기술이 적용된 제품이다. 이로 인해 개별 기술의 우수"
+            },
+            {
+              "doc_id": "deu_collabo_83616",
+              "chunk_id": "deu_collabo_83616_v001_chunk_004",
+              "title": "[대학혁신지원사업] 2026-1 지역사회와 시퀀스포토 교과 운영 안내",
+              "source_type": "collabo",
+              "department": "교육혁신원",
+              "published_at": "2026-03-25 00:00:00+09:00",
+              "source_url": "https://collabo.deu.ac.kr/collabo/sub04_01.do?article.offset=0&articleLimit=10&articleNo=83616&mode=view",
+              "chunk_len": 883,
+              "strong_term_hits": 1,
+              "content_preview": "[TITLE]\n[대학혁신지원사업] 2026-1 지역사회와 시퀀스포토 교과 운영 안내\n\n[ATTACHMENT]\n2026-1 지역사회와 시퀀스포토 운영 지침.hwpx\n\n가 없어야함. 전체 팀원이 6명이더라도, 회의참석한 인원이 4명이면 8만원이하 사용가능! (회의 사진으로 참석인원 확인)\n집행가능\n집행불가능\n· 과제 수행을 위한 팀 회의비\n· 식비: 1인 2만원 이내 사용 가능(\n회의 종료 후\n결제)\n· 일반음식점에서만 가능\n예) 회의시간이 16시 ~ 17시면 18시 ~ 18시30분 사이 결제\n· 최소 1시간 이상 회의 필수\n· 회의 종료시간을 고려하여 회의비 사용\n예) 12시 회의 종료 시, 이동시간, 식사시간을 고려하여 1시간 30분 이"
+            },
+            {
+              "doc_id": "deu_collabo_83616",
+              "chunk_id": "deu_collabo_83616_v001_chunk_001",
+              "title": "[대학혁신지원사업] 2026-1 지역사회와 시퀀스포토 교과 운영 안내",
+              "source_type": "collabo",
+              "department": "교육혁신원",
+              "published_at": "2026-03-25 00:00:00+09:00",
+              "source_url": "https://collabo.deu.ac.kr/collabo/sub04_01.do?article.offset=0&articleLimit=10&articleNo=83616&mode=view",
+              "chunk_len": 838,
+              "strong_term_hits": 1,
+              "content_preview": "[TITLE]\n[대학혁신지원사업] 2026-1 지역사회와 시퀀스포토 교과 운영 안내\n\n[BODY]\nbody\n\n[대학혁신지원사업] 2026-1 지역사회와 시퀀스포토 교과 운영 안내\n첨부파일\n2026-1 지역사회와 시퀀스포토 운영 지침.hwpx\n제출서류 양식.zip\n2026-1 지역사회와 시퀀스포토를 수강하는 학생들을 대상으로 진행됩니다.\n1.\n주요 제출 서류\n1) [붙임1] 팀 활동 계획서, 팀장 통장사본\n~4/10 15시까지\n2) [붙임2] 프로젝트 계획서\n~4/22 15시까지\n3) [붙임3] 회의록 및 현금영수증, [붙임4] 프로젝트 결과보고서\n~6/8 15시까지\n* 서류 1)을 제외한 나머지는\nDOOR 시스템 탑재 후 산학관 315호"
+            }
+          ]
+        },
+        "lexical_top": [],
+        "vector_top": [],
+        "hybrid_top": [],
+        "reranked_top": [],
+        "selected_top": [],
+        "evidence_ranks": {},
+        "stage_classification": {
+          "bucket": "B_RETRIEVAL_SELECTION_GAP",
+          "stage": "log_only",
+          "reason": "Evidence-like chunks exist in DB, but retrieval selected no chunks."
+        }
+      }
+    },
+    {
+      "query_id": 317,
+      "request_id": "6bbc3ae0-a317-4e31-a823-23135a57e9ee",
+      "user_query": "동의대 정보관의 정보를 알고 싶어",
+      "intent": "GENERAL",
+      "rewritten_query": null,
+      "extracted_keywords": null,
+      "category": null,
+      "filters": null,
+      "retrieved_doc_count": null,
+      "reranked_doc_count": null,
+      "selected_doc_count": null,
+      "fallback_used": null,
+      "retrieval_strategy": null,
+      "retrieval_strategy_log": null,
+      "final_answer": "잘 이해하지 못했어요.\n학교 관련 질문을 해주시면 더 정확히 도와드릴게요!",
+      "created_at": "2026-05-19 15:54:13.315608+09:00",
+      "stage_diagnosis": {
+        "query_analysis": {},
+        "query_terms": [
+          "동의대",
+          "정보관의",
+          "정보를",
+          "알고",
+          "싶어"
+        ],
+        "evidence": {
+          "exists": true,
+          "precise_terms": [
+            "정보관의",
+            "정보를"
+          ],
+          "top_db_matches": [
+            {
+              "doc_id": "deu_education_85352",
+              "chunk_id": "deu_education_85352_v001_chunk_010",
+              "title": "[현장실습지원센터] 2026학년도 하계 단기 표준현장실습학기제 학생 참여 안내",
+              "source_type": "education",
+              "department": "취업지원팀",
+              "published_at": "2026-05-11 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-education.do?article.offset=0&articleLimit=10&articleNo=85352&mode=view",
+              "chunk_len": 932,
+              "strong_term_hits": 1,
+              "content_preview": "[TITLE]\n[현장실습지원센터] 2026학년도 하계 단기 표준현장실습학기제 학생 참여 안내\n\n[ATTACHMENT]\n현장실습운영시스템 사용 매뉴얼(학생).pdf\n\n동의대학교현장실습운영시스템매뉴얼(학생용)\n\n＊ 현장실습운영시스템 홈페이지 주소 클릭 ! https://placement.deu.ac.kr1.현장실습운영시스템 로그인 (아이디 : 학번 / 비밀번호 : 개인비밀번호)\n2. 참여내역관리\n① 학년도, 학기 확인(설정)② “신청학기” 클릭!\n\n3. 참여내역관리 기재하기\n① 학과 지도교수 확인 ② 현장실습 지도교수 수정 (해당교원 성명 기재 ⇒ 검색 ⇒ 학과(전공) 확인 ⇒ 수정버튼 클릭)※ 지도교수멘토링 교과 담당교원을 원칙으로 하나,"
+            },
+            {
+              "doc_id": "deu_education_84898",
+              "chunk_id": "deu_education_84898_v001_chunk_012",
+              "title": "[RISE] 제 9회 기상·기후테크 창업 아이디어 공모전 모집",
+              "source_type": "education",
+              "department": "RISE사업단",
+              "published_at": "2026-05-06 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-education.do?article.offset=0&articleLimit=10&articleNo=84898&mode=view",
+              "chunk_len": 991,
+              "strong_term_hits": 1,
+              "content_preview": "[TITLE]\n[RISE] 제 9회 기상·기후테크 창업 아이디어 공모전 모집\n\n[ATTACHMENT]\n제9회 기상·기후테크 창업 아이디어 공모전 공고문.hwpx\n\n용\n<필수항목>\n1.\n개인정보 수집‧이용 목적 및 수집항목, 수집주체\n가. 수집·이용 목적\n나. 수집 항목\n다. 수집 주체\n공모전 참가 및 심사\n를 위한\n본인 확인\n이름, 생년월일, 연락처, 이메일, 소속,\n사업자 정보(사업자 등록번호, 등록일, 소재지)\n공모전 공동주관\n공모전 수상작 활용 및 후속지원\n을 위한\n안내·협의\n이름,\n연락처,\n이\n메일\n공모전 공동주관 및 협력기관\n※\n공모전 공동주관:\n부산지방기상청, 부산대학교 산학협력단, 동의대학교 RISE사업단\n※ 공모전 협력기관"
+            },
+            {
+              "doc_id": "deu_education_84898",
+              "chunk_id": "deu_education_84898_v001_chunk_002",
+              "title": "[RISE] 제 9회 기상·기후테크 창업 아이디어 공모전 모집",
+              "source_type": "education",
+              "department": "RISE사업단",
+              "published_at": "2026-05-06 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-education.do?article.offset=0&articleLimit=10&articleNo=84898&mode=view",
+              "chunk_len": 990,
+              "strong_term_hits": 1,
+              "content_preview": "[TITLE]\n[RISE] 제 9회 기상·기후테크 창업 아이디어 공모전 모집\n\n[ATTACHMENT]\n제9회 기상·기후테크 창업 아이디어 공모전 공고문.hwpx\n\n창의적인 창업 아이디어 발굴을 통해 신재생 에너지, 농식품 및 농업,\n해양, AI, Mobility, 물류, 안전, 식품 등 기상\n·\n기후와\n연계된 모든 분야의\n스타트업과 산업을 활성화하기 위한 「제9회 기상·기후테크 창업 아이디어\n공모전」을 개최하고자 함.\n2026년 5월 4일\n부산지방기상청, 부산대학교 산학협력단, 동의대학교 RISE사업단\n󰊱 개 요\n□\n대회명\n:\n『\n제9회\n기상·기후테크 창업 아이디어 공모전\n』\n-\n주제:\n“\n기상·기후와 연계된 모든 분야 창업 아이디어\n”"
+            },
+            {
+              "doc_id": "deu_bids_84864",
+              "chunk_id": "deu_bids_84864_v001_chunk_026",
+              "title": "[입찰공고]제2026-05호_[대학혁신지원사업] 2026학년도 학생 성장 단계별 지원강화 프로그램 운영 업체 선정",
+              "source_type": "bids",
+              "department": "구매팀",
+              "published_at": "2026-05-06 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-bids.do?article.offset=0&articleLimit=10&articleNo=84864&mode=view",
+              "chunk_len": 972,
+              "strong_term_hits": 1,
+              "content_preview": "[TITLE]\n[입찰공고]제2026-05호_[대학혁신지원사업] 2026학년도 학생 성장 단계별 지원강화 프로그램 운영 업체 선정\n\n[ATTACHMENT]\n제안요청서(2026-05)_[대학혁신지원사업] 2026학년도 학생 성장 단계별 지원강화 프로그램 운영 업체 선정 입찰공고.hwp\n\n: (서명) 동의대학교 총장 귀하 ※ 개인정보를 제공하는 개인 모두가 제출하여야 함 [서식 7] 확 약 서 <표> [서식 8] 청렴계약이행서약서\n\n당사는 부패 없는 투명한 기업경영과 공정한 행정이 국가사회발전과 경쟁력에 중요한 관건이 된다는 점과, 국제적으로도 OECD뇌물방지 협약이 발효되고 부패기업 및 국가에 대한 제재가 강화되는 추세에 있음을 깊이 인식하"
+            },
+            {
+              "doc_id": "deu_bids_84864",
+              "chunk_id": "deu_bids_84864_v001_chunk_025",
+              "title": "[입찰공고]제2026-05호_[대학혁신지원사업] 2026학년도 학생 성장 단계별 지원강화 프로그램 운영 업체 선정",
+              "source_type": "bids",
+              "department": "구매팀",
+              "published_at": "2026-05-06 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-bids.do?article.offset=0&articleLimit=10&articleNo=84864&mode=view",
+              "chunk_len": 842,
+              "strong_term_hits": 1,
+              "content_preview": "[TITLE]\n[입찰공고]제2026-05호_[대학혁신지원사업] 2026학년도 학생 성장 단계별 지원강화 프로그램 운영 업체 선정\n\n[ATTACHMENT]\n제안요청서(2026-05)_[대학혁신지원사업] 2026학년도 학생 성장 단계별 지원강화 프로그램 운영 업체 선정 입찰공고.hwp\n\n담장자를 배정하여야함 ※ 총괄 업무를 담당는 행정, 과업의 설명, 연락책 등의 업무를 수행하는자를 말함 [서식 5-1] 참여인력 이력사항 <표>\n\n註)\n※ 자격증, 경력 및 수행업무와 관련된 사항을 증명할 수 있는 자료를 붙임으로 첨부하여야 하며, 첨부되지 않은 자료에 대하여는 인정하지 않는다.\n※ 소속회사에 대한 재직증명서와 국민연금 가입자 가입증명(국민연"
+            }
+          ]
+        },
+        "lexical_top": [],
+        "vector_top": [],
+        "hybrid_top": [],
+        "reranked_top": [],
+        "selected_top": [],
+        "evidence_ranks": {},
+        "stage_classification": {
+          "bucket": "D_INTENT_OR_ROUTING_GAP",
+          "stage": "log_only",
+          "reason": "No retrieval log exists, but DB contains evidence-like chunks; intent classification or route selection likely bypassed RAG."
+        }
+      }
+    },
+    {
+      "query_id": 315,
+      "request_id": "758dbb6f-70b4-4ae5-aea5-4dc5ae57fb21",
+      "user_query": "지천관 위치가 어떻게 돼?",
+      "intent": "GENERAL",
+      "rewritten_query": null,
+      "extracted_keywords": null,
+      "category": null,
+      "filters": null,
+      "retrieved_doc_count": null,
+      "reranked_doc_count": null,
+      "selected_doc_count": null,
+      "fallback_used": null,
+      "retrieval_strategy": null,
+      "retrieval_strategy_log": null,
+      "final_answer": "잘 이해하지 못했어요.\n학교 관련 질문을 해주시면 더 정확히 도와드릴게요!",
+      "created_at": "2026-05-19 15:53:02.042225+09:00",
+      "stage_diagnosis": {
+        "query_analysis": {},
+        "query_terms": [
+          "지천관",
+          "위치가",
+          "어떻게"
+        ],
+        "evidence": {
+          "exists": true,
+          "precise_terms": [
+            "지천관",
+            "위치가"
+          ],
+          "top_db_matches": [
+            {
+              "doc_id": "deu_reference_83242",
+              "chunk_id": "deu_reference_83242_v001_chunk_029",
+              "title": "2026년 중대산업재해 등 사고 발생 대비 매뉴얼",
+              "source_type": "reference",
+              "department": "안전관리팀",
+              "published_at": "2026-03-17 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-reference.do?article.offset=0&articleLimit=10&articleNo=83242&mode=view",
+              "chunk_len": 826,
+              "strong_term_hits": 1,
+              "content_preview": "[TITLE]\n2026년 중대산업재해 등 사고 발생 대비 매뉴얼\n\n[ATTACHMENT]\n2026년 중대산업재해 등 사고 발생 대비 매뉴얼.pdf\n\n- 22 -\n6. 사고발생에 따른 응급조치 방법□ 재해유형➊ 떨어짐, 넘어짐, 교통사고❍재해자의 의식, 호흡, 자세, 맥박, 동공을 확인한다.❍구호장비를 이용하여 부상자를 이동시킨다.❍부상정도에 따라 현장에서 응급조치를 한다.-다친부위를 움직이지 않게 고정하고, 환자가 있는곳이 위험한 위치가 아닌 한 완전히 고정하기 전에는 움직이지 않는다.-다친 부위의 위와 아래 관절을 모두 포함하여 부목(식판,주걱등곧은재료)을 활용하여 고정한다.-목뼈의 손상이 있는 경우에는 119구조대가 도착하기 직전까지"
+            },
+            {
+              "doc_id": "deu_reference_83242",
+              "chunk_id": "deu_reference_83242_v001_chunk_009",
+              "title": "2026년 중대산업재해 등 사고 발생 대비 매뉴얼",
+              "source_type": "reference",
+              "department": "안전관리팀",
+              "published_at": "2026-03-17 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-reference.do?article.offset=0&articleLimit=10&articleNo=83242&mode=view",
+              "chunk_len": 410,
+              "strong_term_hits": 1,
+              "content_preview": "[TITLE]\n2026년 중대산업재해 등 사고 발생 대비 매뉴얼\n\n[ATTACHMENT]\n2026년 중대산업재해 등 사고 발생 대비 매뉴얼.pdf\n\n로 할 수 있음3긴급대피 □ 화재 확산 등 초기대응 불가 시, 안전보건관리책임자는 근로자를 기관(학교)에서 정하는 비상대피장소로 긴급 대피 조치\n\n- 10 -\n< 학교 위치 및 비상대피도 >\n번호건물명번호건물명번호건물명번호건물명번호건물명1대학본관2법정관3상경관5국제관6동의스포츠센터7상영관8수덕전9제1인문관10제2인문관11효민체육관12중앙도서관13성파글로벌관14제2효민생활관15의료보건관16생활과학관17음악관18창의관19지천관20산학협력관21건윤관22공학관23정보공학관24제1효민생활관25학생군사"
+            },
+            {
+              "doc_id": "deu_academic_notice_81202",
+              "chunk_id": "deu_academic_notice_81202_v001_chunk_007",
+              "title": "2026학년도 편입생 대상 수강신청 및 학점관련 안내",
+              "source_type": "academic_notice",
+              "department": "학사지원팀",
+              "published_at": "2026-02-21 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=10&articleLimit=10&articleNo=81202&mode=view",
+              "chunk_len": 879,
+              "strong_term_hits": 1,
+              "content_preview": "[TITLE]\n2026학년도 편입생 대상 수강신청 및 학점관련 안내\n\n[ATTACHMENT]\n학생 수강신청매뉴얼.pdf\n\n참조) 후 학번 및 비밀번호(생년월일 6자리) 입력 ￭ 『학생정보시스템』 선택 후 『수강신청조회』 또는 『개인시간표조회』 선택하여 시간표 조회\n\n- 10 -\n○ 확인방법 3 ￭ [Android -> Play 스토어 -> 헤이영캠퍼스] / [iOS -> App Store -> 헤이영캠퍼스] 검색 후 어플설치 ￭ App 로그인하여 화면을 하단으로 내리면 시간표 확인이 가능하며, 또는 하단의 『MY메뉴』내 강의시간표를 선택해서도 확인 가능\n○ 확인방법 4 ￭ [Android -> Play 스토어 -> 헤이영캠퍼스] / [i"
+            },
+            {
+              "doc_id": "deu_notice_81190",
+              "chunk_id": "deu_notice_81190_v001_chunk_021",
+              "title": "2026학년도 신입생 수강신청 관련 안내(신입생 필독)",
+              "source_type": "notice",
+              "department": "학사지원팀",
+              "published_at": "2026-02-20 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-notice.do?article.offset=30&articleLimit=10&articleNo=81190&mode=view",
+              "chunk_len": 986,
+              "strong_term_hits": 1,
+              "content_preview": "[TITLE]\n2026학년도 신입생 수강신청 관련 안내(신입생 필독)\n\n[ATTACHMENT]\n7. 2026학년도 1학기 계열, 균형교양 시간표.pdf\n\n계열교양(1학년 수강과목)\n1. 인문사회\n2/15 2026-02-20 14:34:08[Ucb0321R]\n계교 201061-001 소통과협력 3/3 스마트호스피탈리티학 김권동(스마트호스피탈리티학 생과104[수1-3](0)\n계교 201061-002 소통과협력 3/3 시니어스포츠지도학과( 전미현(시니어스포츠지도학과) 창의626[토1-3](0)\n계교 300028-001 문학개론 3/3 전체(1) 유창민(기초교양학부) 2인210[목5-6],[금2](8)\n계교 300028-002 문학개론 3/3 "
+            },
+            {
+              "doc_id": "deu_notice_81190",
+              "chunk_id": "deu_notice_81190_v001_chunk_022",
+              "title": "2026학년도 신입생 수강신청 관련 안내(신입생 필독)",
+              "source_type": "notice",
+              "department": "학사지원팀",
+              "published_at": "2026-02-20 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-notice.do?article.offset=30&articleLimit=10&articleNo=81190&mode=view",
+              "chunk_len": 986,
+              "strong_term_hits": 1,
+              "content_preview": "[TITLE]\n2026학년도 신입생 수강신청 관련 안내(신입생 필독)\n\n[ATTACHMENT]\n7. 2026학년도 1학기 계열, 균형교양 시간표.pdf\n\n(교직학부) 1인208[목5-6],[금2](7)\n계교 300266-001 매스커뮤니케이션의이해 3/3 전체(1) 선정훈(광고홍보학과) 1인611[목8],[금1-2](7)\n계교 300266-002 매스커뮤니케이션의이해 3/3 전체(1) 이하나(미디어커뮤니케이션학 1인302[목5-6],[금2](7)\n계교 300266-003 매스커뮤니케이션의이해 3/3 뷰티비즈니스학(1) 서세홍(학사지원팀) 지천관214[토1-3](0)\n뷰티비즈니스학과(1)\n계교 300269-001 사회학입문 3/3 전체(1"
+            }
+          ]
+        },
+        "lexical_top": [],
+        "vector_top": [],
+        "hybrid_top": [],
+        "reranked_top": [],
+        "selected_top": [],
+        "evidence_ranks": {},
+        "stage_classification": {
+          "bucket": "D_INTENT_OR_ROUTING_GAP",
+          "stage": "log_only",
+          "reason": "No retrieval log exists, but DB contains evidence-like chunks; intent classification or route selection likely bypassed RAG."
+        }
+      }
+    },
+    {
+      "query_id": 306,
+      "request_id": "8460d308-2464-4a75-a608-914fc90be2de",
+      "user_query": "26년 1학기 보강일정 알려줘",
+      "intent": "INFO",
+      "rewritten_query": "보강일정 26년 1학기 기간 마감일",
+      "extracted_keywords": [
+        "기간",
+        "일정",
+        "보강일정",
+        "26년",
+        "1학기",
+        "1학기보강일정",
+        "학기보강일정",
+        "1학기보강",
+        "학기보강",
+        "26",
+        "학기",
+        "보강"
+      ],
+      "category": null,
+      "filters": {
+        "time": [
+          "1학기",
+          "기간"
+        ],
+        "time_scope": [
+          "1학기"
+        ]
+      },
+      "retrieved_doc_count": 15,
+      "reranked_doc_count": 15,
+      "selected_doc_count": 1,
+      "fallback_used": false,
+      "retrieval_strategy": "hybrid",
+      "retrieval_strategy_log": {
+        "query": "보강일정 26년 1학기 기간 마감일",
+        "top_k": 20,
+        "filters": {
+          "time": [
+            "1학기",
+            "기간"
+          ],
+          "time_scope": [
+            "1학기"
+          ]
+        },
+        "category": null,
+        "keywords": [
+          "기간",
+          "일정",
+          "보강일정",
+          "26년",
+          "1학기",
+          "1학기보강일정",
+          "학기보강일정",
+          "1학기보강",
+          "학기보강",
+          "26",
+          "학기",
+          "보강"
+        ],
+        "strategy": "lexical",
+        "fallback_triggers": [],
+        "effective_strategy": "hybrid",
+        "query_variant_count": 4,
+        "filter_rules_applied": [
+          "time_filter",
+          "time_scope_filter"
+        ],
+        "document_category_hints": []
+      },
+      "final_answer": "26년 1학기 보강일정은 제공된 문서에서 관련 정보를 찾을 수 없습니다. \n\n26년 1학기의 주요 일정은 다음과 같습니다.\n\n*   학기개시일: 3월 1일\n*   개강일: 3월 3일\n*   중간시험: 4월 21일 ~ 27일\n*   기말 시험: 6월 16일 ~ 22일\n\n사이트 바로가기: https://www.deu.ac.kr/",
+      "created_at": "2026-05-19 15:42:26.837040+09:00",
+      "stage_diagnosis": {
+        "query_analysis": {},
+        "query_terms": [
+          "26년",
+          "1학기",
+          "보강일정",
+          "알려줘",
+          "기간",
+          "마감일",
+          "보강일정 26년 1학기 기간 마감일",
+          "26년 1학기 보강일정 알려줘 기간",
+          "26 1 학기 보강 일정",
+          "26년 1학기 보강일정 알려줘",
+          "일정",
+          "1학기보강일정"
+        ],
+        "evidence": {
+          "exists": true,
+          "precise_terms": [
+            "26년",
+            "1학기",
+            "보강일정",
+            "보강일정 26년 1학기 기간 마감일",
+            "26년 1학기 보강일정 알려줘 기간",
+            "26 1 학기 보강 일정",
+            "26년 1학기 보강일정 알려줘",
+            "1학기보강일정"
+          ],
+          "top_db_matches": [
+            {
+              "doc_id": "deu_notice_85675",
+              "chunk_id": "deu_notice_85675_v001_chunk_001",
+              "title": "[중앙도서관] 2026년 원북원부산 연계 독후감 공모전 안내",
+              "source_type": "notice",
+              "department": "중앙도서관",
+              "published_at": "2026-05-18 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-notice.do?article.offset=0&articleLimit=10&articleNo=85675&mode=view",
+              "chunk_len": 722,
+              "strong_term_hits": 2,
+              "content_preview": "[TITLE]\n[중앙도서관] 2026년 원북원부산 연계 독후감 공모전 안내\n\n[BODY]\nbody\n\n[중앙도서관] 2026년 원북원부산 연계 독후감 공모전 안내\n‘26 원북원부산 연계 독후감 공모전 안내사항\n. 신청방법\n: 1.\nDAP\n로그인\n2. [2026\n원북원부산\n연계 독후감 공모전\n신청\n첨부된\n서약서\n작성 후 업로드 필수! [서약서 미첨부시 접수 불가]\n. 제출기간 및 방법\n2026.5.26.(\n)~7.17.(\n오후\n시까지\n제출 기한 엄수\n1. DAP로그인\n2. [2026 원북원부산 연계 독후감 공모전]-활동결과물 등록\n* 활동결과물\n독후감\n카피킬러 결과 확인서]\n카피킬러 검사 사용법\n은 첨부파일 확인\nAI\n활용하여 독후감 작성시"
+            },
+            {
+              "doc_id": "deu_notice_85691",
+              "chunk_id": "deu_notice_85691_v001_chunk_004",
+              "title": "[예비군연대] 2026년 학생 예비군 훈련 안내",
+              "source_type": "notice",
+              "department": "예비군연대",
+              "published_at": "2026-05-18 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-notice.do?article.offset=0&articleLimit=10&articleNo=85691&mode=view",
+              "chunk_len": 639,
+              "strong_term_hits": 2,
+              "content_preview": "[TITLE]\n[예비군연대] 2026년 학생 예비군 훈련 안내\n\n[BODY]\nbody\n\n승) → 오시리아역(하차) → 도보이동(760m)\n나. 지하철 및 버스 이동: 약 60분 ~ 70분 소요\n① 동의대역 → 장산역(하차) → 버스환승(139번)등 → 당사입구 하차 → 도보이동(370m)\n다. 버스 이동(2개 이상 환승) : 약 90분 ~ 100분 소요\n훈련장 검색시 '부산 과학화 훈련장 2, 3훈련장'으로 입력할 것\n5. 기타\n가. 전국단위훈련 적극 권장\n① 하계방학 중 개인 일정으로 인해 훈련 참석이 제한되는 경우\n② 하계방학 중 부산 외 지역에 거주하거나 부산 외 지역으로 출타하는 경우\n나. 훈련일정 변경 문의\n① 기존 학과 일정 "
+            },
+            {
+              "doc_id": "deu_notice_85581",
+              "chunk_id": "deu_notice_85581_v001_chunk_001",
+              "title": "2026학년도 1학기 등록금 분할 4차 납부 안내",
+              "source_type": "notice",
+              "department": "경리팀",
+              "published_at": "2026-05-14 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-notice.do?article.offset=0&articleLimit=10&articleNo=85581&mode=view",
+              "chunk_len": 740,
+              "strong_term_hits": 2,
+              "content_preview": "[TITLE]\n2026학년도 1학기 등록금 분할 4차 납부 안내\n\n[BODY]\nbody\n\n2026학년도 1학기 등록금 분할 4차 납부 안내\n2026-1학기 등록금 분할 4차 납부 안내\n[*분할4차 미납부 시 미등록 제적 처리됨을 알려드립니다.]\n고지서 출력\n고지서 출력 클릭 → DAP 시스템 로그인 → 학생정보시스템 → 개인정보(분할4차분 고지서 출력)\n납부대상 : 등록금 분할 납부자\n납부기간 : 2026. 05. 20(수) ∼ 2026. 05. 21(목) 16시 (은행 영업시간 내)\n납부은행 : 국민은행 전국 모든 지점(가상계좌 납부 가능)\n※유의사항\n등록금 분할납부자가 휴학할 때에는 등록금 전액을 납부하여야 합니다.\n납부고지서는 해당"
+            },
+            {
+              "doc_id": "deu_notice_85238",
+              "chunk_id": "deu_notice_85238_v001_chunk_001",
+              "title": "2026년 축제·행사 사고 예방을 위한 안전수칙 안내",
+              "source_type": "notice",
+              "department": "학생지원팀",
+              "published_at": "2026-05-07 00:00:00+09:00",
+              "source_url": "https://www.deu.ac.kr/www/deu-notice.do?article.offset=0&articleLimit=10&articleNo=85238&mode=view",
+              "chunk_len": 156,
+              "strong_term_hits": 2,
+              "content_preview": "[TITLE]\n2026년 축제·행사 사고 예방을 위한 안전수칙 안내\n\n[BODY]\nbody\n\n2026년 축제·행사 사고 예방을 위한 안전수칙 안내\n부산광역시 주관 전국장애학생(소년)체전에 따른 효민체육관 주차장 및 농구장 사용불가\n2026학년도 1학기 등록금 분할 4차 납부 안내"
+            },
+            {
+              "doc_id": "deu_ctl_84592",
+              "chunk_id": "deu_ctl_84592_v001_chunk_002",
+              "title": "[학습지원] 2026-1학기 장학생 토크콘서트 발표자 모집",
+              "source_type": "ctl",
+              "department": "교수학습개발센터",
+              "published_at": "2026-04-24 00:00:00+09:00",
+              "source_url": "https://ctl.deu.ac.kr/ctl/sub06_01.do?article.offset=0&articleLimit=10&articleNo=84592&mode=view",
+              "chunk_len": 446,
+              "strong_term_hits": 2,
+              "content_preview": "[TITLE]\n[학습지원] 2026-1학기 장학생 토크콘서트 발표자 모집\n\n[ATTACHMENT]\n2026-1학기 장학생 토크콘서트 신청 서류.hwp\n\n[붙임1] 2026학년도 장학생 토크콘서트 신청서류\n\n<표>\n\n[붙임1-1] 정보제공 동의서(발표자 작성)\n\n<표>\n\n2026년 월 일\n\n학과:\n학번:\n이름: (서명)\n[붙임1-2] 장학생 토크콘서트 발표원고(발표자 작성)\n[대학혁신지원사업] 2026-1학기 장학생 토크콘서트 발표원고\n\n<표>\n\n*분량: 본 서식에 맞추어 서술식으로 3장 이상 작성(개조식 불가)\n*내용: - 안내된 발표자 원고 작성 내용에 따라 기술(크기: 11.0pt, 글씨색: 검정, 폰트: 자유롭게 작성)\n- 파란색으"
+            }
+          ]
+        },
+        "lexical_top": [],
+        "vector_top": [],
+        "hybrid_top": [],
+        "reranked_top": [],
+        "selected_top": [
+          {
+            "rank": 1,
+            "score": 3.836065,
+            "title": "학사일정 | 학사정보 | 대학생활",
+            "doc_id": "static_5811be281194ca6b",
+            "chunk_id": "static_5811be281194ca6b_v001_chunk_004",
+            "metadata": {
+              "query": "보강일정 26년 1학기 기간 마감일",
+              "top_k": 20,
+              "filters": {
+                "time": [
+                  "1학기",
+                  "기간"
+                ],
+                "time_scope": [
+                  "1학기"
+                ]
+              },
+              "version": 1,
+              "category": null,
+              "keywords": [
+                "기간",
+                "일정",
+                "보강일정",
+                "26년",
+                "1학기",
+                "1학기보강일정",
+                "학기보강일정",
+                "1학기보강",
+                "학기보강",
+                "26",
+                "학기",
+                "보강"
+              ],
+              "strategy": "hybrid",
+              "rrf_score": 0.008620689655172414,
+              "srrf_beta": null,
+              "department": null,
+              "srrf_score": null,
+              "chunk_index": 4,
+              "final_score": 0.5364280755100518,
+              "search_mode": "hybrid",
+              "source_type": "academic_calendar",
+              "content_hash": "55ce5b6f577c55cff746c9fb136cf6eb9b760efe",
+              "dedupe_scope": "document",
+              "published_at": null,
+              "rerank_score": 3.836065,
+              "section_type": "body",
+              "vector_score": 0.541402747296632,
+              "lexical_score": null,
+              "section_index": 1,
+              "section_title": "body",
+              "content_length": 941,
+              "original_score": 0.5364280755100518,
+              "rerank_signals": {
+                "recency": 0.0,
+                "base_score": 0.65984,
+                "exif_noise": 0.0,
+                "noise_score": 0.0,
+                "title_match": 0.138462,
+                "content_match": 0.492308,
+                "category_match": 0.0,
+                "attachment_noise": 0.0,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.545455,
+                "query_family_boost": 1.2,
+                "section_title_match": 0.0,
+                "missing_strong_terms": 0.0,
+                "query_family_penalty": 0.0,
+                "required_heading_match": 0.8
+              },
+              "fallback_triggers": [],
+              "hybrid_score_mode": "weighted",
+              "section_truncated": false,
+              "document_version_id": 5976,
+              "query_variant_count": 4,
+              "section_chunk_count": 11,
+              "filter_rules_applied": [
+                "time_filter",
+                "time_scope_filter"
+              ],
+              "hybrid_vector_weight": 0.6,
+              "hybrid_lexical_weight": 0.4,
+              "hybrid_vector_missing": false,
+              "result_dedupe_applied": true,
+              "max_chunks_per_section": 80,
+              "document_category_hints": [],
+              "paragraph_overlap_chars": 80,
+              "hybrid_vector_norm_score": 0.894046792516753,
+              "long_document_split_todo": null,
+              "hybrid_lexical_norm_score": 0.0,
+              "result_dedupe_max_per_doc": 2,
+              "content_hash_normalization": "normalized-v2",
+              "result_dedupe_max_per_source": 2,
+              "hybrid_vector_candidate_count": 60,
+              "hybrid_lexical_candidate_count": 60
+            },
+            "department": null,
+            "source_type": "academic_calendar",
+            "rerank_score": null,
+            "content_preview": "[TITLE]\n학사일정 | 학사정보 | 대학생활\n\n[BODY]\nbody\n\n 학사일정\n2026년 1학기\n2026년 1학기 날짜별 내용으로 구성\n3월 1일\n학기개시일,삼일절\n3월 2일\n대체휴일(삼일절)\n3월 3일\n개강일\n3월 5 ~ 9일\n수강정정\n3월 26일\n3월 30일\n4월 6일\n4월 21 ~ 27일\n중간시험\n4월 22일\n4월 29일\n5월 1일\n근로자의 날\n5월 4일\n임시 휴강일\n5월 5일\n어린이날\n5월 14일\n5월 22일\n5월 25일\n대체휴일(부처님오신날)\n5월"
+          }
+        ],
+        "evidence_ranks": {},
+        "stage_classification": {
+          "bucket": "C_GENERATION_GAP",
+          "stage": "log_only",
+          "reason": "Selected chunks contain query evidence, but final answer is negative, incomplete, or non-committal."
+        }
+      }
+    },
+    {
+      "query_id": 301,
+      "request_id": "aeb3c49a-6e7c-419a-825c-77fb4da0c52d",
+      "user_query": "하씨발",
+      "intent": "PROFANITY",
+      "rewritten_query": null,
+      "extracted_keywords": null,
+      "category": null,
+      "filters": null,
+      "retrieved_doc_count": null,
+      "reranked_doc_count": null,
+      "selected_doc_count": null,
+      "fallback_used": null,
+      "retrieval_strategy": null,
+      "retrieval_strategy_log": null,
+      "final_answer": "부적절한 표현은 사용할 수 없어요.",
+      "created_at": "2026-05-19 15:37:30.354172+09:00",
+      "stage_diagnosis": {
+        "query_analysis": {},
+        "query_terms": [
+          "하씨발"
+        ],
+        "evidence": {
+          "exists": false,
+          "precise_terms": [
+            "하씨발"
+          ],
+          "top_db_matches": []
+        },
+        "lexical_top": [],
+        "vector_top": [],
+        "hybrid_top": [],
+        "reranked_top": [],
+        "selected_top": [],
+        "evidence_ranks": {},
+        "stage_classification": {
+          "bucket": "OUT_OF_SCOPE_POLICY_ROUTE",
+          "stage": "log_only",
+          "reason": "The request was classified as profanity and intentionally did not enter RAG retrieval."
+        }
+      }
+    },
+    {
+      "query_id": 297,
+      "request_id": "96ef4898-b34a-4ac5-ad61-628cf41a291e",
+      "user_query": "6-1번 버스 운행 정보",
+      "intent": "GENERAL",
+      "rewritten_query": null,
+      "extracted_keywords": null,
+      "category": null,
+      "filters": null,
+      "retrieved_doc_count": null,
+      "reranked_doc_count": null,
+      "selected_doc_count": null,
+      "fallback_used": null,
+      "retrieval_strategy": null,
+      "retrieval_strategy_log": null,
+      "final_answer": "잘 이해하지 못했어요.\n학교 관련 질문을 해주시면 더 정확히 도와드릴게요!",
+      "created_at": "2026-05-19 15:35:27.955636+09:00",
+      "stage_diagnosis": {
+        "query_analysis": {},
+        "query_terms": [
+          "1번",
+          "버스",
+          "운행",
+          "정보"
+        ],
+        "evidence": {
+          "exists": false,
+          "precise_terms": [],
+          "top_db_matches": []
+        },
+        "lexical_top": [],
+        "vector_top": [],
+        "hybrid_top": [],
+        "reranked_top": [],
+        "selected_top": [],
+        "evidence_ranks": {},
+        "stage_classification": {
+          "bucket": "D_INTENT_OR_ROUTING_GAP",
+          "stage": "log_only",
+          "reason": "No retrieval log exists, but DB contains evidence-like chunks; intent classification or route selection likely bypassed RAG."
+        }
+      }
+    },
+    {
+      "query_id": 296,
+      "request_id": "6fafcc4f-d409-4c3c-8ac1-69d5eacc596a",
+      "user_query": "6-1번 버스 정보",
+      "intent": "GENERAL",
+      "rewritten_query": null,
+      "extracted_keywords": null,
+      "category": null,
+      "filters": null,
+      "retrieved_doc_count": null,
+      "reranked_doc_count": null,
+      "selected_doc_count": null,
+      "fallback_used": null,
+      "retrieval_strategy": null,
+      "retrieval_strategy_log": null,
+      "final_answer": "잘 이해하지 못했어요.\n학교 관련 질문을 해주시면 더 정확히 도와드릴게요!",
+      "created_at": "2026-05-19 15:35:19.951269+09:00",
+      "stage_diagnosis": {
+        "query_analysis": {},
+        "query_terms": [
+          "1번",
+          "버스",
+          "정보"
+        ],
+        "evidence": {
+          "exists": false,
+          "precise_terms": [],
+          "top_db_matches": []
+        },
+        "lexical_top": [],
+        "vector_top": [],
+        "hybrid_top": [],
+        "reranked_top": [],
+        "selected_top": [],
+        "evidence_ranks": {},
+        "stage_classification": {
+          "bucket": "D_INTENT_OR_ROUTING_GAP",
+          "stage": "log_only",
+          "reason": "No retrieval log exists, but DB contains evidence-like chunks; intent classification or route selection likely bypassed RAG."
+        }
+      }
+    },
+    {
+      "query_id": 293,
+      "request_id": "044485f5-7753-4bdc-979f-5d24dc712f47",
+      "user_query": "버스 알려줘",
+      "intent": "GENERAL",
+      "rewritten_query": null,
+      "extracted_keywords": null,
+      "category": null,
+      "filters": null,
+      "retrieved_doc_count": null,
+      "reranked_doc_count": null,
+      "selected_doc_count": null,
+      "fallback_used": null,
+      "retrieval_strategy": null,
+      "retrieval_strategy_log": null,
+      "final_answer": "잘 이해하지 못했어요.\n학교 관련 질문을 해주시면 더 정확히 도와드릴게요!",
+      "created_at": "2026-05-19 15:34:47.690933+09:00",
+      "stage_diagnosis": {
+        "query_analysis": {},
+        "query_terms": [
+          "버스",
+          "알려줘"
+        ],
+        "evidence": {
+          "exists": false,
+          "precise_terms": [],
+          "top_db_matches": []
+        },
+        "lexical_top": [],
+        "vector_top": [],
+        "hybrid_top": [],
+        "reranked_top": [],
+        "selected_top": [],
+        "evidence_ranks": {},
+        "stage_classification": {
+          "bucket": "D_INTENT_OR_ROUTING_GAP",
+          "stage": "log_only",
+          "reason": "No retrieval log exists, but DB contains evidence-like chunks; intent classification or route selection likely bypassed RAG."
+        }
+      }
+    }
+  ]
+}

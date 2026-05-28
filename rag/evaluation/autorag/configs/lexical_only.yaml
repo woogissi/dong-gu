@@ -1,0 +1,21 @@
+# Lexical-only AutoRAG validation/evaluation config.
+# Use this config when you want to validate QA/corpus parquet files without
+# triggering external embedding API calls from AutoRAG semantic retrieval.
+
+node_lines:
+  - node_line_name: lexical_only_retrieval
+    nodes:
+      - node_type: lexical_retrieval
+        strategy:
+          metrics:
+            - retrieval_recall
+            - retrieval_precision
+            - retrieval_ndcg
+            - retrieval_mrr
+          speed_threshold: 10
+        top_k:
+          - 5
+          - 10
+          - 20
+        modules:
+          - module_type: bm25

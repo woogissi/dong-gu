@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import List
 
-import requests
 import re
 from crawler.ocr.korean_ocr import KoreanOCREngine
+from crawler.utils.http_client import build_retry_session
 
 
 HEADERS = {
@@ -40,8 +40,7 @@ class ImageTextExtractor:
     MIN_OCR_WIDTH = 1200
 
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update(HEADERS)
+        self.session = build_retry_session(HEADERS)
         self.ocr = KoreanOCREngine()
 
     def fetch_image_bytes(self, image_url: str) -> bytes | None:

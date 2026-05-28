@@ -1,7 +1,73 @@
 # crawler/ingestion/chunker.py
 
 import hashlib
+import os
 import re
+
+from crawler.utils.text_quality import text_quality_report
+
+
+CHUNK_HASH_NORMALIZATION_VERSION = "normalized-v2"
+DEFAULT_PARAGRAPH_OVERLAP_CHARS = 80
+
+STUB_LINE_PATTERNS = (
+    re.compile(r"^(more|notice|program|sns|home|top|quick\s*menu)$", re.IGNORECASE),
+    re.compile(r"^(로그인|메뉴|공유|페이스북|트위터|카카오톡\s*공유|URL\s*복사|프린트)$", re.IGNORECASE),
+    re.compile(r"^(게시물\s*검색|게시판\s*목록|이전글|다음글|첨부파일)$"),
+    re.compile(r"^(번호|제목|작성자|작성일|조회수)(\s*[|/]\s*(번호|제목|작성자|작성일|조회수))*$"),
+    re.compile(r"^(no\.?|title|writer|date|views?)(\s*[|/]\s*(no\.?|title|writer|date|views?))*$", re.IGNORECASE),
+    re.compile(r"^(pdf|hwp)\s*다운로드$", re.IGNORECASE),
+    re.compile(r"^전체화면\s*보기$"),
+    re.compile(r"^(본문\s*바로가기|전체메뉴|사이트맵|로그인|회원가입|목록)$"),
+    re.compile(r"^웹진호수(?:\s*[|:]\s*\d+)?$"),
+    re.compile(r"^행사사진(?:\s*more)?$", re.IGNORECASE),
+    re.compile(r"^(로그인|회원가입|이용문의)$"),
+    re.compile(r"^(게시물\s*(좌측|우측)으로\s*이동|이전\s*정지\s*시작\s*다음)$"),
+)
+STUB_PHRASE_PATTERN = re.compile(
+    r"(PDF\s*다운로드|HWP\s*다운로드|전체화면\s*보기|웹진호수|"
+    r"본문\s*바로가기|전체메뉴|사이트맵|로그인|회원가입|SNS\s*공유|"
+    r"게시물\s*좌측으로\s*이동|게시물\s*우측으로\s*이동|이전\s*정지\s*시작\s*다음)",
+    re.IGNORECASE,
+)
+EXTRA_STUB_PHRASE_PATTERN = re.compile(
+    r"(HOME|로그인|메뉴|공유|페이스북|트위터|카카오톡\s*공유|URL\s*복사|프린트|"
+    r"게시물\s*검색|게시판\s*목록|이전글|다음글|첨부파일|SNS\s*영역)",
+    re.IGNORECASE,
+)
+TABLE_SHELL_PATTERN = re.compile(
+    r"^(번호|제목|작성자|작성일|등록일|조회|첨부|내용|파일)(\s*[|/]\s*"
+    r"(번호|제목|작성자|작성일|등록일|조회|첨부|내용|파일))*$"
+)
+DECORATIVE_RUN_PATTERN = re.compile(r"([|ㆍ·\-_=*#])\1{2,}")
+
+
+SHORT_CHUNK_BOARD_SHELL_PATTERN = re.compile(
+    r"^(번호|제목|작성자|작성일|조회수|첨부파일|no\.?|title|writer|date|views?)(\s*(?:[|/>\-]|\s)\s*"
+    r"(번호|제목|작성자|작성일|조회수|첨부파일|no\.?|title|writer|date|views?))*$",
+    re.IGNORECASE,
+)
+SHORT_CHUNK_NAVIGATION_PATTERN = re.compile(
+    r"(HOME\s*>|>\s*게시판|로그인\s*회원가입|사이트맵|검색어를\s*입력하세요|이전글\s*다음글|"
+    r"페이스북\s*트위터|카카오톡\s*공유|URL\s*복사|공유하기|quick\s*menu)",
+    re.IGNORECASE,
+)
+SHORT_CHUNK_MEANINGFUL_PATTERNS = {
+    "date": re.compile(r"(\d{4}[.-]\d{1,2}[.-]\d{1,2}|\d{1,2}[./]\d{1,2}|\d{1,2}\s*월\s*\d{1,2}\s*일)"),
+    "phone": re.compile(r"(\d{2,4}[-.]\d{3,4}[-.]\d{4}|\d{3,4}-\d{4})"),
+    "email": re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE),
+    "money": re.compile(r"(\d[\d,]*\s*(원|만원|천원)|₩\s*\d[\d,]*)"),
+    "room": re.compile(r"(\d+\s*(호|호실|관|층)|[A-Za-z]동\s*\d+호)"),
+    "time": re.compile(r"(\d{1,2}:\d{2}|오전|오후|운영시간|이용시간)"),
+    "keywords": re.compile(r"(신청기간|접수기간|운영시간|문의|담당부서|학과사무실|위치|주소|장소|일정|마감|제출|접수|신청)"),
+}
+SHORT_CHUNK_NOISE_PATTERNS = {
+    "navigation": SHORT_CHUNK_NAVIGATION_PATTERN,
+    "board_shell": SHORT_CHUNK_BOARD_SHELL_PATTERN,
+    "social_share": re.compile(r"(페이스북|트위터|카카오톡|SNS|공유|URL\s*복사|프린트)", re.IGNORECASE),
+    "login": re.compile(r"(로그인|회원가입|사이트맵|login|join|sitemap)", re.IGNORECASE),
+    "search_shell": re.compile(r"(검색어를\s*입력하세요|게시물\s*검색|검색\s*$)"),
+}
 
 
 class DocumentChunker:
@@ -10,18 +76,43 @@ class DocumentChunker:
         max_chars: int = 900,
         overlap_chars: int = 100,
         max_chunks_per_section: int = 80,
+        paragraph_overlap_chars: int | None = None,
+        dedupe_normalized_chunks: bool = True,
+        skip_stub_chunks: bool = True,
     ):
         self.max_chars = max_chars
         self.overlap_chars = overlap_chars
         self.max_chunks_per_section = max_chunks_per_section
+        self.paragraph_overlap_chars = self._resolve_paragraph_overlap_chars(paragraph_overlap_chars)
+        self.dedupe_normalized_chunks = dedupe_normalized_chunks
+        self.skip_stub_chunks = skip_stub_chunks
+
+    def _resolve_paragraph_overlap_chars(self, paragraph_overlap_chars: int | None) -> int:
+        if paragraph_overlap_chars is None:
+            raw_value = os.getenv("CRAWLER_CHUNK_PARAGRAPH_OVERLAP_CHARS", str(DEFAULT_PARAGRAPH_OVERLAP_CHARS))
+            try:
+                paragraph_overlap_chars = int(raw_value)
+            except ValueError:
+                paragraph_overlap_chars = DEFAULT_PARAGRAPH_OVERLAP_CHARS
+        return max(0, min(paragraph_overlap_chars, self.max_chars // 4))
 
     def normalize_text(self, text: str) -> str:
         if not text:
             return ""
         text = text.replace("\xa0", " ")
+        text = STUB_PHRASE_PATTERN.sub(" ", text)
+        text = EXTRA_STUB_PHRASE_PATTERN.sub(" ", text)
+        text = DECORATIVE_RUN_PATTERN.sub(r"\1", text)
         text = re.sub(r"[ \t]+", " ", text)
         text = re.sub(r"\n{3,}", "\n\n", text)
         return text.strip()
+
+    def normalize_for_hash(self, text: str) -> str:
+        """Normalize semantically identical chunk text before hashing."""
+        text = self.normalize_text(text)
+        text = re.sub(r"\s+", " ", text)
+        text = re.sub(r"\s*([|:/])\s*", r"\1", text)
+        return text.casefold().strip()
 
     def remove_repeated_lines(self, text: str, max_repeats: int = 3) -> str:
         lines = [line.strip() for line in text.splitlines()]
@@ -37,10 +128,20 @@ class DocumentChunker:
     def build_chunk_source_text(self, doc: dict) -> str:
         return "\n\n".join(section["text"] for section in self.build_chunk_sections(doc)).strip()
 
-    def split_attachment_sections(self, attachment_text: str) -> list[dict]:
+    def split_attachment_sections(self, attachment_text: str, attachment_metadata: list[dict] | None = None) -> list[dict]:
         sections = []
         current_title = None
         current_lines = []
+        metadata_by_name = {
+            item.get("file_name"): item
+            for item in attachment_metadata or []
+            if item.get("file_name")
+        }
+
+        def section_metadata(title: str | None) -> dict:
+            if not title:
+                return {}
+            return dict(metadata_by_name.get(title) or {})
 
         for line in attachment_text.splitlines():
             stripped = line.strip()
@@ -53,6 +154,7 @@ class DocumentChunker:
                                 "section_type": "attachment",
                                 "section_title": current_title or "attachment",
                                 "text": text,
+                                "metadata": section_metadata(current_title),
                             }
                         )
                 current_title = stripped.removeprefix("[ATTACHMENT:").removesuffix("]").strip()
@@ -68,6 +170,7 @@ class DocumentChunker:
                     "section_type": "attachment",
                     "section_title": current_title or "attachment",
                     "text": text,
+                    "metadata": section_metadata(current_title),
                 }
             )
 
@@ -76,29 +179,49 @@ class DocumentChunker:
     def build_chunk_sections(self, doc: dict) -> list[dict]:
         sections = []
 
-        clean_text = doc.get("normalize")
-        if clean_text:
-            sections.append(
-                {
-                    "section_type": "body",
-                    "section_title": "body",
-                    "text": self.remove_repeated_lines(clean_text),
-                }
-            )
+        structured_sections = doc.get("structured_sections") or []
+        if structured_sections:
+            for section in structured_sections:
+                text = section.get("text")
+                if not text:
+                    continue
+                sections.append(
+                    {
+                        "section_type": section.get("section_type") or "body",
+                        "section_title": section.get("section_title") or "body",
+                        "text": self.remove_repeated_lines(text),
+                        "metadata": section.get("metadata", {}),
+                    }
+                )
+        if not sections:
+            clean_text = doc.get("normalize")
+            if clean_text:
+                sections.append(
+                    {
+                        "section_type": "body",
+                        "section_title": "body",
+                        "text": self.remove_repeated_lines(clean_text),
+                    }
+                )
 
-        table_text = doc.get("table_text")
-        if table_text:
-            sections.append(
-                {
-                    "section_type": "table",
-                    "section_title": "table",
-                    "text": self.remove_repeated_lines(table_text),
-                }
-            )
+            table_text = doc.get("table_text")
+            if table_text:
+                sections.append(
+                    {
+                        "section_type": "table",
+                        "section_title": "table",
+                        "text": self.remove_repeated_lines(table_text),
+                    }
+                )
 
         attachment_text = doc.get("attachment_text")
         if attachment_text:
-            sections.extend(self.split_attachment_sections(attachment_text))
+            sections.extend(
+                self.split_attachment_sections(
+                    attachment_text,
+                    attachment_metadata=(doc.get("metadata", {}) or {}).get("attachments", []),
+                )
+            )
 
         image_text = doc.get("image_text")
         if image_text:
@@ -137,6 +260,20 @@ class DocumentChunker:
 
         return chunks
 
+    def build_paragraph_overlap(self, text: str) -> str:
+        if self.paragraph_overlap_chars <= 0:
+            return ""
+
+        normalized = re.sub(r"\s+", " ", text).strip()
+        if not normalized:
+            return ""
+
+        sentences = [sentence.strip() for sentence in re.findall(r"[^.!?。]+[.!?。]?", normalized)]
+        candidate = sentences[-1].strip() if sentences else normalized
+        if len(candidate) > self.paragraph_overlap_chars:
+            candidate = normalized[-self.paragraph_overlap_chars :].strip()
+        return candidate
+
     def split_section_into_chunks(self, section_text: str) -> list[str]:
         paragraphs = self.split_paragraphs(section_text)
         merged_chunks = []
@@ -159,7 +296,11 @@ class DocumentChunker:
 
             if buffer:
                 merged_chunks.append(buffer)
-            buffer = para
+                carryover = self.build_paragraph_overlap(buffer)
+                overlapped = f"{carryover}\n\n{para}".strip() if carryover else para
+                buffer = overlapped if len(overlapped) <= self.max_chars else para
+            else:
+                buffer = para
 
         if buffer:
             merged_chunks.append(buffer)
@@ -186,22 +327,194 @@ class DocumentChunker:
         return f"{doc_id}_v{int(version):03d}_chunk_{chunk_index:03d}"
 
     def make_chunk_hash(self, text: str) -> str:
-        return hashlib.sha1(text.encode("utf-8")).hexdigest()
+        normalized = self.normalize_for_hash(text)
+        return hashlib.sha1(normalized.encode("utf-8")).hexdigest()
+
+    def is_meaningful_short_chunk(self, text: str) -> bool:
+        normalized = re.sub(r"\s+", " ", text).strip()
+        if len(normalized) < 8:
+            return False
+        if len(normalized) <= 120 and self.short_chunk_quality_score(normalized)["decision"] == "drop":
+            return True
+
+        has_number = bool(re.search(r"\d", normalized))
+        if has_number and re.search(r"(전화|연락처|문의|담당|내선|fax|tel)", normalized, re.IGNORECASE):
+            return True
+        if has_number and re.search(r"(\d{2,4}[-.]\d{3,4}[-.]\d{4})", normalized):
+            return True
+        if has_number and re.search(r"(기간|일정|신청|접수|마감|부터|까지|월|일)", normalized):
+            return True
+        if has_number and re.search(r"(원|만원|천원|장학금|등록금|지원금|%)", normalized):
+            return True
+        if len(normalized) >= 18 and re.search(r"(대상|자격|조건|제출|신청|모집|선발)", normalized):
+            return True
+        return False
+
+    def short_chunk_quality_score(self, text: str) -> dict:
+        normalized = re.sub(r"\s+", " ", text).strip()
+        meaningful_signals = []
+        noise_signals = []
+
+        if len(normalized) < 8:
+            return {
+                "score": -2,
+                "decision": "drop",
+                "meaningful_signals": meaningful_signals,
+                "noise_signals": ["too_short"],
+            }
+
+        for name, pattern in SHORT_CHUNK_MEANINGFUL_PATTERNS.items():
+            if pattern.search(normalized):
+                meaningful_signals.append(name)
+
+        for name, pattern in SHORT_CHUNK_NOISE_PATTERNS.items():
+            if pattern.search(normalized):
+                noise_signals.append(name)
+
+        if TABLE_SHELL_PATTERN.fullmatch(normalized):
+            noise_signals.append("table_shell")
+        if self.ui_noise_ratio(normalized) >= 0.35 and len(normalized) <= 220:
+            noise_signals.append("ui_noise_terms")
+        if re.fullmatch(r"[A-Z\s|/>-]+", normalized) and len(normalized) <= 80:
+            noise_signals.append("uppercase_menu")
+
+        score = (len(meaningful_signals) * 2) - (len(set(noise_signals)) * 2)
+        if len(normalized) >= 50 and meaningful_signals:
+            score += 1
+        if len(normalized) < 50 and not meaningful_signals:
+            score -= 1
+
+        decision = "keep" if meaningful_signals and score >= 1 else "drop"
+        return {
+            "score": score,
+            "decision": decision,
+            "meaningful_signals": meaningful_signals,
+            "noise_signals": sorted(set(noise_signals)),
+        }
+
+    def is_meaningful_short_chunk(self, text: str) -> bool:
+        return self.short_chunk_quality_score(text)["decision"] == "keep"
+
+    def is_stub_chunk(self, text: str) -> bool:
+        normalized = re.sub(r"\s+", " ", text).strip()
+        if not normalized:
+            return True
+        if self.is_meaningful_short_chunk(normalized):
+            return False
+
+        lines = [line.strip(" -*ㆍ·|:/") for line in text.splitlines() if line.strip()]
+        if len(normalized) <= 120 and self.short_chunk_quality_score(normalized)["decision"] == "drop":
+            return True
+        if lines and all(any(pattern.search(line) for pattern in STUB_LINE_PATTERNS) for line in lines):
+            return True
+        if len(normalized) <= 80 and STUB_PHRASE_PATTERN.search(normalized):
+            return True
+        if len(normalized) <= 120 and TABLE_SHELL_PATTERN.fullmatch(normalized):
+            return True
+        if len(normalized) <= 40 and re.fullmatch(r"[A-Z\s|/]+", normalized):
+            return True
+        if self.ui_noise_ratio(normalized) >= 0.35 and len(normalized) <= 220:
+            return True
+        return False
+
+    def ui_noise_ratio(self, text: str) -> float:
+        tokens = re.findall(r"[가-힣A-Za-z0-9]+", text.lower())
+        if not tokens:
+            return 1.0
+        noise_terms = {
+            "home",
+            "top",
+            "more",
+            "sns",
+            "login",
+            "menu",
+            "share",
+            "print",
+            "facebook",
+            "twitter",
+            "로그인",
+            "회원가입",
+            "사이트맵",
+            "전체메뉴",
+            "목록",
+            "이전",
+            "다음",
+            "바로가기",
+        }
+        hits = sum(1 for token in tokens if token in noise_terms)
+        return hits / len(tokens)
 
     def chunk_document(self, doc: dict) -> list[dict]:
         chunks = []
         chunk_index = 1
+        seen_hashes: set[str] = set()
+
+        def record_chunk_skip(section: dict, status: str, reason: str, quality: dict | None = None) -> None:
+            metadata = doc.setdefault("metadata", {})
+            metadata.setdefault("quality_skips", []).append(
+                {
+                    "stage": "chunking",
+                    "section_type": section.get("section_type"),
+                    "section_title": section.get("section_title"),
+                    "quality_status": status,
+                    "reason": reason,
+                    "quality": quality or {},
+                }
+            )
 
         for section_index, section in enumerate(self.build_chunk_sections(doc), start=1):
             section_text = self.remove_repeated_lines(section["text"])
+            section_quality = text_quality_report(section_text)
+            if section_quality["is_binary_like"]:
+                record_chunk_skip(
+                    section,
+                    "binary_blocked",
+                    "binary_marker_detected",
+                    section_quality,
+                )
+                continue
             section_chunks = self.split_section_into_chunks(section_text)
             total_section_chunks = len(section_chunks)
             truncated = total_section_chunks > self.max_chunks_per_section
 
             for section_chunk_text in section_chunks[: self.max_chunks_per_section]:
-                chunk_text = self.build_chunk_content(doc, section, section_chunk_text)
-                if len(chunk_text) < 50:
+                chunk_quality = text_quality_report(section_chunk_text)
+                if chunk_quality["is_binary_like"]:
+                    record_chunk_skip(
+                        section,
+                        "binary_blocked",
+                        "binary_marker_detected",
+                        chunk_quality,
+                    )
                     continue
+                if self.skip_stub_chunks and self.is_stub_chunk(section_chunk_text):
+                    record_chunk_skip(
+                        section,
+                        "noise_blocked",
+                        "stub_or_navigation_chunk",
+                        {"length": len(section_chunk_text)},
+                    )
+                    continue
+                if len(section_chunk_text) < 50 and not self.is_meaningful_short_chunk(section_chunk_text):
+                    record_chunk_skip(
+                        section,
+                        "short_chunk_blocked",
+                        "short_chunk_without_meaningful_signal",
+                        self.short_chunk_quality_score(section_chunk_text),
+                    )
+                    continue
+
+                chunk_text = self.build_chunk_content(doc, section, section_chunk_text)
+                content_hash = self.make_chunk_hash(chunk_text)
+                if self.dedupe_normalized_chunks and content_hash in seen_hashes:
+                    record_chunk_skip(
+                        section,
+                        "duplicate_blocked",
+                        "duplicate_content_hash_in_document",
+                        {"content_hash": content_hash},
+                    )
+                    continue
+                seen_hashes.add(content_hash)
 
                 chunks.append(
                     {
@@ -218,14 +531,24 @@ class DocumentChunker:
                         "department": doc.get("department"),
                         "content": chunk_text,
                         "content_length": len(chunk_text),
-                        "content_hash": self.make_chunk_hash(chunk_text),
+                        "content_hash": content_hash,
                         "version": doc.get("version", 1),
                         "metadata": {
                             "section_type": section["section_type"],
                             "section_title": section.get("section_title"),
+                            "source_section_metadata": section.get("metadata", {}),
                             "section_chunk_count": total_section_chunks,
                             "section_truncated": truncated,
                             "max_chunks_per_section": self.max_chunks_per_section,
+                            "content_hash_normalization": CHUNK_HASH_NORMALIZATION_VERSION,
+                            "dedupe_scope": "document",
+                            "paragraph_overlap_chars": self.paragraph_overlap_chars,
+                            "long_document_split_todo": (
+                                "For high section_truncated counts, split attachments/regulations/admissions guides "
+                                "by heading, article, table, or table-of-contents anchors before chunking."
+                            )
+                            if truncated
+                            else None,
                         },
                     }
                 )

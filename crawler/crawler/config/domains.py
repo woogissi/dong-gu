@@ -1,5 +1,18 @@
 # crawler/config/domains.py
 
+from urllib.parse import urlparse
+
+
+def seed_deu_hosts() -> set[str]:
+    from crawler.config.seeds import iter_seed_catalog
+
+    hosts = set()
+    for seed in iter_seed_catalog():
+        host = urlparse(seed.get("url", "")).netloc.lower()
+        if host.endswith(".deu.ac.kr"):
+            hosts.add(host)
+    return hosts
+
 ALLOWED_HOSTS = {           # 정적 탐색에서 광고등등을 막기 위함.(여기 주소가 달려있는곳만 탐색하세요~)
     "www.deu.ac.kr",
     "ipsi.deu.ac.kr",
@@ -37,3 +50,38 @@ DOWNLOAD_EXTENSIONS = {     # 정적 크롤링 탐색에서 첨부파일 다운�
     ".png",
     ".p12",
 }
+
+DEPARTMENT_HOSTS = {
+    "mse.deu.ac.kr",
+    "deuproarchi.deu.ac.kr",
+    "archieng.deu.ac.kr",
+    "civil.deu.ac.kr",
+    "urban.deu.ac.kr",
+    "env.deu.ac.kr",
+    "cheng.deu.ac.kr",
+    "dce.deu.ac.kr",
+    "biotech.deu.ac.kr",
+    "biopharm.deu.ac.kr",
+    "efood.deu.ac.kr",
+    "hsde.deu.ac.kr",
+    "pite.deu.ac.kr",
+    "pdm.deu.ac.kr",
+    "elec.deu.ac.kr",
+    "ee.deu.ac.kr",
+    "energy.deu.ac.kr",
+    "futuremobility.deu.ac.kr",
+    "swcc.deu.ac.kr",
+    "sw.deu.ac.kr",
+    "music.deu.ac.kr",
+    "designart.deu.ac.kr",
+    "fashion.deu.ac.kr",
+    "deptpe.deu.ac.kr",
+    "leisure-tkd.deu.ac.kr",
+    "tkd.deu.ac.kr",
+    "sportscoaching.deu.ac.kr",
+    "cinema.deu.ac.kr",
+    "kbeauty.deu.ac.kr",
+}
+
+ALLOWED_HOSTS.update(DEPARTMENT_HOSTS)
+ALLOWED_HOSTS.update(seed_deu_hosts())

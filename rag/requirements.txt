@@ -1,5 +1,7 @@
 numpy==2.3.2
 pydantic==2.10.6
+fastapi
+uvicorn[standard]
 sentence-transformers==5.1.0
 transformers==4.55.4
 accelerate==1.10.0

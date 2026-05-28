@@ -1,0 +1,70 @@
+# Wider retrieval experiment for Donggu university-domain questions.
+# Keep this offline. Apply winning settings manually after review.
+
+node_lines:
+  - node_line_name: query_and_retrieval_compare
+    nodes:
+      - node_type: query_expansion
+        strategy:
+          metrics:
+            - retrieval_recall
+            - retrieval_precision
+          speed_threshold: 10
+        modules:
+          - module_type: pass_query_expansion
+          # Enable these after configuring an LLM for AutoRAG.
+          # - module_type: multi_query_expansion
+          # - module_type: hyde
+
+      - node_type: lexical_retrieval
+        strategy:
+          metrics:
+            - retrieval_recall
+            - retrieval_precision
+            - retrieval_ndcg
+            - retrieval_mrr
+          speed_threshold: 10
+        top_k:
+          - 5
+          - 10
+          - 20
+        modules:
+          - module_type: bm25
+
+      - node_type: semantic_retrieval
+        strategy:
+          metrics:
+            - retrieval_recall
+            - retrieval_precision
+            - retrieval_ndcg
+            - retrieval_mrr
+          speed_threshold: 10
+        top_k:
+          - 5
+          - 10
+          - 20
+        modules:
+          - module_type: vectordb
+            vectordb: default
+
+      - node_type: hybrid_retrieval
+        strategy:
+          metrics:
+            - retrieval_recall
+            - retrieval_precision
+            - retrieval_ndcg
+            - retrieval_mrr
+          speed_threshold: 10
+        top_k:
+          - 5
+          - 10
+          - 20
+        modules:
+          - module_type: hybrid_rrf
+          - module_type: hybrid_cc
+            normalize_method:
+              - mm
+              - tmm
+              - z
+              - dbsf
+            test_weight_size: 21

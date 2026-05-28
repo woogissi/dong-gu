@@ -1,0 +1,369 @@
+{
+  "donggu-0000": {
+    "answers": ["휴학은 학칙과 학사지원팀 안내의 휴학 절차, 휴학 기간, 복학 규정을 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "deu_academic_84441_v002_chunk_011",
+      "deu_academic_84441_v002_chunk_012"
+    ],
+    "metadata": {
+      "label": "휴학 방법",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://dess.deu.ac.kr/"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0001": {
+    "answers": ["수강신청 기간은 해당 학기 수강신청 또는 계절수업 안내 공지의 일정 표를 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "deu_academic_notice_84385_v001_chunk_003",
+      "deu_academic_notice_84385_v001_chunk_004",
+      "deu_academic_notice_84378_v001_chunk_001"
+    ],
+    "metadata": {
+      "label": "수강신청 기간",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://www.deu.ac.kr/www/gra-notice.do?articleNo=84385&mode=view",
+        "https://www.deu.ac.kr/www/gra-notice.do?articleNo=84378&mode=view"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0002": {
+    "answers": ["장학금 신청 방법은 장학 공지의 신청 기간, 신청 대상, 제출 서류, 신청 시스템 안내를 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "deu_scholarship_81842_v002_chunk_001",
+      "deu_scholarship_81842_v002_chunk_002",
+      "deu_scholarship_81842_v002_chunk_003"
+    ],
+    "metadata": {
+      "label": "장학금 신청 방법",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://www.deu.ac.kr/www/deu-scholarship.do?articleNo=81842&mode=view"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0003": {
+    "answers": ["기숙사 입사 신청은 생활관 입사신청 페이지의 신청 단계와 주의사항을 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "static_489038e768a146d4_v001_chunk_001",
+      "static_51ad97a54f7a0db7_v001_chunk_001",
+      "static_26d633279a2768ef_v001_chunk_001"
+    ],
+    "metadata": {
+      "label": "기숙사 입사 신청",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://deu.ac.kr/www/deu-dormitory.do",
+        "https://dorm.deu.ac.kr/30/3030.do"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0004": {
+    "answers": ["졸업요건은 학칙의 수료 및 졸업학점, 조기졸업, 졸업 관련 조항을 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "deu_academic_84441_v002_chunk_013",
+      "deu_academic_84441_v002_chunk_017"
+    ],
+    "metadata": {
+      "label": "졸업요건",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://www.deu.ac.kr/www/deu-rule.do?articleNo=84441&mode=view"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0005": {
+    "answers": ["등록금 납부 기한은 등록 및 수강신청 관련 학칙 또는 해당 학기 등록 공지를 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "deu_academic_84441_v002_chunk_024",
+      "deu_notice_85581_v002_chunk_001"
+    ],
+    "metadata": {
+      "label": "등록금 납부 기한",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://www.deu.ac.kr/www/deu-rule.do?articleNo=84441&mode=view"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0007": {
+    "answers": ["수강정정 기간은 수강신청 안내 공지의 정정 기간, 추가 신청, 폐강 관련 일정을 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "deu_academic_notice_84385_v001_chunk_004",
+      "deu_academic_notice_84385_v001_chunk_005",
+      "deu_academic_notice_84385_v001_chunk_011"
+    ],
+    "metadata": {
+      "label": "수강정정 기간",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://www.deu.ac.kr/www/gra-notice.do?articleNo=84385&mode=view"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0009": {
+    "answers": ["기숙사 시설과 연락처는 생활관 시설안내 및 연락처 페이지를 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "static_413502a6fe8d98ad_v001_chunk_001",
+      "static_3dcfc0a72d7f9f55_v001_chunk_001"
+    ],
+    "metadata": {
+      "label": "기숙사 시설 안내",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://dorm.deu.ac.kr/10/1040.do",
+        "https://dorm.deu.ac.kr/60/6040.do"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0012": {
+    "answers": ["휴학과 복학 절차는 학칙의 휴학, 복학, 제적 관련 조항을 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "deu_academic_84441_v002_chunk_011",
+      "deu_academic_84441_v002_chunk_012",
+      "deu_academic_84441_v002_chunk_013"
+    ],
+    "metadata": {
+      "label": "휴학 및 복학 절차",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://dess.deu.ac.kr/",
+        "https://www.deu.ac.kr/www/deu-rule.do?articleNo=84441&mode=view"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0015": {
+    "answers": ["기숙사 생활 규칙은 생활관 상벌점, 생활수칙, 시설고장 신고 안내를 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "static_014ee735a1b20c1b_v001_chunk_001",
+      "static_3dcfc0a72d7f9f55_v001_chunk_001"
+    ],
+    "metadata": {
+      "label": "기숙사 생활 규칙",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://dorm.deu.ac.kr/40/4020.do",
+        "https://dorm.deu.ac.kr/60/6040.do"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0018": {
+    "answers": ["휴학 기간 제한은 학칙의 휴학 기간과 예외 조항을 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "deu_academic_84441_v002_chunk_011",
+      "deu_academic_84441_v002_chunk_012"
+    ],
+    "metadata": {
+      "label": "휴학 기간 제한",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://www.deu.ac.kr/www/deu-rule.do?articleNo=84441&mode=view"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0019": {
+    "answers": ["수강취소 또는 수강정정은 계절수업 및 수강신청 안내의 정정, 취소, 환불 안내를 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "deu_academic_notice_84378_v001_chunk_001",
+      "deu_academic_notice_84385_v001_chunk_005"
+    ],
+    "metadata": {
+      "label": "수강 취소 방법",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://www.deu.ac.kr/www/gra-notice.do?articleNo=84378&mode=view",
+        "https://www.deu.ac.kr/www/gra-notice.do?articleNo=84385&mode=view"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0021": {
+    "answers": ["기숙사 입사 자격은 생활관 모집 공지와 입사신청 안내의 대상 및 제한사항을 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "static_26d633279a2768ef_v001_chunk_001",
+      "static_489038e768a146d4_v001_chunk_001",
+      "static_51ad97a54f7a0db7_v001_chunk_001"
+    ],
+    "metadata": {
+      "label": "기숙사 입사 자격",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://deu.ac.kr/www/deu-dormitory.do",
+        "https://dorm.deu.ac.kr/30/3030.do"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0023": {
+    "answers": ["등록금 납부 방법은 등록 관련 학칙 및 해당 학기 등록 안내 공지를 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "deu_academic_84441_v002_chunk_024",
+      "deu_notice_85581_v002_chunk_001"
+    ],
+    "metadata": {
+      "label": "등록금 납부 방법",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://www.deu.ac.kr/www/deu-rule.do?articleNo=84441&mode=view"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0027": {
+    "answers": ["기숙사 퇴사 절차는 생활관 퇴사 안내와 중도퇴사 환불 규정을 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "static_562bd7b91fdb0fee_v001_chunk_001",
+      "static_56bd1d9f3eb3548a_v001_chunk_001"
+    ],
+    "metadata": {
+      "label": "기숙사 퇴사 절차",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://dorm.deu.ac.kr/30/3020.do",
+        "https://dorm.deu.ac.kr/30/3040.do"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0036": {
+    "answers": ["휴학 취소는 휴학, 복학, 학적 변경 관련 학칙 및 학사지원팀 안내를 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "deu_academic_84441_v002_chunk_011",
+      "deu_academic_84441_v002_chunk_012"
+    ],
+    "metadata": {
+      "label": "휴학 취소 방법",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://dess.deu.ac.kr/",
+        "https://www.deu.ac.kr/www/deu-rule.do?articleNo=84441&mode=view"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0045": {
+    "answers": ["기숙사 비용은 생활관 납부 내역, 모집 공지, 주거안정장학금 안내의 기숙사 비용 항목을 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "static_56bd1d9f3eb3548a_v001_chunk_001",
+      "deu_scholarship_81842_v002_chunk_017",
+      "static_26d633279a2768ef_v001_chunk_001"
+    ],
+    "metadata": {
+      "label": "기숙사 비용",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://dorm.deu.ac.kr/30/3040.do",
+        "https://www.deu.ac.kr/www/deu-scholarship.do?articleNo=81842&mode=view"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0050": {
+    "answers": ["장학금 신청 마감은 장학 공지의 신청 기간과 제출 마감일을 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "deu_scholarship_81842_v002_chunk_001",
+      "deu_scholarship_81842_v002_chunk_002",
+      "deu_scholarship_81842_v002_chunk_005"
+    ],
+    "metadata": {
+      "label": "장학금 신청 마감",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://www.deu.ac.kr/www/deu-scholarship.do?articleNo=81842&mode=view"
+      ],
+      "needs_review": true
+    }
+  },
+  "donggu-0052": {
+    "answers": ["졸업 자격 심사는 학칙의 졸업학점, 조기졸업, 수료 및 졸업 관련 조항을 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "deu_academic_84441_v002_chunk_013",
+      "deu_academic_84441_v002_chunk_017"
+    ],
+    "metadata": {
+      "label": "졸업 자격 심사",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://www.deu.ac.kr/www/deu-rule.do?articleNo=84441&mode=view"
+      ],
+      "needs_review": true
+    }
+  },
+  "수강신청 기간이 언제야?": {
+    "answers": ["수강신청 기간은 수강신청 또는 계절수업 안내 공지의 일정 표를 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "deu_academic_notice_84385_v001_chunk_003",
+      "deu_academic_notice_84385_v001_chunk_004",
+      "deu_academic_notice_84378_v001_chunk_001"
+    ],
+    "metadata": {
+      "label": "수강신청 기간",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://www.deu.ac.kr/www/gra-notice.do?articleNo=84385&mode=view",
+        "https://www.deu.ac.kr/www/gra-notice.do?articleNo=84378&mode=view"
+      ],
+      "needs_review": true
+    }
+  },
+  "통학버스 시간표 알려줘": {
+    "answers": ["시외통학버스 시간표는 동의대학교 시외통학버스 페이지의 지역별 노선도 및 탑승시간을 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "static_59384ca5fbe6b8a7_v001_chunk_001",
+      "static_59384ca5fbe6b8a7_v001_chunk_002"
+    ],
+    "metadata": {
+      "label": "통학버스 시간표",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://www.deu.ac.kr/www/deu-sbus.do"
+      ],
+      "needs_review": false
+    }
+  },
+  "통학버스 신청방법 알려줘": {
+    "answers": ["시외통학버스 신청방법은 동의대학교 시외통학버스 페이지의 신청기간, 신청방법, 선정방법 안내를 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "static_59384ca5fbe6b8a7_v001_chunk_002",
+      "static_59384ca5fbe6b8a7_v001_chunk_003"
+    ],
+    "metadata": {
+      "label": "통학버스 신청방법",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://www.deu.ac.kr/www/deu-sbus.do"
+      ],
+      "needs_review": false
+    }
+  },
+  "기숙사 입사 신청은 어디서 해?": {
+    "answers": ["기숙사 입사 신청은 생활관 입사신청 페이지와 대표 홈페이지 기숙사 모집 공지를 근거로 답변해야 합니다."],
+    "retrieval_gt": [
+      "static_489038e768a146d4_v001_chunk_001",
+      "static_51ad97a54f7a0db7_v001_chunk_001",
+      "static_26d633279a2768ef_v001_chunk_001"
+    ],
+    "metadata": {
+      "label": "기숙사 입사 신청",
+      "source_basis": [
+        "Supabase documents/chunks",
+        "https://deu.ac.kr/www/deu-dormitory.do",
+        "https://dorm.deu.ac.kr/30/3030.do"
+      ],
+      "needs_review": true
+    }
+  }
+}

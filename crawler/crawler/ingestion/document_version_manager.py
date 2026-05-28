@@ -3,10 +3,12 @@
 import json
 from pathlib import Path
 
+from crawler.paths import CURATED_DOC_DIR
+
 
 class DocumentVersionManager:
-    def __init__(self, curated_base_dir: str = "crawler/data/curated/documents"):       # 여기를 기준으로 기존 문서를 찾는다
-        self.curated_base_dir = Path(curated_base_dir)
+    def __init__(self, curated_base_dir: str | Path | None = None):       # 여기를 기준으로 기존 문서를 찾는다
+        self.curated_base_dir = Path(curated_base_dir) if curated_base_dir is not None else CURATED_DOC_DIR
 
     def load_existing_document(self, source_type: str, doc_id: str) -> dict | None:     # curated문서에서 같은 id 기준으로 읽는 함수
         path = self.curated_base_dir / source_type / f"{doc_id}.json"

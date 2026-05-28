@@ -12,13 +12,14 @@ from pydantic import BaseModel, Field
 
 from rag.schemas.retrieved_doc import RetrievedDoc
 
-SearchStrategy = Literal["lexical", "dense", "hybrid"]
+SearchStrategy = Literal["lexical", "dense", "vector", "hybrid"]
 
 
 class RetrievalRequest(BaseModel):
     query: str
     query_variants: list[str] = Field(default_factory=list)
     keywords: list[str] = Field(default_factory=list)
+    query_vector: list[float] = Field(default_factory=list)
     filters: dict[str, list[str]] = Field(default_factory=dict)
     category: str | None = None
     strategy: SearchStrategy = "lexical"

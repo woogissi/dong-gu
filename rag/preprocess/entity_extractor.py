@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import re
 
-from rag.preprocess.domain_knowledge import ENTITY_LEXICON, ENTITY_SCHEMA
+from rag.preprocess.domain_knowledge import DOMAIN_RULES, ENTITY_LEXICON, ENTITY_SCHEMA
+from rag.preprocess.query_features import detect_domain
 
 _ENTITY_GROUP_RULES: dict[str, list[str]] = {
     "category": ["학사", "장학", "등록", "졸업", "휴학", "복학", "수강", "기숙사", "비교과", "국제"],
@@ -72,6 +73,12 @@ def extract_entities(query: str, keywords: list[str] | None = None) -> dict[str,
         entities[field] = list(dict.fromkeys(extracted))
         
     entities["time"] = _extract_time_entities(text)
+    domain, _ = detect_domain(text, kw)
+    if domain:
+        category = str(DOMAIN_RULES.get(domain, {}).get("category") or domain)
+        entities.setdefault("domain", []).append(domain)
+        if category:
+            entities["category"] = list(dict.fromkeys([*entities.get("category", []), category]))
     return entities
 
 

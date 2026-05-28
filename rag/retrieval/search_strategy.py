@@ -8,11 +8,15 @@ from __future__ import annotations
 from typing import Any
 
 from rag.pipeline.state import PipelineState
+from rag.preprocess.query_features import extract_query_features, sanitize_filters
 from rag.schemas.retrieval import RetrievalRequest
 
-DEFAULT_TOP_K = 10
+DEFAULT_TOP_K = 20
 SUPPORTED_FILTER_FIELDS = ("category", "target", "department", "time", "time_scope")
 KEYWORD_STRATEGY = "lexical"
+
+# TODO: Improve category/source hints for scholarship, shuttle bus, and library
+# queries separately from the vector/hybrid retrieval rollout.
 
 _CATEGORY_DOCUMENT_HINTS: dict[str, list[str]] = {
     "학사": ["academic_notice"],
@@ -40,7 +44,9 @@ def build_retrieval_request(state: PipelineState) -> RetrievalRequest:
 
     query = query_variants[0] if query_variants else state.original_query
     filters = _normalize_filters(state.filters)
-    category = state.category or _first_value(filters.get("category", []))
+    filters, dropped_filters = sanitize_filters(filters)
+    query_features = extract_query_features(query, state.keywords)
+    category = query_features.category or state.category or _first_value(filters.get("category", []))
     top_k = state.retrieval_top_k or DEFAULT_TOP_K
     fallback_triggers = _fallback_triggers(
         query=query,
@@ -55,12 +61,15 @@ def build_retrieval_request(state: PipelineState) -> RetrievalRequest:
         category=category,
         top_k=top_k,
         fallback_triggers=fallback_triggers,
+        query_features=query_features.to_log_dict(),
+        dropped_filters=dropped_filters,
     )
 
     return RetrievalRequest(
         query=query,
         query_variants=query_variants,
         keywords=_dedupe(state.keywords),
+        query_vector=list(state.query_vector or []),
         filters=filters,
         category=category,
         strategy=KEYWORD_STRATEGY,
@@ -79,6 +88,8 @@ def build_strategy_log_fields(
     category: str | None,
     top_k: int,
     fallback_triggers: list[str],
+    query_features: dict[str, object] | None = None,
+    dropped_filters: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     return {
         "strategy": KEYWORD_STRATEGY,
@@ -87,10 +98,18 @@ def build_strategy_log_fields(
         "keywords": _dedupe(keywords),
         "filters": filters,
         "category": category,
-        "document_category_hints": _CATEGORY_DOCUMENT_HINTS.get(category or "", []),
+        "document_category_hints": query_features.get("source_boosts") or _CATEGORY_DOCUMENT_HINTS.get(category or "", []),
         "top_k": top_k,
         "fallback_triggers": fallback_triggers,
         "filter_rules_applied": _filter_rules_applied(filters),
+        "query_features": query_features or {},
+        "strong_terms": (query_features or {}).get("strong_terms", []),
+        "query_family": (query_features or {}).get("family"),
+        "dropped_filters": dropped_filters or [],
+        "applied_boosts": query_features.get("source_boosts") if query_features else [],
+        "detected_domain": query_features.get("domain") if query_features else None,
+        "detected_category": query_features.get("category") if query_features else category,
+        "rule_hit_names": query_features.get("rule_hit_names") if query_features else [],
     }
 
 

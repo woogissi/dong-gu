@@ -6,19 +6,20 @@ import os
 import traceback
 from pathlib import Path
 
-os.environ.setdefault("HF_HOME", str(Path("crawler/.hf_cache").resolve()))
-os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(Path("crawler/.hf_cache/hub").resolve()))
+from crawler.paths import CHUNK_DIR, CURATED_DOC_DIR, HF_CACHE_DIR, LOG_DIR, RAW_DOC_DIR
+
+os.environ.setdefault("HF_HOME", str(HF_CACHE_DIR.resolve()))
+os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str((HF_CACHE_DIR / "hub").resolve()))
 
 from crawler.ingestion.embed_worker import EmbeddingWorker
 from crawler.ingestion.pgvector_loader import PGVectorLoader
+from crawler.state.crawler_state_store import CrawlerStateStore
 from crawler.storage.manifest_writer import ManifestWriter
-from crawler.utils.text_quality import document_quality_report, text_quality_report
+from crawler.utils.text_quality import document_quality_report, strip_nul_value, text_quality_report
 
 
-RAW_DIR = Path("crawler/data/raw/documents")
-CURATED_DIR = Path("crawler/data/curated/documents")
-CHUNK_DIR = Path("crawler/data/rag_ready/chunks")
-LOG_DIR = Path("crawler/data/logs")
+RAW_DIR = RAW_DOC_DIR
+CURATED_DIR = CURATED_DOC_DIR
 
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -27,7 +28,7 @@ manifest_writer = ManifestWriter()
 
 def load_json(path: Path) -> dict | list:
     with open(path, "r", encoding="utf-8") as file:
-        return json.load(file)
+        return strip_nul_value(json.load(file))
 
 
 def log_error(message: str) -> None:
@@ -50,17 +51,23 @@ def collect_chunk_files() -> list[Path]:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Load chunks into pgvector.")
+    parser = argparse.ArgumentParser(
+        description="chunk 데이터를 pgvector 테이블에 적재합니다.",
+        add_help=False,
+    )
+    parser.add_argument("-h", "--help", action="help", help="도움말을 보여주고 종료합니다.")
+    parser._optionals.title = "옵션"
     parser.add_argument(
         "--batch-size",
         type=int,
         default=32,
-        help="Embedding batch size passed to sentence-transformers.",
+        help="sentence-transformers에 전달할 임베딩 batch size입니다.",
     )
     return parser.parse_args()
 
 
 def write_vector_manifest(item: dict, status: str, embed_worker: EmbeddingWorker) -> None:
+    embedding_model = getattr(embed_worker, "model_name", None)
     manifest_writer.append_jsonl(
         "vector_ingestion.jsonl",
         {
@@ -68,7 +75,7 @@ def write_vector_manifest(item: dict, status: str, embed_worker: EmbeddingWorker
             "source_type": item["source_type"],
             "doc_id": item["doc_id"],
             "chunk_count": len(item["chunks"]),
-            "embedding_model": embed_worker.model_name,
+            "embedding_model": embedding_model,
             "status": status,
         },
     )
@@ -121,6 +128,91 @@ def upsert_document_side(loader: PGVectorLoader, item: dict) -> None:
     }
     loader.upsert_assets(asset_source_doc, document_version_id)
     loader.upsert_chunks(item["chunks"], item["version"])
+
+
+def record_vector_state(loader: PGVectorLoader, item: dict, status: str, error: Exception | None = None) -> None:
+    curated_doc = item.get("curated_doc") or {}
+    if not curated_doc.get("source_url"):
+        return
+    state_store = CrawlerStateStore(loader=loader)
+    state_store.upsert_document_state(
+        url=curated_doc.get("source_url"),
+        doc_id=curated_doc.get("doc_id"),
+        status=status,
+        source_type=curated_doc.get("source_type"),
+        page_kind=curated_doc.get("page_kind"),
+        checksum=curated_doc.get("content_hash"),
+        artifact_paths={"chunks_json": item["chunk_file"].as_posix()} if item.get("chunk_file") else {},
+        error=str(error) if error else None,
+        error_stage="vector_ingestion" if error else None,
+        vector_status="FAILED" if error else "INDEXED",
+    )
+
+
+def split_chunks_by_embedding_reuse(
+    chunks: list[dict],
+    reusable_chunk_ids: set[str],
+) -> tuple[list[dict], list[dict]]:
+    reusable = []
+    pending = []
+    for chunk in chunks:
+        if chunk.get("chunk_id") in reusable_chunk_ids:
+            reusable.append(chunk)
+        else:
+            pending.append(chunk)
+    return reusable, pending
+
+
+EMBEDDING_BLOCKED_QUALITY_STATUSES = {
+    "parse_failed",
+    "parser_empty_text",
+    "unsupported_attachment",
+    "binary_blocked",
+    "noise_blocked",
+    "duplicate_blocked",
+    "short_chunk_blocked",
+}
+
+
+def embedding_exclusion_report(chunk: dict) -> dict:
+    metadata = chunk.get("metadata", {}) or {}
+    quality_status = metadata.get("quality_status")
+    content_quality = text_quality_report(chunk.get("content"))
+    if quality_status in EMBEDDING_BLOCKED_QUALITY_STATUSES:
+        return {
+            "excluded": True,
+            "quality_status": quality_status,
+            "reason": quality_status,
+            "quality": content_quality,
+        }
+    if content_quality["is_binary_like"]:
+        return {
+            "excluded": True,
+            "quality_status": "binary_blocked",
+            "reason": "binary_marker_detected",
+            "quality": content_quality,
+        }
+    return {
+        "excluded": False,
+        "quality_status": quality_status or "ok",
+        "reason": "ok",
+        "quality": content_quality,
+    }
+
+
+def split_chunks_by_embedding_quality(chunks: list[dict]) -> tuple[list[dict], list[dict]]:
+    allowed = []
+    excluded = []
+    for chunk in chunks:
+        report = embedding_exclusion_report(chunk)
+        if report["excluded"]:
+            chunk.setdefault("metadata", {})["quality_status"] = report["quality_status"]
+            chunk["metadata"]["embedding_skip_reason"] = report["reason"]
+            chunk["metadata"]["quality"] = report["quality"]
+            excluded.append(chunk)
+        else:
+            allowed.append(chunk)
+    return allowed, excluded
 
 
 def ingestion_item_quality_report(item: dict) -> dict[str, object]:
@@ -186,6 +278,28 @@ def main() -> None:
                         f"bad_chunks={quality['bad_chunk_count']}",
                         flush=True,
                     )
+                    try:
+                        loader.insert_crawl_job_error(
+                            run_type="vector_ingestion",
+                            stage="vector_ingestion_quality_gate",
+                            error=ValueError("binary_marker_detected"),
+                            source_type=item.get("source_type"),
+                            doc_id=item.get("doc_id"),
+                            url=(item.get("curated_doc") or {}).get("source_url"),
+                            file_path=chunk_file.as_posix(),
+                            context={
+                                "quality_status": "parse_failed",
+                                "reason": "binary_marker_detected",
+                                "quality": quality,
+                            },
+                        )
+                        loader.commit()
+                    except Exception as logging_error:
+                        loader.rollback()
+                        log_error(
+                            "[VECTOR QUALITY LOGGING FAILED] "
+                            f"file={chunk_file.as_posix()} error={logging_error}"
+                        )
                     continue
 
                 print(
@@ -194,18 +308,80 @@ def main() -> None:
                     f"doc_id={item['doc_id']} chunks={len(item['chunks'])}",
                     flush=True,
                 )
+                reusable_chunk_ids = loader.find_reusable_embedding_chunk_ids(
+                    item["chunks"],
+                    embed_worker.model_name,
+                )
                 upsert_document_side(loader, item)
                 loader.commit()
                 write_vector_manifest(item, "chunks_upserted", embed_worker)
                 print(f"[CHUNKS OK] doc_id={item['doc_id']} chunks={len(item['chunks'])}", flush=True)
 
-                for start in range(0, len(item["chunks"]), args.batch_size):
-                    end = min(start + args.batch_size, len(item["chunks"]))
-                    batch = item["chunks"][start:end]
+                reusable_chunks, chunks_to_embed = split_chunks_by_embedding_reuse(
+                    item["chunks"],
+                    reusable_chunk_ids,
+                )
+                chunks_to_embed, excluded_embedding_chunks = split_chunks_by_embedding_quality(chunks_to_embed)
+                for excluded_chunk in excluded_embedding_chunks:
+                    loader.insert_crawl_job_error(
+                        run_type="vector_ingestion",
+                        stage="embedding_quality_gate",
+                        error=ValueError(excluded_chunk["metadata"].get("embedding_skip_reason")),
+                        source_type=excluded_chunk.get("source_type"),
+                        doc_id=excluded_chunk.get("doc_id"),
+                        url=excluded_chunk.get("source_url"),
+                        context={
+                            "chunk_id": excluded_chunk.get("chunk_id"),
+                            "chunk_index": excluded_chunk.get("chunk_index"),
+                            "quality_status": excluded_chunk["metadata"].get("quality_status"),
+                            "reason": excluded_chunk["metadata"].get("embedding_skip_reason"),
+                            "quality": excluded_chunk["metadata"].get("quality"),
+                        },
+                    )
+                if excluded_embedding_chunks:
+                    loader.commit()
+                    manifest_writer.append_jsonl(
+                        "vector_ingestion.jsonl",
+                        {
+                            "chunk_file": chunk_file.as_posix(),
+                            "source_type": item["source_type"],
+                            "doc_id": item["doc_id"],
+                            "status": "embedding_quality_exclusions",
+                            "excluded_chunk_count": len(excluded_embedding_chunks),
+                            "reasons": [
+                                chunk["metadata"].get("embedding_skip_reason")
+                                for chunk in excluded_embedding_chunks[:20]
+                            ],
+                        },
+                    )
+                if reusable_chunks:
+                    manifest_writer.append_jsonl(
+                        "vector_ingestion.jsonl",
+                        {
+                            "chunk_file": chunk_file.as_posix(),
+                            "source_type": item["source_type"],
+                            "doc_id": item["doc_id"],
+                            "chunk_count": len(item["chunks"]),
+                            "embedding_model": embed_worker.model_name,
+                            "status": "embeddings_reused",
+                            "reused_chunk_count": len(reusable_chunks),
+                            "pending_chunk_count": len(chunks_to_embed),
+                        },
+                    )
+                    print(
+                        "[EMBED SKIP] "
+                        f"doc_id={item['doc_id']} reused={len(reusable_chunks)} "
+                        f"pending={len(chunks_to_embed)} model={embed_worker.model_name}",
+                        flush=True,
+                    )
+
+                for start in range(0, len(chunks_to_embed), args.batch_size):
+                    end = min(start + args.batch_size, len(chunks_to_embed))
+                    batch = chunks_to_embed[start:end]
                     print(
                         "[EMBED BATCH] "
                         f"doc_id={item['doc_id']} "
-                        f"chunks={start + 1}-{end}/{len(item['chunks'])} "
+                        f"chunks={start + 1}-{end}/{len(chunks_to_embed)} "
                         f"batch_size={args.batch_size}",
                         flush=True,
                     )
@@ -214,11 +390,15 @@ def main() -> None:
                     loader.commit()
                     embedded_chunk_count += len(embedded_chunks)
 
+                record_vector_state(loader, item, "INDEXED")
+                loader.commit()
                 write_vector_manifest(item, "embeddings_upserted", embed_worker)
                 processed_count += 1
                 print(
                     "[VECTOR OK] "
                     f"doc_id={item['doc_id']} chunks={len(item['chunks'])} "
+                    f"reused_chunks={len(reusable_chunks)} "
+                    f"newly_embedded_chunks={len(chunks_to_embed)} "
                     f"processed_docs={processed_count} embedded_chunks={embedded_chunk_count}",
                     flush=True,
                 )
@@ -226,6 +406,13 @@ def main() -> None:
             except Exception as error:
                 failed_count += 1
                 loader.rollback()
+                try:
+                    if item:
+                        record_vector_state(loader, item, "FAILED", error=error)
+                        loader.commit()
+                except Exception as state_error:
+                    loader.rollback()
+                    log_error(f"[VECTOR STATE ERROR] file={chunk_file.as_posix()} error={state_error}")
                 stack_trace = traceback.format_exc()
                 message = f"[VECTOR ERROR] file={chunk_file.as_posix()} error={error}"
                 log_error(message)

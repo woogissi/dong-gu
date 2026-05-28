@@ -14,7 +14,11 @@ class FrontierManager:
 
     def canonicalize_url(self, url: str) -> str:
         url, _ = urldefrag(url)     # 예를들어 url이 ("https://abc.com/page", "section1") 일 경우 뒤의 fragment는 지우고 앞의 url만 저장
-        return url.strip()
+        url = url.strip()
+        parsed = urlparse(url)
+        if parsed.path == "/" and not parsed.query:
+            return url.rstrip("/")
+        return url
 
     def is_allowed(self, url: str) -> bool:
         host = urlparse(url).netloc.lower()     # 파싱된 url의 host부분만 추출

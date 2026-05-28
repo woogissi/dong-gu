@@ -24,6 +24,7 @@ class RawDocumentBase(BaseModel):
     normalize: str | None = None
     table_text: str = ""
     attachment_text: str | None = None
+    structured_sections: list[dict] = Field(default_factory=list)
 
     version: int = 1
     change_type: str | None = None
@@ -71,6 +72,7 @@ class CuratedDocument(BaseModel):
     table_text: str = ""
     attachment_text: str | None = None
     image_text: str | None = None
+    structured_sections: list[dict] = Field(default_factory=list)
 
     version: int = 1
     change_type: str | None = None
