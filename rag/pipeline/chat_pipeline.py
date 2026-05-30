@@ -1,11 +1,9 @@
 """RAG pipeline orchestration."""
 
-import html
 import json
 import os
 import re
 import time
-from pathlib import Path
 
 from rag.pipeline.state import PipelineState
 from rag.pipeline.preprocessor import QueryPreprocessor
@@ -16,12 +14,13 @@ from rag.schemas.answer import Answer
 from rag.retrieval.retriever import retrieve_documents
 from rag.retrieval.search_strategy import build_retrieval_request
 from rag.retrieval.source_policy import forbidden_source_types_for_family
+from rag.retrieval.temporal import validate_temporal_evidence
 from rag.retrieval.quality import retrieval_quality_result, set_retrieval_quality_status
 from rag.selection.topk_selector import select_topk_with_diagnostics
 from rag.selection.context_builder import build_context
 from rag.selection.reranker import rerank_documents
 
-from rag.prompt.prompt_builder import build_prompt
+from rag.prompt.prompt_builder import build_prompt, build_system_prompt, build_user_message
 from rag.llm.answer_generator import generate_answer
 from rag.generation.answer_postprocessor import (
     repair_negative_answer_with_context,
@@ -222,7 +221,8 @@ class ChatPipeline:
             keywords=request.keywords,
         )
         state.metadata["retrieval_quality"] = quality
-        allow_filter_relaxation = bool(request.filters) and quality.get("reason") in {
+        has_retrieval_constraints = bool(request.filters) or bool(request.ranking_hints)
+        allow_filter_relaxation = has_retrieval_constraints and quality.get("reason") in {
             "empty_result",
             "low_top1_score",
             "low_avg_score",
@@ -240,6 +240,7 @@ class ChatPipeline:
                 "query": request.query,
                 "keywords": request.keywords,
                 "filters": request.filters,
+                "ranking_hints": request.ranking_hints,
                 "fallback_triggers": [*request.fallback_triggers, "no_retrieval_results"],
             }
             raise NoRetrievalResultsError(NO_RETRIEVAL_RESULTS_MESSAGE)
@@ -274,7 +275,7 @@ class ChatPipeline:
         return "hybrid" if request.strategy == "lexical" else request.strategy
 
     def _fallback_disabled_for_mode(self, mode: str) -> bool:
-        return mode in self._csv_env(_DISABLE_FALLBACK_FOR_MODES_ENV_VAR, default=["vector"])
+        return mode in self._csv_env(_DISABLE_FALLBACK_FOR_MODES_ENV_VAR, default=[])
 
     def _csv_env(self, name: str, *, default: list[str]) -> list[str]:
         raw_value = os.getenv(name, "")
@@ -365,6 +366,7 @@ class ChatPipeline:
                         "query": original_query or request.query,
                         "query_variants": [original_query or request.query],
                         "filters": {},
+                        "ranking_hints": {},
                         "category": None,
                     }
                 ),
@@ -372,7 +374,7 @@ class ChatPipeline:
             ),
             "relaxed_filters": (
                 "relaxed_filters",
-                request.model_copy(update={"filters": {}, "category": None}),
+                request.model_copy(update={"filters": {}, "ranking_hints": {}, "category": None}),
                 "hybrid",
             ),
             "increase_top_k": (
@@ -387,7 +389,7 @@ class ChatPipeline:
             if self._extract_faculty_entity(request.query, request.keywords)
             else self._fallback_order()
         )
-        if request.filters and reason in {"empty_result", "low_top1_score", "low_avg_score", "short_context"}:
+        if (request.filters or request.ranking_hints) and reason in {"empty_result", "low_top1_score", "low_avg_score", "short_context"}:
             fallback_order = ["relaxed_filters", *[name for name in fallback_order if name != "relaxed_filters"]]
         attempts = [
             attempt_map[name]
@@ -421,16 +423,16 @@ class ChatPipeline:
         ]
         if configured_order:
             return configured_order
-        return ["vector_only_retry", "original_query_no_rewrite", "relaxed_filters", "increase_top_k", "lexical_only_retry"]
+        return ["original_query_no_rewrite", "vector_only_retry", "relaxed_filters", "increase_top_k", "lexical_only_retry"]
 
     def _faculty_fallback_order(self) -> list[str]:
         return ["original_query_no_rewrite", "relaxed_filters", "lexical_only_retry", "vector_only_retry"]
 
     def _max_fallback_attempts(self) -> int:
         try:
-            value = int(os.getenv(_MAX_FALLBACK_ATTEMPTS_ENV_VAR, "1"))
+            value = int(os.getenv(_MAX_FALLBACK_ATTEMPTS_ENV_VAR, "2"))
         except ValueError:
-            return 1
+            return 2
         return max(0, value)
 
     def _collect_branch_candidates(self, request, state: PipelineState | None = None) -> dict:
@@ -556,11 +558,6 @@ class ChatPipeline:
             return False
         return any(marker in text for marker in ("학과", "전공", "학부", "대학원"))
 
-    def _extract_department_faculty_name(self, query: str) -> str:
-        compact = re.sub(r"\s+", "", query or "")
-        match = re.search(r"([A-Za-z0-9가-힣&·ㆍ\-\+]+?(?:학과|전공|학부|대학원))", compact)
-        return match.group(1) if match else ""
-
     def _doc_contains_entity(self, doc, entity: str) -> bool:
         if not entity:
             return False
@@ -625,12 +622,16 @@ class ChatPipeline:
             return default
 
     def _select_and_build_context(self, state: PipelineState) -> None:
+        strategy_log = state.metadata.get("retrieval_strategy_log", {})
+        hard_filters = strategy_log.get("filters", {}) if isinstance(strategy_log, dict) else {}
+        ranking_hints = strategy_log.get("ranking_hints", {}) if isinstance(strategy_log, dict) else {}
         state.reranked_docs = rerank_documents(
             state.retrieved_docs,
             query=state.rewritten_query or state.normalized_query or state.original_query,
             keywords=state.keywords,
             category=state.category,
-            filters=state.filters,
+            filters=hard_filters if isinstance(hard_filters, dict) else {},
+            ranking_hints=ranking_hints if isinstance(ranking_hints, dict) else {},
         )
         query_features = self._query_features(state)
         query_family = query_features.get("family") if isinstance(query_features, dict) else None
@@ -661,12 +662,38 @@ class ChatPipeline:
         state.metadata["selection_diagnostics"] = selection_result
         state.metadata["rerank_comparison"] = self._build_rerank_comparison(state.retrieved_docs, state.reranked_docs, state.selected_docs)
         selection_quality = self._evaluate_selection_quality(state.selected_docs)
+        temporal_validation = self._validate_selected_temporal_evidence(state)
+        selection_quality["temporal_validation"] = temporal_validation
         state.metadata["selection_quality"] = selection_quality
         retrieval_quality = state.metadata.get("retrieval_quality")
         if isinstance(retrieval_quality, dict):
             retrieval_quality["selection_quality"] = selection_quality
         state.metadata["citation_trace"] = self._build_citation_trace(state.selected_docs)
         state.context = build_context(state.selected_docs)
+
+    def _validate_selected_temporal_evidence(self, state: PipelineState) -> dict:
+        temporal_signals = self._temporal_signals_from_state(state)
+        validation = validate_temporal_evidence(state.selected_docs, temporal_signals)
+        state.metadata["temporal_signals"] = temporal_signals
+        state.metadata["temporal_validation"] = validation
+        retrieval_quality = state.metadata.get("retrieval_quality")
+        if isinstance(retrieval_quality, dict):
+            retrieval_quality["temporal_signals"] = temporal_signals
+            retrieval_quality["temporal_validation"] = validation
+            if validation.get("reason") == "missing_temporal_evidence":
+                self._set_retrieval_quality_status(retrieval_quality, "missing_temporal_evidence")
+        return validation
+
+    def _temporal_signals_from_state(self, state: PipelineState) -> dict:
+        strategy_log = state.metadata.get("retrieval_strategy_log", {})
+        if not isinstance(strategy_log, dict):
+            return {}
+        temporal_signals = strategy_log.get("temporal_signals")
+        if temporal_signals is None:
+            ranking_hints = strategy_log.get("ranking_hints", {})
+            if isinstance(ranking_hints, dict):
+                temporal_signals = ranking_hints.get("temporal_signals")
+        return temporal_signals if isinstance(temporal_signals, dict) else {}
 
     def _filter_forbidden_source_docs(self, query_family: str | None, docs: list) -> list:
         forbidden = forbidden_source_types_for_family(query_family)
@@ -913,6 +940,7 @@ class ChatPipeline:
         content = str(doc.content or "")
         text = f"{title}\n{source}\n{content}"
         compact = re.sub(r"\s+", "", text)
+        source_type = str((doc.metadata or {}).get("source_type") or "").lower()
         score = 0.0
         if "정보공학관" in compact:
             score += 2.0
@@ -926,6 +954,8 @@ class ChatPipeline:
             if "정보공학관" in compact and any(term in compact for term in ("23", "2F", "2층", "학생식당")):
                 score += 1.8
         if query_type in {"cafeteria_location", "cafeteria_hours"}:
+            if source_type == "cafeteria":
+                score += 1.5
             if "정보공학관" in compact and "학생식당" in compact:
                 score += 2.4
             if any(term in compact for term in ("2층학생식당", "2F학생식당")):
@@ -944,6 +974,8 @@ class ChatPipeline:
         source_type = str(doc.metadata.get("source_type") or "").lower()
         if source_type in {"job", "scholarship", "external_notice", "bids"}:
             return True
+        if source_type == "cafeteria" and query_type in {"cafeteria_location", "cafeteria_hours"}:
+            return False
         noise_terms = (
             "채용",
             "채용공고",
@@ -961,6 +993,11 @@ class ChatPipeline:
         if query_type in {"cafeteria_location", "cafeteria_hours"} and "식당" in text and "정보공학관" not in text:
             return True
         return False
+
+    def _extract_cafeteria_hours(self, content: str) -> str:
+        import re
+        match = re.search(r"\d{1,2}\s*[시:]\s*[~\-]\s*\d{1,2}\s*[시:]|\d{1,2}~\d{1,2}시", content)
+        return match.group(0) if match else ""
 
     def _is_faculty_list_doc(self, doc) -> bool:
         title = str(doc.title or "").lower()
@@ -1034,6 +1071,7 @@ class ChatPipeline:
             "attachment_ratio": attachment_count / len(docs),
             "noise_ratio": contaminated_count / len(docs),
             "top_heading_query_match": doc_signals[0]["heading_query_match"],
+            "single_selected_heading_mismatch": len(docs) == 1 and not doc_signals[0]["heading_query_match"],
             "doc_signals": doc_signals,
         }
 
@@ -1085,76 +1123,51 @@ class ChatPipeline:
             return 0.0
 
     def _generate(self, state: PipelineState) -> None:
-        person_title_answer = self._build_person_title_answer(state)
-        if person_title_answer:
-            state.metadata["person_title_answer_rule"] = {
-                "applied": False,
-                "rule": "person_title_answer",
-                "answer_type": "president_ordinal",
-                "decision": "evidence",
-            }
-            self._record_rule_answer_candidate(
-                state,
-                "person_title_answer",
-                person_title_answer,
-                decision="evidence",
-                reason="high_risk_rule_evidence_only",
+        temporal_validation = state.metadata.get("temporal_validation")
+        effective_context = state.context
+        if (
+            isinstance(temporal_validation, dict)
+            and temporal_validation.get("needs_validation")
+            and not temporal_validation.get("valid")
+        ):
+            signals = temporal_validation.get("temporal_signals") or {}
+            years = signals.get("years") or []
+            semesters = signals.get("semesters") or []
+            missing = temporal_validation.get("missing") or []
+            parts = []
+            if years:
+                parts.append(f"요청 연도: {', '.join(str(y) for y in years)}")
+            if semesters:
+                parts.append(f"요청 학기: {', '.join(str(s) for s in semesters)}")
+            if missing:
+                parts.append(f"문서에서 확인되지 않은 항목: {', '.join(missing)}")
+            temporal_mismatch_hint = (
+                "temporal_mismatch: " + "; ".join(parts)
+                if parts else "temporal_mismatch: 연도/학기 정보 불일치"
             )
-        department_faculty_answer = self._build_department_faculty_list_answer(state)
-        if department_faculty_answer:
-            if self._handle_structured_rule_answer(state, "department_faculty_list_answer", department_faculty_answer):
-                return
-        faculty_answer = self._build_faculty_answer(state)
-        if faculty_answer:
-            if self._handle_structured_rule_answer(state, "faculty_answer", faculty_answer):
-                return
-        facility_location_answer = self._build_facility_location_answer(state)
-        if facility_location_answer:
-            self._record_rule_answer_candidate(
-                state,
-                "facility_location_answer",
-                facility_location_answer,
-                decision="evidence",
-                reason="high_risk_rule_evidence_only",
+            state.metadata["temporal_answer_blocked"] = False
+            state.metadata["temporal_mismatch_hint_injected"] = True
+            effective_context = (
+                f"{temporal_mismatch_hint}\n\n{effective_context}"
+                if effective_context
+                else temporal_mismatch_hint
             )
-        cafeteria_answer = self._build_cafeteria_answer(state)
-        if cafeteria_answer:
-            self._record_rule_answer_candidate(
-                state,
-                "cafeteria_answer",
-                cafeteria_answer,
-                decision="evidence",
-                reason="high_risk_rule_evidence_only",
-            )
-        curriculum_answer = self._build_department_curriculum_answer(state)
-        if curriculum_answer:
-            if self._handle_structured_rule_answer(state, "department_curriculum_answer", curriculum_answer):
-                return
-        academic_schedule_answer = self._build_academic_schedule_answer(state)
-        if academic_schedule_answer:
-            if self._handle_structured_rule_answer(state, "academic_schedule_answer", academic_schedule_answer):
-                return
-        navigation_answer = self._build_navigation_fallback_answer(state)
-        if navigation_answer:
-            self._record_rule_answer_candidate(
-                state,
-                "navigation_fallback_answer",
-                navigation_answer,
-                decision="evidence",
-                reason="high_risk_rule_evidence_only",
-            )
+
         state.prompt = build_prompt(
             query=state.original_query,
-            context=state.context,
-            structured_evidence=self._structured_evidence_text(state),
+            context=effective_context,
+        )
+        system_prompt = build_system_prompt()
+        user_message = build_user_message(
+            query=state.original_query,
+            context=effective_context,
         )
         state.metadata["answer_generation_input"] = {
             "selected_doc_count": len(state.selected_docs or []),
             "context_chars": len(state.context or ""),
             "prompt_chars": len(state.prompt or ""),
-            "has_structured_evidence": bool(self._structured_evidence_text(state)),
         }
-        generated_answer = generate_answer(state.prompt)
+        generated_answer = generate_answer(user_message, system_prompt=system_prompt)
         state.metadata["answer_generation_output"] = {
             "raw_answer_chars": len(generated_answer or ""),
             "raw_answer_has_not_found": has_not_found_answer(generated_answer),
@@ -1174,959 +1187,12 @@ class ChatPipeline:
             }
         )
 
-    def _handle_structured_rule_answer(self, state: PipelineState, rule: str, answer: str) -> bool:
-        passed, decision, missing_terms, reason = self._structured_rule_gate(state, rule)
-        self._record_rule_answer_candidate(
-            state,
-            rule,
-            answer,
-            decision=decision,
-            reason=reason,
-            missing_terms=missing_terms,
-        )
-        if not passed:
-            return False
-        state.answer_text = answer
-        return True
-
-    def _record_rule_answer_candidate(
-        self,
-        state: PipelineState,
-        rule: str,
-        answer: str,
-        *,
-        decision: str = "final",
-        reason: str = "rule_returned_before_llm",
-        missing_terms: list[str] | None = None,
-    ) -> None:
-        doc = self._rule_answer_source_doc(state, rule)
-        candidate = {
-            "rule": rule,
-            "decision": decision,
-            "confidence": self._rule_answer_confidence(rule, state),
-            "source_doc_id": getattr(doc, "doc_id", None),
-            "source_chunk_id": getattr(doc, "chunk_id", None),
-            "evidence": self._rule_answer_evidence(rule, answer, doc, state),
-            "missing_terms": missing_terms if missing_terms is not None else self._rule_answer_missing_terms(rule, state),
-            "reason": reason,
-        }
-        state.metadata.setdefault("rule_answer_candidates", []).append(candidate)
-
-    def _structured_rule_gate(self, state: PipelineState, rule: str) -> tuple[bool, str, list[str], str]:
-        missing: list[str] = []
-        if rule == "faculty_answer":
-            metadata = state.metadata.get("faculty_answer", {})
-            required_entity = str(metadata.get("required_entity") or "").strip() if isinstance(metadata, dict) else ""
-            fields = metadata.get("extracted_fields") if isinstance(metadata, dict) else None
-            doc = self._rule_answer_source_doc(state, rule)
-            if not required_entity:
-                missing.append("required_entity")
-            if required_entity and (not doc or not self._doc_contains_entity(doc, required_entity)):
-                missing.append("matching_faculty_document")
-            if not isinstance(fields, list) or not fields:
-                missing.append("faculty_fields")
-            if not (isinstance(metadata, dict) and metadata.get("source_doc_id") and metadata.get("source_chunk_id")):
-                missing.append("source_document")
-            return self._structured_gate_result(missing, "faculty_answer_gate")
-
-        if rule == "department_faculty_list_answer":
-            metadata = state.metadata.get("department_faculty_list_answer", {})
-            doc = self._rule_answer_source_doc(state, rule)
-            entry_count = int(metadata.get("entry_count") or 0) if isinstance(metadata, dict) else 0
-            department_name = str(metadata.get("department_name") or "").strip() if isinstance(metadata, dict) else ""
-            if entry_count < 2:
-                missing.append("faculty_entries")
-            if not doc or not self._is_faculty_list_doc(doc):
-                missing.append("faculty_list_document")
-            if not department_name and not self._department_name_from_title(getattr(doc, "title", "") or ""):
-                missing.append("department_or_faculty_title")
-            return self._structured_gate_result(missing, "department_faculty_list_answer_gate")
-
-        if rule == "department_curriculum_answer":
-            metadata = state.metadata.get("department_curriculum_answer", {})
-            course_count = int(metadata.get("course_count") or 0) if isinstance(metadata, dict) else 0
-            if not (isinstance(metadata, dict) and metadata.get("department_name")):
-                missing.append("department_name")
-            if not (isinstance(metadata, dict) and metadata.get("source_doc_id")):
-                missing.append("source_document")
-            if not (isinstance(metadata, dict) and metadata.get("year")):
-                missing.append("curriculum_year")
-            if course_count < 1:
-                missing.append("curriculum_courses")
-            return self._structured_gate_result(missing, "department_curriculum_answer_gate")
-
-        if rule == "academic_schedule_answer":
-            metadata = state.metadata.get("academic_schedule_answer", {})
-            row_count = int(metadata.get("row_count") or 0) if isinstance(metadata, dict) else 0
-            if not (isinstance(metadata, dict) and metadata.get("semester")):
-                missing.append("semester")
-            if not (isinstance(metadata, dict) and metadata.get("source_doc_id")):
-                missing.append("source_document")
-            if row_count < 1:
-                missing.append("schedule_rows")
-            return self._structured_gate_result(missing, "academic_schedule_answer_gate")
-
-        return True, "final", [], "no_gate_required"
-
-    def _structured_gate_result(self, missing: list[str], reason: str) -> tuple[bool, str, list[str], str]:
-        if not missing:
-            return True, "final", [], reason
-        decision = "evidence" if "source_document" not in missing else "rejected"
-        return False, decision, missing, reason
-
-    def _structured_evidence_text(self, state: PipelineState) -> str:
-        evidence_lines = self._format_structured_evidence(state)
-        if not evidence_lines:
-            return ""
-        return "\n".join(evidence_lines).strip()
-
-    def _format_structured_evidence(self, state: PipelineState) -> list[str]:
-        candidates = state.metadata.get("rule_answer_candidates") or []
-        lines: list[str] = []
-        for candidate in candidates:
-            if not isinstance(candidate, dict) or candidate.get("decision") != "evidence":
-                continue
-            parts = [
-                f"rule={candidate.get('rule')}",
-                f"confidence={candidate.get('confidence')}",
-            ]
-            if candidate.get("source_doc_id"):
-                parts.append(f"source_doc_id={candidate.get('source_doc_id')}")
-            if candidate.get("source_chunk_id"):
-                parts.append(f"source_chunk_id={candidate.get('source_chunk_id')}")
-            missing_terms = candidate.get("missing_terms") or []
-            if missing_terms:
-                parts.append("missing_terms=" + ",".join(str(term) for term in missing_terms))
-            lines.append("- " + "; ".join(parts))
-            for evidence in candidate.get("evidence") or []:
-                lines.append(f"  evidence: {evidence}")
-        return lines
-
-    def _rule_answer_source_doc(self, state: PipelineState, rule: str):
-        metadata_key_by_rule = {
-            "department_faculty_list_answer": "department_faculty_list_answer",
-            "faculty_answer": "faculty_answer",
-            "facility_location_answer": "facility_answer",
-            "cafeteria_answer": "facility_answer",
-            "department_curriculum_answer": "department_curriculum_answer",
-            "academic_schedule_answer": "academic_schedule_answer",
-        }
-        metadata = state.metadata.get(metadata_key_by_rule.get(rule, ""), {})
-        source_chunk_id = metadata.get("source_chunk_id") if isinstance(metadata, dict) else None
-        source_doc_id = metadata.get("source_doc_id") if isinstance(metadata, dict) else None
-        docs = [*(state.selected_docs or []), *(state.reranked_docs or []), *(state.retrieved_docs or [])]
-        if source_chunk_id:
-            for doc in docs:
-                if getattr(doc, "chunk_id", None) == source_chunk_id:
-                    return doc
-        if source_doc_id:
-            for doc in docs:
-                if getattr(doc, "doc_id", None) == source_doc_id:
-                    return doc
-        return docs[0] if docs else None
-
-    def _rule_answer_confidence(self, rule: str, state: PipelineState) -> float:
-        if rule in {"faculty_answer", "department_faculty_list_answer", "department_curriculum_answer", "academic_schedule_answer"}:
-            return 0.95
-        if rule == "person_title_answer":
-            return 0.8
-        if rule == "facility_location_answer":
-            return 0.75
-        if rule == "cafeteria_answer":
-            metadata = state.metadata.get("facility_answer", {})
-            if isinstance(metadata, dict) and metadata.get("type") == "cafeteria_hours" and not metadata.get("hours_found"):
-                return 0.55
-            return 0.7
-        if rule == "navigation_fallback_answer":
-            return 0.65
-        return 0.5
-
-    def _rule_answer_evidence(self, rule: str, answer: str, doc, state: PipelineState) -> list[str]:
-        if rule == "cafeteria_answer" and self._rule_answer_missing_terms(rule, state):
-            evidence = []
-            title = (getattr(doc, "title", "") or "").strip()
-            content = re.sub(r"\s+", " ", getattr(doc, "content", "") or "").strip()
-            source = (getattr(doc, "source", "") or "").strip()
-            if title:
-                evidence.append(f"title: {title}")
-            if content:
-                evidence.append(f"content: {content[:240]}")
-            if source:
-                evidence.append(f"source: {source}")
-            return evidence
-        lines = [line.strip() for line in (answer or "").splitlines() if line.strip()]
-        return lines[:3]
-
-    def _rule_answer_missing_terms(self, rule: str, state: PipelineState) -> list[str]:
-        if rule == "cafeteria_answer":
-            metadata = state.metadata.get("facility_answer", {})
-            if isinstance(metadata, dict) and metadata.get("type") == "cafeteria_hours" and not metadata.get("hours_found"):
-                return ["operating_hours"]
-        return []
-
-    def _repair_negative_answer_with_context(self, answer: str, state: PipelineState) -> str:
-        return repair_negative_answer_with_context(answer, state.metadata)
-
-    def _build_facility_location_answer(self, state: PipelineState) -> str | None:
-        if self._facility_query_type(state) != "building_location":
-            return None
-        doc = self._best_facility_doc(state, "building_location")
-        if not doc:
-            return None
-        source = doc.source or "출처 없음"
-        state.metadata["facility_answer_used"] = True
-        state.metadata["facility_partial_answer"] = False
-        state.metadata["facility_answer"] = {
-            "type": "building_location",
-            "source_doc_id": doc.doc_id,
-            "source_chunk_id": doc.chunk_id,
-        }
-        prefix = "정보관은 정보공학관을 의미하며, " if self._facility_alias_applied(state.original_query) else ""
-        detail = "교내 23번 건물입니다."
-        if "학생식당" in (doc.content or ""):
-            detail += " 캠퍼스맵 기준 정보공학관 2층에는 학생식당, 교직원식당, 편의점 등이 있습니다."
-        return f"{prefix}정보공학관은 {detail}\n출처: {source}"
-
-    def _build_cafeteria_answer(self, state: PipelineState) -> str | None:
-        query_type = self._facility_query_type(state)
-        if query_type not in {"cafeteria_location", "cafeteria_hours"}:
-            return None
-        doc = self._best_facility_doc(state, query_type)
-        if not doc:
-            return None
-        source = doc.source or "출처 없음"
-        hours = self._extract_cafeteria_hours(doc.content or "")
-        state.metadata["facility_answer_used"] = True
-        state.metadata["facility_partial_answer"] = query_type == "cafeteria_hours" and not hours
-        state.metadata["facility_answer"] = {
-            "type": query_type,
-            "source_doc_id": doc.doc_id,
-            "source_chunk_id": doc.chunk_id,
-            "hours_found": bool(hours),
-        }
-        if query_type == "cafeteria_hours":
-            if hours:
-                return f"정보공학관 학생식당 운영시간은 {hours}입니다. 학생식당은 정보공학관 2층에 있습니다.\n출처: {source}"
-            return (
-                "현재 문서에서는 정보공학관 학생식당의 운영시간은 확인되지 않습니다. "
-                "다만 복지문화시설/캠퍼스맵 기준 학생식당은 정보공학관 2층에 있습니다.\n"
-                f"출처: {source}"
-            )
-        return f"정보공학관 학생식당은 정보공학관 2층에 있습니다.\n출처: {source}"
-
-    def _best_facility_doc(self, state: PipelineState, query_type: str):
-        candidates = self._facility_candidate_docs(state)
-        scored = [
-            (self._facility_doc_score(doc, query_type), doc)
-            for doc in candidates
-            if not self._is_facility_noise_doc(doc, query_type)
-        ]
-        scored = [(score, doc) for score, doc in scored if score > 0]
-        if not scored:
-            return None
-        scored.sort(key=lambda item: item[0], reverse=True)
-        return scored[0][1]
-
-    def _facility_candidate_docs(self, state: PipelineState) -> list:
-        docs = []
-        seen: set[str] = set()
-        for doc in [*(state.selected_docs or []), *(state.reranked_docs or []), *(state.retrieved_docs or [])]:
-            if doc.chunk_id in seen:
-                continue
-            seen.add(doc.chunk_id)
-            docs.append(doc)
-        return docs
-
-    def _extract_cafeteria_hours(self, text: str) -> str:
-        if "정보공학관" not in (text or ""):
-            return ""
-        compact = re.sub(r"\s+", " ", text or "")
-        for match in re.finditer(r"(?:운영시간|이용시간|식당 이용시간)\s*[:：]?\s*([0-2]?\d:[0-5]\d\s*[~\-]\s*[0-2]?\d:[0-5]\d(?:\s*,?\s*[0-2]?\d:[0-5]\d\s*[~\-]\s*[0-2]?\d:[0-5]\d)*)", compact):
-            value = match.group(1).strip()
-            window = compact[max(0, match.start() - 80) : match.end() + 80]
-            if "기숙사" in window or "효민생활관" in window or "외국인" in window:
-                continue
-            return value
-        return ""
-
-    def _build_faculty_answer(self, state: PipelineState) -> str | None:
-        if self._faculty_query_type(state) != "single_professor":
-            return None
-        faculty_name = self._required_faculty_entity(state)
-        if not faculty_name:
-            return None
-        matching_docs = [
-            doc
-            for doc in state.selected_docs
-            if self._doc_contains_entity(doc, faculty_name) and not self._is_lifelong_faculty_noise(doc)
-        ]
-        if not matching_docs:
-            matching_docs = [
-                doc
-                for doc in state.selected_docs
-                if self._doc_contains_entity(doc, faculty_name)
-            ]
-        if not matching_docs:
-            return None
-
-        extracted = self._extract_faculty_fields(matching_docs[0].content or "", faculty_name)
-        if not extracted:
-            return None
-
-        source = matching_docs[0].source or "출처 없음"
-        lines = [f"{faculty_name} 교수님 정보입니다."]
-        for label, value in extracted:
-            lines.append(f"- {label}: {value}")
-        lines.append(f"출처: {source}")
-        state.metadata["faculty_answer"] = {
-            "required_entity": faculty_name,
-            "source_doc_id": matching_docs[0].doc_id,
-            "source_chunk_id": matching_docs[0].chunk_id,
-            "extracted_fields": [{"label": label, "value": value} for label, value in extracted],
-        }
-        return "\n".join(lines)
-
-    def _build_department_faculty_list_answer(self, state: PipelineState) -> str | None:
-        if self._faculty_query_type(state) != "department_faculty_list":
-            return None
-        docs = [
-            doc
-            for doc in [*(state.selected_docs or []), *(state.reranked_docs or []), *(state.retrieved_docs or [])]
-            if self._is_faculty_list_doc(doc)
-        ]
-        if not docs:
-            return None
-        seen_chunks: set[str] = set()
-        unique_docs = []
-        for doc in docs:
-            if doc.chunk_id in seen_chunks:
-                continue
-            seen_chunks.add(doc.chunk_id)
-            unique_docs.append(doc)
-
-        department_name = self._extract_department_faculty_name(state.original_query)
-        for doc in unique_docs[:5]:
-            entries = self._extract_department_faculty_entries(doc.content or "")
-            if len(entries) < 2:
-                continue
-            source = doc.source or "출처 없음"
-            title_name = department_name or self._department_name_from_title(doc.title)
-            heading = f"{title_name} 교수 목록입니다." if title_name else "교수 목록입니다."
-            lines = [heading]
-            for entry in entries[:12]:
-                details = []
-                if entry.get("field"):
-                    details.append(entry["field"])
-                if entry.get("office"):
-                    details.append(f"연구실 {entry['office']}")
-                if entry.get("phone"):
-                    details.append(f"연락처 {entry['phone']}")
-                if entry.get("email"):
-                    details.append(f"E-MAIL {entry['email']}")
-                suffix = " / ".join(details)
-                lines.append(f"- {entry['name']}: {suffix}" if suffix else f"- {entry['name']}")
-            lines.append(f"출처: {source}")
-            state.metadata["department_faculty_list_answer"] = {
-                "source_doc_id": doc.doc_id,
-                "source_chunk_id": doc.chunk_id,
-                "entry_count": len(entries),
-                "department_name": title_name,
-            }
-            return "\n".join(lines)
-        return None
-
-    def _department_name_from_title(self, title: str) -> str:
-        match = re.search(r"([A-Za-z0-9가-힣&·ㆍ\-\+]+?(?:학과|전공|학부|대학원))", title or "")
-        return match.group(1) if match else ""
-
-    def _extract_department_faculty_entries(self, content: str) -> list[dict[str, str]]:
-        normalized_content = (content or "").replace("\\n", "\n")
-        lines = [line.strip() for line in normalized_content.splitlines()]
-        lines = [line for line in lines if line and not self._is_faculty_noise_text(line)]
-        entries: list[dict[str, str]] = []
-        seen_names: set[str] = set()
-        name_indexes = []
-        for index, line in enumerate(lines):
-            match = re.match(r"^([가-힣]{2,5})\s*(?:교수님?)?$", line)
-            if not match:
-                continue
-            name = match.group(1)
-            if not self._is_valid_faculty_entity(name) or self._is_faculty_name_noise(name):
-                continue
-            previous_lines = [
-                previous
-                for previous in lines[max(0, index - 2) : index]
-                if not self._is_faculty_noise_text(previous) and not self._is_faculty_name_noise(previous)
-            ]
-            if any(re.fullmatch(r"[가-힣]{2,5}\s*교수(?:님)?", previous) for previous in previous_lines):
-                continue
-            if any(self._is_valid_faculty_entity(previous) for previous in previous_lines):
-                continue
-            lookahead = "\n".join(lines[index + 1 : min(len(lines), index + 10)])
-            if not any(term in lookahead.lower() for term in ("연구실", "연락처", "e-mail", "email", "이메일")):
-                continue
-            name_indexes.append((index, name))
-        for index, name in name_indexes:
-            if name in seen_names:
-                continue
-            seen_names.add(name)
-            window = lines[index + 1 : min(len(lines), index + 14)]
-            entry = {"name": name, "field": "", "office": "", "phone": "", "email": ""}
-            for offset, line in enumerate(window):
-                lowered = line.lower()
-                if not entry["email"]:
-                    email_match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", line)
-                    if email_match:
-                        entry["email"] = email_match.group(0)
-                if not entry["phone"]:
-                    phone_match = re.search(r"\b0\d{1,2}-\d{3,4}-\d{4}\b", line)
-                    if phone_match:
-                        entry["phone"] = phone_match.group(0)
-                if any(term in lowered for term in ("연구실", "office")) and not entry["office"]:
-                    entry["office"] = self._next_meaningful_line(window, offset)
-                elif any(term in lowered for term in ("연락처", "전화")) and not entry["phone"]:
-                    entry["phone"] = self._next_meaningful_line(window, offset)
-                elif any(term in lowered for term in ("e-mail", "email", "이메일")) and not entry["email"]:
-                    entry["email"] = self._next_meaningful_line(window, offset)
-                elif (
-                    not entry["field"]
-                    and not any(term in lowered for term in ("연구실", "연락처", "e-mail", "email", "이메일", "홈페이지", "학력", "경력"))
-                    and not self._is_valid_faculty_entity(line)
-                ):
-                    entry["field"] = line
-            entries.append(entry)
-        return entries
-
-    def _is_faculty_name_noise(self, value: str) -> bool:
-        return value in {
-            "내용",
-            "검색",
-            "검색어",
-            "검색분류선택",
-            "게시글검색",
-            "연구실",
-            "연락처",
-            "이메일",
-            "홈페이지",
-            "직위",
-            "학력",
-            "경력",
-            "강의분야",
-            "연구분야",
-            "전공명",
-            "공통교양",
-            "전공필수",
-            "전공선택",
-            "교수소개",
-        }
-
-    def _next_meaningful_line(self, lines: list[str], index: int) -> str:
-        for line in lines[index + 1 : index + 4]:
-            if line and not self._is_faculty_noise_text(line):
-                return line
-        return ""
-
-    def _extract_faculty_fields(self, content: str, faculty_name: str) -> list[tuple[str, str]]:
-        normalized_content = (content or "").replace("\\n", "\n")
-        lines = [line.strip() for line in normalized_content.splitlines()]
-        lines = [line for line in lines if line and not self._is_faculty_noise_text(line)]
-        name_indexes = [index for index, line in enumerate(lines) if faculty_name in line]
-        if not name_indexes:
-            return []
-
-        fields: list[tuple[str, str]] = []
-        seen: set[str] = set()
-        labels = {
-            "연구실": "연구실",
-            "연락처": "연락처",
-            "e-mail": "E-MAIL",
-            "email": "E-MAIL",
-            "이메일": "E-MAIL",
-            "연구 분야": "연구 분야",
-            "연구분야": "연구 분야",
-            "강의분야": "강의 분야",
-            "직위": "직위",
-        }
-
-        def add(label: str, value: str) -> None:
-            clean_value = re.sub(r"\s+", " ", value).strip(" :-|")
-            if not clean_value or clean_value == label or label in seen or self._is_faculty_noise_text(clean_value):
-                return
-            seen.add(label)
-            fields.append((label, clean_value))
-
-        for name_index in name_indexes[:2]:
-            window = lines[name_index : min(len(lines), name_index + 40)]
-            if len(window) > 1:
-                first_detail = window[1]
-                if (
-                    not self._is_faculty_noise_text(first_detail)
-                    and not any(marker in first_detail.lower() for marker in labels)
-                    and "교수" not in first_detail
-                ):
-                    add("연구 분야", first_detail)
-            for offset, line in enumerate(window):
-                lowered = line.lower()
-                for marker, label in labels.items():
-                    if marker not in lowered:
-                        continue
-                    inline = re.split(r"[:：|]", line, maxsplit=1)
-                    if len(inline) == 2 and inline[1].strip():
-                        add(label, inline[1])
-                        continue
-                    for next_line in window[offset + 1 : offset + 4]:
-                        if next_line and not any(other in next_line.lower() for other in labels):
-                            add(label, next_line)
-                            break
-            if fields:
-                break
-
-        if not any(label == "E-MAIL" for label, _ in fields):
-            match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "\n".join(lines))
-            if match:
-                add("E-MAIL", match.group(0))
-        if not any(label == "연락처" for label, _ in fields):
-            match = re.search(r"\b0\d{1,2}-\d{3,4}-\d{4}\b", "\n".join(lines))
-            if match:
-                add("연락처", match.group(0))
-        return fields[:6]
-
-    def _is_faculty_noise_text(self, value: str) -> bool:
-        text = re.sub(r"\s+", " ", str(value or "")).strip().lower()
-        if not text:
-            return True
-        noise_values = {
-            "[title]",
-            "[body]",
-            "[attachment]",
-            "content",
-            "body",
-            "게시글 검색",
-            "검색분류선택",
-            "검색어",
-            "검색",
-            "홈페이지",
-            "닫기",
-            "교수소개",
-            "외래교수소개",
-            "겸임교수소개",
-            "전임교수소개",
-        }
-        return text in noise_values
-
-    def _build_navigation_fallback_answer(self, state: PipelineState) -> str | None:
-        query = state.original_query or ""
-        if not state.selected_docs:
-            return None
-        if any(term in query for term in ("조직도", "조직", "부서")):
-            doc = self._first_selected_doc_matching(
-                state,
-                title_terms=("조직도",),
-                source_terms=("deu-organization",),
-                source_types=("institution",),
-            )
-            if doc:
-                source = doc.source or "출처 없음"
-                return (
-                    "동의대학교 조직도는 공식 조직도 페이지에서 확인할 수 있습니다. "
-                    "부서별 조직 관계와 담당 조직을 보려면 아래 출처의 조직도 문서를 참고해 주세요.\n"
-                    f"출처: {source}"
-                )
-        if any(term in query for term in ("분실물", "분실", "lost")):
-            doc = self._first_selected_doc_matching(
-                state,
-                title_terms=("분실물", "분실물센터", "분실물신고"),
-                source_terms=("deu-lostfound", "lostproperty"),
-                source_types=("lostfound", "library"),
-            )
-            if doc:
-                source = doc.source or "출처 없음"
-                if "lib.deu.ac.kr" in source:
-                    return (
-                        "도서관 분실물은 중앙도서관 분실물신고 게시판에서 확인할 수 있습니다. "
-                        "습득물 목록이나 신고 글은 아래 출처의 게시판을 확인해 주세요.\n"
-                        f"출처: {source}"
-                    )
-                return (
-                    "동의대학교 분실물은 공식 분실물센터 게시판에서 확인할 수 있습니다. "
-                    "분실물 조회나 신고는 아래 출처의 게시판을 이용해 주세요.\n"
-                    f"출처: {source}"
-                )
-        return None
-
-    def _first_selected_doc_matching(
-        self,
-        state: PipelineState,
-        *,
-        title_terms: tuple[str, ...] = (),
-        source_terms: tuple[str, ...] = (),
-        source_types: tuple[str, ...] = (),
-    ):
-        for doc in state.selected_docs:
-            title = doc.title or ""
-            source = doc.source or ""
-            source_type = str(doc.metadata.get("source_type") or "")
-            if title_terms and any(term in title for term in title_terms):
-                return doc
-            if source_terms and any(term in source for term in source_terms):
-                return doc
-            if source_types and source_type in source_types:
-                return doc
-        return None
-
-    def _build_person_title_answer(self, state: PipelineState) -> str | None:
-        query_features = self._query_features(state)
-        if not isinstance(query_features, dict) or query_features.get("family") != "person_title":
-            return None
-        ordinal = self._extract_president_ordinal(state.original_query)
-        president_docs = [
-            doc
-            for doc in state.selected_docs
-            if "총장" in (doc.title or "") and ("역대" in (doc.title or "") or "역대" in (doc.content or ""))
-        ]
-        if not president_docs:
-            return None
-        if ordinal is None:
-            return self._build_president_list_answer(state, president_docs)
-        for doc in president_docs:
-            parsed = self._extract_president_entry(doc.content or "", ordinal)
-            if not parsed:
-                parsed = self._extract_president_entry_from_raw_html(doc.doc_id, ordinal)
-            if not parsed:
-                parsed = self._extract_president_entry_from_reference(doc.doc_id, ordinal)
-            if parsed:
-                source = doc.source or "출처 없음"
-                detail = self._format_president_detail(parsed.get("period") or "")
-                return f"동의대학교 제{ordinal}대 총장은 {parsed['name']}입니다.{detail}\n출처: {source}"
-        return None
-
-    def _build_president_list_answer(self, state: PipelineState, president_docs: list) -> str | None:
-        if not any(term in (state.original_query or "") for term in ("역대", "목록", "총장")):
-            return None
-        entries: list[str] = []
-        seen: set[str] = set()
-        for doc in president_docs:
-            for ordinal_label, name in self._extract_president_list_entries(doc.content or ""):
-                key = f"{ordinal_label}:{name}"
-                if key in seen:
-                    continue
-                seen.add(key)
-                entries.append(f"- {ordinal_label}: {name}")
-                if len(entries) >= 8:
-                    break
-            if entries:
-                source = doc.source or "출처 없음"
-                return "\n".join(["선택된 문서에서 확인되는 역대 총장 정보입니다.", *entries, f"출처: {source}"])
-        return None
-
-    def _extract_president_list_entries(self, text: str) -> list[tuple[str, str]]:
-        entries: list[tuple[str, str]] = []
-        lines = [re.sub(r"\s+", " ", line).strip(" #\t") for line in (text or "").splitlines()]
-        for index, line in enumerate(lines):
-            if not line or "총장" not in line:
-                continue
-            ordinal_match = re.search(r"제\s*(\d{1,2}\s*대(?:\s*[·ㆍ&]\s*\d{1,2}\s*대)?)\s*총장", line)
-            if not ordinal_match:
-                continue
-            ordinal_label = "제" + re.sub(r"\s+", "", ordinal_match.group(1)) + " 총장"
-            for candidate in lines[index + 1 : index + 6]:
-                name = self._clean_president_name_candidate(candidate)
-                if name:
-                    entries.append((ordinal_label, name))
-                    break
-        return entries
-
-    def _clean_president_name_candidate(self, value: str) -> str:
-        candidate = re.sub(r"\([^)]*\)", "", value or "")
-        candidate = re.sub(r"[A-Za-z0-9.~·ㆍ\-]+", " ", candidate)
-        candidate = re.sub(r"\s+", "", candidate)
-        if not re.fullmatch(r"[가-힣]{2,8}", candidate):
-            return ""
-        if candidate in {"학력", "경력", "역대총장", "총장", "동의대학교"}:
-            return ""
-        return candidate
-
-    def _extract_president_ordinal(self, query: str) -> int | None:
-        match = re.search(r"(?:제\s*)?(\d{1,2})\s*대\s*총장|(\d{1,2})\s*번째\s*총장", query or "")
-        if not match:
-            return None
-        value = match.group(1) or match.group(2)
-        try:
-            ordinal = int(value)
-        except (TypeError, ValueError):
-            return None
-        return ordinal if 1 <= ordinal <= 50 else None
-
-    def _format_president_detail(self, value: str) -> str:
-        detail = re.sub(r"\s+", " ", value or "").strip()
-        if not detail:
-            return ""
-        label = "재임기간" if re.search(r"(?:19|20)\d{2}", detail) else "추가 정보"
-        return f" {label}: {detail}."
-
-    def _extract_president_entry(self, text: str, ordinal: int) -> dict[str, str] | None:
-        lines = [re.sub(r"\s+", " ", line).strip(" |") for line in (text or "").splitlines()]
-        lines = [line for line in lines if line]
-        marker = rf"(?:제\s*)?(?<!\d){ordinal}\s*대(?!\d)"
-        for index, line in enumerate(lines):
-            if not re.search(marker, line):
-                continue
-            window = " ".join(lines[index : index + 4])
-            parsed = self._parse_president_window(window, ordinal)
-            if parsed:
-                return parsed
-        compact_text = re.sub(r"\s+", " ", text or "")
-        for match in re.finditer(marker, compact_text):
-            window = compact_text[match.start() : min(len(compact_text), match.start() + 180)]
-            parsed = self._parse_president_window(window, ordinal)
-            if parsed:
-                return parsed
-        return None
-
-    def _parse_president_window(self, text: str, ordinal: int) -> dict[str, str] | None:
-        marker = rf"(?:제\s*)?(?<!\d){ordinal}\s*대(?!\d)"
-        pattern = re.compile(
-            marker
-            + r"\s*(?:총장)?\s*"
-            + r"(?P<name>[가-힣]{2,5}(?:\([^)]+\))?)"
-            + r"(?:\s+(?P<period>(?:19|20)\d{2}[.\-~\s년월일]*(?:19|20)?\d{0,4}[.\-~\s년월일]*))?"
-        )
-        match = pattern.search(text)
-        if not match:
-            adjacent_pattern = re.compile(
-                marker
-                + r".{0,80}?"
-                + r"(?P<name>[가-힣]{2,5}(?:\([^)]+\))?)"
-                + r"(?:.{0,20}?(?P<period>(?:19|20)\d{2}[.\-~\s년월일]*(?:19|20)?\d{0,4}[.\-~\s년월일]*))?"
-            )
-            match = adjacent_pattern.search(text)
-        if not match:
-            return None
-        name = (match.group("name") or "").strip()
-        if name in {"총장", "역대총장", "동의대", "동의대학교"}:
-            return None
-        period = re.sub(r"\s+", " ", (match.group("period") or "").strip(" .-~"))
-        return {"name": name, "period": period}
-
-    def _extract_president_entry_from_raw_html(self, doc_id: str, ordinal: int) -> dict[str, str] | None:
-        raw_html = self._load_raw_static_html(doc_id)
-        if not raw_html:
-            return None
-        subject_pattern = rf"(?:제\s*)?(?<!\d){ordinal}\s*대(?!\d)(?:\s*[\u00b7&]\s*\d+\s*대)?\s*(?:총장|학장)"
-        item_pattern = re.compile(
-            r"<li\b[^>]*>.*?"
-            r"<strong[^>]*class=[\"'][^\"']*subject[^\"']*[\"'][^>]*>(?P<subject>.*?)</strong>.*?"
-            r"<span[^>]*class=[\"'][^\"']*nm[^\"']*[\"'][^>]*>(?P<name>.*?)</span>.*?"
-            r"(?:<span[^>]*class=[\"'][^\"']*nm-info[^\"']*[\"'][^>]*>(?P<info>.*?)</span>)?",
-            re.IGNORECASE | re.DOTALL,
-        )
-        for match in item_pattern.finditer(raw_html):
-            subject = self._html_to_text(match.group("subject"))
-            if not re.search(subject_pattern, subject):
-                continue
-            name = self._html_to_text(match.group("name"))
-            info = self._html_to_text(match.group("info") or "")
-            if not name:
-                return None
-            return {"name": name, "period": info}
-        return None
-
-    def _load_raw_static_html(self, doc_id: str) -> str | None:
-        if not re.fullmatch(r"[A-Za-z0-9_-]+", doc_id or ""):
-            return None
-        base_dir = Path("crawler/crawler/data/raw/html")
-        if not base_dir.exists():
-            return None
-        for path in base_dir.rglob(f"{doc_id}.html"):
-            try:
-                return path.read_text(encoding="utf-8")
-            except OSError:
-                return None
-        return None
-
-    def _html_to_text(self, value: str) -> str:
-        text = re.sub(r"<[^>]+>", " ", value or "")
-        text = html.unescape(text)
-        return re.sub(r"\s+", " ", text).strip()
-
-    def _extract_president_entry_from_reference(self, doc_id: str, ordinal: int) -> dict[str, str] | None:
-        resource_path = Path(__file__).resolve().parents[1] / "resources" / "deu_presidents.json"
-        try:
-            records = json.loads(resource_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return None
-        if not isinstance(records, list):
-            return None
-        for record in records:
-            if not isinstance(record, dict):
-                continue
-            doc_ids = record.get("doc_ids") or []
-            ordinals = record.get("ordinals") or []
-            if doc_id not in doc_ids or ordinal not in ordinals:
-                continue
-            name = str(record.get("name") or "").strip()
-            info = str(record.get("info") or "").strip()
-            if name:
-                return {"name": name, "period": info}
-        return None
-
-    def _build_department_curriculum_answer(self, state: PipelineState) -> str | None:
-        query_features = self._query_features(state)
-        if not isinstance(query_features, dict) or query_features.get("family") != "department_curriculum":
-            return None
-        department_name = self._extract_department_name(state.original_query, state.keywords)
-        year = self._extract_curriculum_year(state.original_query)
-        if not department_name:
-            return None
-
-        matching_docs = [
-            doc
-            for doc in state.selected_docs
-            if department_name in (doc.title or "") and self._is_curriculum_title(doc.title or "")
-        ]
-        if not matching_docs:
-            return None
-        if not year:
-            source = matching_docs[0].source or "출처 없음"
-            state.metadata["department_curriculum_answer"] = {
-                "department_name": department_name,
-                "source_doc_id": matching_docs[0].doc_id,
-                "source_chunk_id": matching_docs[0].chunk_id,
-                "year": None,
-                "course_count": 0,
-            }
-            return f"{department_name} 이수표는 아래 출처에서 확인할 수 있습니다.\n출처: {source}"
-
-        combined = "\n".join(doc.content or "" for doc in matching_docs)
-        block = self._extract_curriculum_year_block(combined, year, department_name)
-        courses = self._extract_curriculum_courses(block)
-        if not courses:
-            return None
-
-        display_courses = ", ".join(courses[:12])
-        source = matching_docs[0].source or "출처 없음"
-        state.metadata["department_curriculum_answer"] = {
-            "department_name": department_name,
-            "source_doc_id": matching_docs[0].doc_id,
-            "source_chunk_id": matching_docs[0].chunk_id,
-            "year": year,
-            "course_count": len(courses),
-        }
-        return (
-            f"{department_name} 이수표 기준 {year}학년 교육과정에는 다음 과목들이 확인됩니다.\n"
-            f"- {display_courses}\n"
-            "PDF 표 추출 특성상 학기 구분은 원본 이수표에서 함께 확인하는 것이 좋습니다.\n"
-            f"출처: {source}"
-        )
-
-    def _build_academic_schedule_answer(self, state: PipelineState) -> str | None:
-        query_features = self._query_features(state)
-        if not isinstance(query_features, dict) or query_features.get("family") != "academic_schedule":
-            return None
-        if "보강" not in state.original_query:
-            return None
-        semester = self._extract_semester_label(state.original_query)
-        if not semester:
-            return None
-
-        combined_text = "\n".join(doc.content or "" for doc in state.selected_docs)
-        block = self._extract_semester_schedule_block(combined_text, semester)
-        rows = self._extract_makeup_schedule_rows(block or combined_text)
-        if not rows:
-            return None
-
-        source = next((doc.source for doc in state.selected_docs if doc.source), "출처 없음")
-        source_doc = next((doc for doc in state.selected_docs if doc.source), state.selected_docs[0] if state.selected_docs else None)
-        state.metadata["academic_schedule_answer"] = {
-            "semester": semester,
-            "row_count": len(rows),
-            "source_doc_id": getattr(source_doc, "doc_id", None),
-            "source_chunk_id": getattr(source_doc, "chunk_id", None),
-        }
-        lines = [f"{semester} 보강일정은 다음과 같습니다."]
-        for date, detail in rows[:8]:
-            lines.append(f"- {date}: {detail}")
-        lines.append(f"출처: {source}")
-        return "\n".join(lines)
-
-    def _extract_semester_label(self, query: str) -> str | None:
-        semester_match = re.search(r"([12])\s*학기", query or "")
-        if not semester_match:
-            return None
-        year_match = re.search(r"(20\d{2}|\d{2})\s*년?", query or "")
-        year = "2026"
-        if year_match:
-            year_digits = re.sub(r"\D", "", year_match.group(1))
-            year = f"20{year_digits}" if len(year_digits) == 2 else year_digits[:4]
-        return f"{year}년 {semester_match.group(1)}학기"
-
-    def _extract_semester_schedule_block(self, text: str, semester: str) -> str:
-        if not text or semester not in text:
-            return text
-        candidates: list[tuple[int, str]] = []
-        for match in re.finditer(re.escape(semester), text):
-            start = match.start()
-            next_match = re.search(r"20\d{2}년\s+[12]학기", text[start + len(semester) :])
-            end = start + len(semester) + next_match.start() if next_match else len(text)
-            block = text[start:end]
-            candidates.append((block.count("지정보강일"), block))
-        if not candidates:
-            return text
-        candidates.sort(key=lambda item: item[0], reverse=True)
-        return candidates[0][1]
-
-    def _extract_makeup_schedule_rows(self, text: str) -> list[tuple[str, str]]:
-        rows: list[tuple[str, str]] = []
-        previous_date = ""
-        date_pattern = re.compile(r"^\s*(\d{1,2}월\s+\d{1,2}일|\d{1,2}일)\s*(?:\||$)")
-        for raw_line in (text or "").splitlines():
-            line = raw_line.strip()
-            if not line:
-                continue
-            table_match = re.match(r"^(\d{1,2}월\s+\d{1,2}일|\d{1,2}일)\s*\|\s*(지정보강일.+)$", line)
-            if table_match:
-                rows.append((table_match.group(1), table_match.group(2).strip()))
-                previous_date = table_match.group(1)
-                continue
-            date_match = date_pattern.match(line)
-            if date_match and "지정보강일" not in line:
-                previous_date = date_match.group(1)
-                continue
-            if "지정보강일" in line:
-                detail = line.split("|", 1)[-1].strip()
-                rows.append((previous_date or "일자 확인 필요", detail))
-
-        deduped: list[tuple[str, str]] = []
-        seen: set[tuple[str, str]] = set()
-        for row in rows:
-            if row in seen:
-                continue
-            seen.add(row)
-            deduped.append(row)
-        return deduped
-
     def _query_features(self, state: PipelineState) -> dict:
         query_understanding = state.metadata.get("query_understanding", {})
         if not isinstance(query_understanding, dict):
             return {}
         query_features = query_understanding.get("query_features", {})
         return query_features if isinstance(query_features, dict) else {}
-
-    def _extract_department_name(self, query: str, keywords: list[str] | None = None) -> str | None:
-        candidates = [query, *(keywords or [])]
-        for text in candidates:
-            for match in re.finditer(r"[가-힣A-Za-z0-9·&]+학과", text or ""):
-                value = match.group(0)
-                if len(value) >= 3:
-                    return value
-        return None
-
-    def _extract_curriculum_year(self, query: str) -> int | None:
-        match = re.search(r"([1-4])\s*학년", query or "")
-        return int(match.group(1)) if match else None
-
-    def _is_curriculum_title(self, title: str) -> bool:
-        return "이수표" in title and "교육과정" in title
 
     def _extract_department_name(self, query: str, keywords: list[str] | None = None) -> str | None:
         candidates = [query, *(keywords or [])]

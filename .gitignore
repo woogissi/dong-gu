@@ -25,6 +25,7 @@ backups/
 
 docs/*
 AGENTS.md
+CLAUDE.md
 crawler/data/
 crawler/.hf_cache/
 **/.hf_cache/

@@ -676,13 +676,6 @@ SEED_URLS.extend([
         "priority": "P2",
     },
     {
-        "name": "deu_campus_map_image",
-        "url": "https://www.deu.ac.kr/_res/deu/www/img/sub/campus-map.jpg",
-        "source_type": "campus",
-        "page_kind": "static_page",
-        "priority": "P3",
-    },
-    {
         "name": "deu_organization",
         "url": "https://www.deu.ac.kr/www/deu-organization.do",
         "source_type": "institution",
@@ -1119,6 +1112,8 @@ def _doc_seed_source_type(url: str) -> str:
         return "fund"
     if "sanhak" in host or "industry" in path:
         return "research"
+    if "schedulelist" in path:
+        return "academic_calendar"
     if host == "www.deu.ac.kr":
         return "institution"
     if host.endswith(".deu.ac.kr"):
@@ -1127,9 +1122,37 @@ def _doc_seed_source_type(url: str) -> str:
 
 
 def _doc_seed_page_kind(url: str) -> str:
+    import os as _os
+    import re as _re
+    from crawler.config.domains import DOWNLOAD_EXTENSIONS as _DOWNLOAD_EXTS
     parsed = _urlparse(url)
     path = parsed.path.lower()
     query = _parse_qs(parsed.query)
+
+    # 파일 직접 다운로드 URL — static_page 수집 대상 제외
+    path_ext = _os.path.splitext(path)[1]
+    if path_ext in _DOWNLOAD_EXTS:
+        return "attachment"
+    query_ext = ""
+    for key in ("ofn", "sfn", "filename", "fileName", "name"):
+        for val in query.get(key, []):
+            from urllib.parse import unquote as _unquote
+            fname = _unquote(val).lower()
+            for ext in _DOWNLOAD_EXTS:
+                if fname.endswith(ext):
+                    query_ext = ext
+                    break
+        if query_ext:
+            break
+    if query_ext:
+        return "attachment"
+    if query.get("mode", [""])[0] == "download":
+        return "attachment"
+    if "etcresourcedown" in path or "etcresourceopen" in path:
+        return "attachment"
+    if "download" in path and not path.endswith(".do"):
+        return "attachment"
+
     if query.get("mode", [""])[0] == "list":
         return "board_list"
     if "selectnttlist" in path:
@@ -1163,7 +1186,6 @@ https://deuhome.deu.ac.kr/teacher/sub02_01.do
 https://deuhome.deu.ac.kr/teacher/sub02_02.do
 https://deuhome.deu.ac.kr/teacher/sub02_03.do
 https://deuhome.deu.ac.kr/teacher/sub02_04.do
-https://deuhome.deu.ac.kr/teacher/sub02_05.do
 https://deuhome.deu.ac.kr/teacher/sub02_06.do
 https://deuhome.deu.ac.kr/teacher/sub02_07.do
 https://deuhome.deu.ac.kr/teacher/sub02_08.do
@@ -1542,6 +1564,73 @@ https://swcc.deu.ac.kr/swcc/sub02_01.do
 https://swcc.deu.ac.kr/swcc/sub02_02.do
 https://trade.deu.ac.kr/trade/sub02.do
 https://urban.deu.ac.kr/urban/sub02.do
+https://swcc.deu.ac.kr/computer/sub03_01.do
+https://swcc.deu.ac.kr/se/sub03_01.do
+https://swcc.deu.ac.kr/asw/sub03_01.do
+https://swcc.deu.ac.kr/ai/sub03_01.do
+https://swcc.deu.ac.kr/game/sub03_01.do
+https://dess.deu.ac.kr/?mid=Page8
+https://dess.deu.ac.kr/?mid=Page12
+https://multicounsel.deu.ac.kr/multicounsel/sub03_01.do
+https://ebiz.deu.ac.kr/ebiz/sub03_01.do
+https://nursing.deu.ac.kr/nursing/sub03_01.do
+https://sportscoaching.deu.ac.kr/sportscoaching/sub03_01.do
+https://mis.deu.ac.kr/mis/sub03_01.do
+https://police2001.deu.ac.kr/police/sub03_01.do
+https://ad.deu.ac.kr/ad/sub03_01.do
+https://koreanl.deu.ac.kr/koreanl/sub03_01.do
+https://newtour.deu.ac.kr/tour/sub03_01.do
+https://banin.deu.ac.kr/banin/sub03_01.do
+https://nme.deu.ac.kr/me/sub03_01.do
+https://urban.deu.ac.kr/urban/sub03_01.do
+https://designart.deu.ac.kr/design/sub03_01.do
+https://sw.deu.ac.kr/sw/sub03_01.do
+https://dcc.deu.ac.kr/dcc/sub03_01.do
+https://llc.deu.ac.kr/llc/sub03_01.do
+https://deuhome.deu.ac.kr/leisure/sub03_01.do
+https://mecha.deu.ac.kr/mecha/sub03_01.do
+https://trade.deu.ac.kr/trade/sub03_01.do
+https://lis.deu.ac.kr/lis/sub03_01.do
+https://pt.deu.ac.kr/pt/sub03_01.do
+https://massmedia.deu.ac.kr/massmedia/sub03_01.do
+https://futuremobility.deu.ac.kr/futuremobility/sub03_01.do
+https://biopharm.deu.ac.kr/biopharm/sub03_01.do
+https://radiology.deu.ac.kr/radiology/sub03_01.do
+https://law.deu.ac.kr/law/sub03_01.do
+https://rdm.deu.ac.kr/rdm/sub03_01.do
+https://bb.deu.ac.kr/bb/sub03_01.do
+https://socialwelfare.deu.ac.kr/socialwelfare/sub03_01.do
+https://pite.deu.ac.kr/pite/sub03_01.do
+https://fire.deu.ac.kr/fire/sub03_01.do
+https://sei.deu.ac.kr/sei/sub03_01.do
+https://logistics.deu.ac.kr/logistics/sub03_01.do
+https://shp.deu.ac.kr/shp/sub03_01.do
+https://seniorsp.deu.ac.kr/seniorsp/sub03_01.do
+https://fn.deu.ac.kr/food/sub03_01.do
+https://mse.deu.ac.kr/mse/sub03_01.do
+https://childfamily.deu.ac.kr/childfamily/sub03_01.do
+https://english.deu.ac.kr/english/sub03_01.do
+https://neweatingout.deu.ac.kr/eatingout/sub03_01.do
+https://ece.deu.ac.kr/ece/sub03_01.do
+https://dm.deu.ac.kr/dm/sub03_01.do
+https://ems.deu.ac.kr/ems/sub03_01.do
+https://hcm1.deu.ac.kr/hcm/sub03_01.do
+https://hsde.deu.ac.kr/hsde/sub03_01.do
+https://japan.deu.ac.kr/japanese/sub03_01.do
+https://1cls.deu.ac.kr/cls/sub03_01.do
+https://automotive-engineering.deu.ac.kr/automotive-engineering/sub03_01.do
+https://deuhome.deu.ac.kr/fre/sub03_01.do
+https://pdm.deu.ac.kr/pdm/sub03_01.do
+https://naoe.deu.ac.kr/naoe/sub03_01.do
+https://china.deu.ac.kr/chi/sub03_01.do
+https://eim.deu.ac.kr/eim/sub03_01.do
+https://dental.deu.ac.kr/dental/sub03_01.do
+https://tkd.deu.ac.kr/tkd/sub03_01.do
+https://lifelonged.deu.ac.kr/lifelonged/sub03_01.do
+https://omc.deu.ac.kr/omc/sub03_01.do
+https://pap.deu.ac.kr/pap/sub03_01.do
+https://hotel.deu.ac.kr/hotel/sub03_01.do
+https://music.deu.ac.kr/music/sub03_01.do
 """.strip().splitlines()
 
 SEED_URLS.extend(_make_doc_seed(url) for url in _DOC_SEED_URLS)

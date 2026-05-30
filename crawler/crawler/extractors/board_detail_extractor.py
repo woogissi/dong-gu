@@ -13,6 +13,14 @@ from crawler.schemas.document_models import BoardDetailRawDocument      # JSON �
 from crawler.extractors.base import BaseExtractor
 from crawler.extractors.image_text_extractor import ImageTextExtractor  # 이미지 추출
 
+BOARD_DETAIL_NOISE_SELECTORS = [
+    ".prev-next", ".board-navi", ".view-nav", ".btn-area",
+    ".b_prev", ".b_next", "dl.board-util", ".board-btn-wrap",
+    ".boardView_prevnext", ".view_prev_next", ".artcl-relation",
+    "[class*='prevnext']", "[class*='prev-next']",
+    ".list_bottom", ".view-bottom", ".board_bot",
+]
+
 SOCIAL_LINK_HOSTS = {
     "facebook.com",
     "m.facebook.com",
@@ -308,15 +316,6 @@ class BoardDetailExtractor(BaseExtractor):
 
         # 중복 제거
         return dedupe_attachments_by_url(results)
-        unique = []
-        seen = set()
-        for item in results:
-            key = (item["file_name"], item["file_url"])         # file_name과 file_url 기준으로 중복검사
-            if key not in seen:
-                seen.add(key)
-                unique.append(item)
-
-        return unique
 
     def remove_meta_from_content(self, text: str, meta: dict) -> str:
         """본문 텍스트에서 메타데이터 관련 텍스트를 제거"""
@@ -334,11 +333,12 @@ class BoardDetailExtractor(BaseExtractor):
         if meta.get("views") is not None:
             patterns.append(re.escape(f"조회수: {meta['views']}"))
         
-        # 이전글/다음글 패턴
+        # 이전글/다음글 패턴 — 라벨과 이어지는 제목 텍스트(다음 줄 포함)까지 제거
         patterns.extend([
-            r"이전글\s*[^\n]*다음글",
-            r"이전글",
-            r"다음글",
+            r"이전글\s*[^\n]*\n?[^\n]*",
+            r"다음글\s*[^\n]*\n?[^\n]*",
+            r"이전\s*글\s*[^\n]*",
+            r"다음\s*글\s*[^\n]*",
         ])
         
         cleaned = text
@@ -362,6 +362,12 @@ class BoardDetailExtractor(BaseExtractor):
         title = self.find_title(soup, title_hint=title_hint)                                                       # 제목 
         meta = self.find_meta(html)                                                         # 메타
         content_node = self.find_content_node(soup)                                         # 본문 노드
+
+        # 이전글/다음글 네비게이션 블록을 DOM 레벨에서 제거 (텍스트 추출 전)
+        if content_node:
+            for sel in BOARD_DETAIL_NOISE_SELECTORS:
+                for node in content_node.select(sel):
+                    node.decompose()
 
         raw_text = ""
         if content_node:

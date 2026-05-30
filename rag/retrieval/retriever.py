@@ -53,7 +53,7 @@ _MAX_RESULTS_PER_SOURCE_ENV_VAR = "RAG_MAX_RESULTS_PER_SOURCE"
 _VECTOR_CANDIDATE_LIMIT_ENV_VAR = "RAG_VECTOR_CANDIDATE_LIMIT"
 
 _DEFAULT_TOP_K = 10
-_MIN_DB_SCORE = 0.5
+_MIN_DB_SCORE = 0.35
 _CATEGORY_SCORE_BONUS = 0.1
 _ILIKE_SCORE_CAP = 0.6
 _TITLE_MATCH_SCORE_CAP = 0.9
@@ -79,15 +79,16 @@ _DB_SEARCH_STOPWORDS = {
     "필요해",
 }
 _DB_BOOST_STOPWORDS = {
-    "\uc6b4\uc601",
-    "\uc2dc\uac04",
-    "\uae30\uac04",
-    "\uc2e0\uccad",
-    "\ubc29\ubc95",
-    "\uc77c\uc815",
-    "\uc548\ub0b4",
-    "\uacf5\uc9c0",
-    "\ud559\uc0ac",
+    "운영",
+    "시간",
+    "기간",
+    "신청",
+    "방법",
+    "일정",
+    "안내",
+    "공지",
+    "학사",
+    "정보",
 }
 _HYBRID_GENERIC_TERMS = _DB_SEARCH_STOPWORDS | _DB_BOOST_STOPWORDS | {"정보", "안내", "학교", "동의대", "동의대학교"}
 _STATIC_SOURCE_TYPES = {"static", "index", "menu"}
@@ -108,14 +109,19 @@ _FAMILY_SEARCH_EXPANSIONS: dict[str, tuple[str, ...]] = {
         "주소",
         "정보공학관",
         "복지문화시설",
+        "지천관",
+        "상영관",
+        "학생회관",
+        "콜라보라운지",
     ),
-    "welfare_facility": ("복지문화시설", "편의·복지", "학생식당", "헌혈의 집", "편의점"),
-    "academic_schedule": ("학사일정", "학사정보", "보강", "보강일정", "지정보강일", "중간시험", "기말시험"),
+    "welfare_facility": ("복지문화시설", "편의·복지", "학생식당", "헌혈의 집", "편의점", "콜라보라운지"),
+    "academic_schedule": ("학사일정", "학사정보", "보강", "보강일정", "지정보강일", "중간시험", "기말시험", "개강일", "종강", "하계방학", "동계방학", "학위수여식"),
     "course_registration": ("수강신청", "2026학년도 1학기 수강신청 안내", "학사공지"),
     "seasonal_course_registration": ("계절수업", "하계 계절수업", "하계계절수업", "계절학기 수강신청"),
     "department_curriculum": ("컴퓨터공학과", "이수표", "교육과정", "전공필수"),
     "scholarship": ("국가장학금", "장학금", "신청기간", "신청방법"),
     "specific_scholarship": ("성적우수장학금", "성적우수장학생", "장학금 선발안내", "선발기준"),
+    "dormitory": ("효민생활관", "행복기숙사", "생활관", "기숙사비", "입사신청", "입사 신청"),
     "academic_admin": ("휴학", "전과", "학사정보", "신청 방법", "학사지원팀"),
     "certificate": ("제증명서 발급", "재학증명서", "성적증명서", "증명서 발급"),
     "institution_history": ("연도별 연혁", "대학현황", "DEU", "1960년대", "2020년대"),
@@ -237,6 +243,9 @@ def retrieve_documents(
                 canonical_documents = _retrieve_canonical_documents_from_database_v4(request)
                 if canonical_documents:
                     documents = _prepend_unique_docs(canonical_documents, documents)
+                policy_documents = _retrieve_graduation_policy_documents_from_database(request)
+                if policy_documents:
+                    documents = _prepend_unique_docs(policy_documents, documents)
                 return _postprocess_retrieved_docs(documents, request)
 
             if retrieval_mode == "hybrid":
@@ -244,13 +253,19 @@ def retrieve_documents(
                 if not documents:
                     documents = _retrieve_relaxed_database_results(request, retrieval_mode)
                 if documents:
+                    policy_documents = _retrieve_graduation_policy_documents_from_database(request)
+                    if policy_documents:
+                        documents = _prepend_unique_docs(policy_documents, documents)
                     return _postprocess_retrieved_docs(documents, request)
 
             documents = _retrieve_documents_from_database(request)
             if documents:  # DB에서 검색 결과가 있으면 반환
+                policy_documents = _retrieve_graduation_policy_documents_from_database(request)
+                if policy_documents:
+                    documents = _prepend_unique_docs(policy_documents, documents)
                 return _postprocess_retrieved_docs(documents, request)
             if request.filters:
-                relaxed_request = request.model_copy(update={"filters": {}, "category": None})
+                relaxed_request = request.model_copy(update={"filters": {}, "ranking_hints": {}, "category": None})
                 documents = _retrieve_documents_from_database(relaxed_request)
                 if documents:
                     for document in documents:
@@ -317,7 +332,7 @@ def _use_database_retriever() -> bool:
 def _retrieve_relaxed_database_results(request: RetrievalRequest, retrieval_mode: str) -> list[RetrievedDoc]:
     if not request.filters:
         return []
-    relaxed_request = request.model_copy(update={"filters": {}, "category": None})
+    relaxed_request = request.model_copy(update={"filters": {}, "ranking_hints": {}, "category": None})
     if retrieval_mode == "vector":
         documents = _retrieve_documents_from_database_vector(relaxed_request)
     elif retrieval_mode == "hybrid":
@@ -477,8 +492,11 @@ def _feature_log_fields(request: RetrievalRequest) -> dict[str, Any]:
     query_features = request.log_fields.get("query_features") if isinstance(request.log_fields, dict) else None
     if not isinstance(query_features, dict):
         query_features = extract_query_features(request.query, request.keywords).to_log_dict()
+    ranking_hints = request.ranking_hints or {}
     return {
         "query_features": query_features,
+        "ranking_hints": ranking_hints,
+        "temporal_signals": ranking_hints.get("temporal_signals", {}) if isinstance(ranking_hints, dict) else {},
         "strong_terms": query_features.get("strong_terms", []),
         "required_terms": query_features.get("required_terms", []),
         "query_family": query_features.get("family"),
@@ -502,21 +520,35 @@ def _build_db_filter_conditions(request: RetrievalRequest) -> tuple[str, list[An
     conditions: list[str] = []
     parameters: list[Any] = []
 
-    departments = request.filters.get("department", [])
-    if departments:
-        conditions.append("documents.department = ANY(%s)")
-        parameters.append(departments)
-
     return " AND ".join(conditions), parameters
 
 
 def _source_type_hint_values(request: RetrievalRequest) -> list[str]:
     filter_values: list[str] = []
-    for field in ("document_category", "category"):
-        for value in request.filters.get(field, []) or []:
+    ranking_hints = request.ranking_hints or {}
+    for field in ("document_category", "source_boosts", "category_values"):
+        for value in _hint_values(ranking_hints.get(field)):
             if value not in filter_values:
                 filter_values.append(str(value))
+    category = ranking_hints.get("category")
+    if category and str(category) not in filter_values:
+        filter_values.append(str(category))
+
+    # Backward compatibility for direct callers still passing source hints in filters.
+    if not filter_values:
+        for field in ("document_category", "category"):
+            for value in request.filters.get(field, []) or []:
+                if value not in filter_values:
+                    filter_values.append(str(value))
     return allowed_source_types_for_values(filter_values)
+
+
+def _hint_values(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return [str(item) for item in value if item is not None]
+    return [str(value)]
 
 
 def _category_bonus_sql(request: RetrievalRequest, source_expression: str) -> tuple[str, list[Any]]:
@@ -912,6 +944,151 @@ def _retrieve_canonical_documents_from_database_v2(request: RetrievalRequest) ->
     return docs
 
 
+def _retrieve_graduation_policy_documents_from_database(request: RetrievalRequest) -> list[RetrievedDoc]:
+    query_family = ""
+    if isinstance(request.log_fields, dict):
+        query_family = str(request.log_fields.get("query_family") or "")
+    if query_family != "graduation" or re.search(r"[가-힣A-Za-z0-9]+(?:학과|전공|학부)", request.query or ""):
+        return []
+
+    title_patterns = [
+        "%학사정보 종합안내%",
+        "%졸업기준%",
+        "%졸업요건%",
+        "%졸업인증제도%",
+        "%졸업학점%",
+    ]
+    detail_patterns = [
+        "%졸업요건%",
+        "%졸업기준%",
+        "%졸업학점%",
+        "%졸업인증%",
+        "%이수학점%",
+    ]
+    sql = """
+    WITH doc_candidates AS (
+        SELECT doc_id, title, source_url, source_type, department, published_at, metadata AS document_metadata
+        FROM documents
+        WHERE source_type IN ('institution', 'academic_notice', 'academic_support', 'academic')
+          AND (
+            title ILIKE ANY(%s)
+            OR source_url ILIKE '%%academicguide%%'
+          )
+        ORDER BY
+          CASE WHEN source_type = 'institution' THEN 0 ELSE 1 END,
+          CASE WHEN title ILIKE '%%학사정보 종합안내%%' THEN 0 ELSE 1 END,
+          published_at DESC NULLS LAST,
+          doc_id ASC
+        LIMIT 8
+    ),
+    latest_document_versions AS (
+        SELECT doc_id, max(version) AS latest_version
+        FROM document_versions
+        WHERE doc_id IN (SELECT doc_id FROM doc_candidates)
+        GROUP BY doc_id
+    ),
+    chunk_candidates AS (
+        SELECT DISTINCT ON (chunks.doc_id)
+            chunks.chunk_id,
+            chunks.doc_id,
+            chunks.chunk_index,
+            chunks.section_index,
+            chunks.section_type,
+            chunks.section_title,
+            chunks.content,
+            chunks.content_length,
+            chunks.content_hash,
+            document_versions.version,
+            chunks.document_version_id,
+            chunks.metadata AS chunk_metadata,
+            doc_candidates.title,
+            doc_candidates.source_url,
+            doc_candidates.source_type,
+            doc_candidates.department,
+            doc_candidates.published_at,
+            doc_candidates.document_metadata
+        FROM doc_candidates
+        JOIN chunks ON chunks.doc_id = doc_candidates.doc_id
+        LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
+        LEFT JOIN latest_document_versions
+          ON latest_document_versions.doc_id = chunks.doc_id
+        WHERE (
+            chunks.document_version_id IS NULL
+            OR document_versions.version = latest_document_versions.latest_version
+        )
+        ORDER BY
+            chunks.doc_id,
+            CASE
+                WHEN chunks.section_title ILIKE ANY(%s) THEN 0
+                WHEN chunks.content ILIKE ANY(%s) THEN 0
+                ELSE 1
+            END,
+            chunks.chunk_index ASC
+    )
+    SELECT *
+    FROM chunk_candidates
+    ORDER BY
+      CASE WHEN source_type = 'institution' THEN 0 ELSE 1 END,
+      published_at DESC NULLS LAST,
+      chunk_id ASC
+    LIMIT 5
+    """
+    try:
+        with _open_db_connection() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute(sql, (title_patterns, detail_patterns, detail_patterns))
+                rows = cur.fetchall()
+    except psycopg2.Error as exc:
+        logger.exception("graduation_policy_supplement_failed query=%r error=%s", request.query, exc)
+        return []
+
+    docs: list[RetrievedDoc] = []
+    search_terms = [
+        term
+        for term in [*_build_db_search_terms(request), "학사정보 종합안내", "졸업기준", "졸업인증제도"]
+        if len(term.strip()) >= 2
+    ][:8]
+    for row in rows:
+        document_metadata = _dict_or_empty(row["document_metadata"])
+        chunk_metadata = _dict_or_empty(row["chunk_metadata"])
+        docs.append(
+            RetrievedDoc(
+                doc_id=row["doc_id"],
+                chunk_id=row["chunk_id"],
+                content=row["content"],
+                score=1.18,
+                title=row["title"] or "",
+                source=row["source_url"] or row["source_type"] or "",
+                category=request.category or row["source_type"],
+                metadata={
+                    **document_metadata,
+                    **chunk_metadata,
+                    **request.log_fields,
+                    **_feature_log_fields(request),
+                    "strategy": request.strategy,
+                    "query": request.query,
+                    "keywords": request.keywords,
+                    "filters": request.filters,
+                    "matched_terms": search_terms,
+                    "search_mode": "graduation_policy_supplement",
+                    "canonical_source_supplement": True,
+                    "source_type": row["source_type"],
+                    "department": row["department"],
+                    "published_at": row["published_at"],
+                    "chunk_index": row["chunk_index"],
+                    "section_index": row["section_index"],
+                    "section_type": row["section_type"],
+                    "section_title": row["section_title"],
+                    "content_length": row["content_length"],
+                    "content_hash": row["content_hash"],
+                    "version": row["version"],
+                    "document_version_id": row["document_version_id"],
+                },
+            )
+        )
+    return docs
+
+
 def _retrieve_canonical_documents_from_database_v3(request: RetrievalRequest) -> list[RetrievedDoc]:
     query_family = ""
     if isinstance(request.log_fields, dict):
@@ -1085,7 +1262,7 @@ def _retrieve_canonical_documents_from_database_v4(request: RetrievalRequest) ->
         return []
 
     family_terms = {
-        "academic_schedule": ["학사일정", "보강일정", "보강", "scheduleList"],
+        "academic_schedule": ["학사일정", "보강일정", "보강", "scheduleList", "개강일", "종강", "학위수여식"],
         "course_registration": ["수강신청"],
         "seasonal_course_registration": ["계절수업", "계절학기"],
     }.get(query_family, [])
@@ -1182,18 +1359,18 @@ def _retrieve_canonical_documents_from_database_v4(request: RetrievalRequest) ->
                     LIMIT 20
                     """,
                     (
-                        doc_ids,
-                        doc_ids,
-                        doc_ids,
-                        semester_pattern,
-                        semester_pattern,
-                        primary_detail_patterns,
-                        primary_detail_patterns,
-                        detail_patterns,
-                        detail_patterns,
-                        title_patterns,
-                        title_patterns,
-                        title_patterns,
+                        doc_ids,                  # WITH latest_document_versions WHERE doc_id = ANY(%s)
+                        doc_ids,                  # WHERE chunks.doc_id = ANY(%s)
+                        doc_ids,                  # array_position(%s, chunks.doc_id)
+                        semester_pattern,         # CASE WHEN %s <> ''
+                        semester_pattern,         # AND content ILIKE %s
+                        primary_detail_patterns,  # AND content ILIKE ANY(%s) → CASE 0
+                        primary_detail_patterns,  # WHEN content ILIKE ANY(%s) → CASE 1
+                        detail_patterns,          # WHEN section_title ILIKE ANY(%s) → CASE 2
+                        detail_patterns,          # WHEN content ILIKE ANY(%s) → CASE 2
+                        title_patterns,           # WHEN attachment content ILIKE ANY(%s) → CASE 3
+                        title_patterns,           # WHEN section_title ILIKE ANY(%s) → CASE 3
+                        title_patterns,           # WHEN content ILIKE ANY(%s) → CASE 4
                     ),
                 )
                 chunk_rows = cur.fetchall()
@@ -1208,7 +1385,8 @@ def _retrieve_canonical_documents_from_database_v4(request: RetrievalRequest) ->
     docs: list[RetrievedDoc] = []
     metadata_by_doc = {row["doc_id"]: metadata for _, row, metadata in ranked_doc_rows}
     for doc_id in doc_ids:
-        for chunk_offset, row in enumerate(chunks_by_doc.get(doc_id, [])[:3]):
+        max_chunks = 4 if query_family == "academic_schedule" else 3
+        for chunk_offset, row in enumerate(chunks_by_doc.get(doc_id, [])[:max_chunks]):
             document_metadata = {**metadata_by_doc.get(doc_id, {}), **_dict_or_empty(row["document_metadata"])}
             chunk_metadata = _dict_or_empty(row["chunk_metadata"])
             docs.append(
@@ -1266,6 +1444,13 @@ def _canonical_notice_primary_detail_terms(query_family: str) -> list[str]:
             "보강일정",
             "지정보강일",
             "보강",
+            "학기별 학사일정",
+            "2026년 1학기",
+            "2026년 2학기",
+            # 졸업식/학위수여식 포함 chunk 우선 선택 (공백 포함 패턴)
+            "학위 수여식",
+            "전기 학위 수여식",
+            "후기 학위 수여식",
         ]
     return ["일정"]
 
@@ -1278,6 +1463,9 @@ def _canonical_notice_semester_pattern(query: str, query_family: str) -> str:
         return "%2026년 1학기%" if "26" in query_text or "2026" in query_text else "%1학기%"
     if "2학기" in query_text or "2 학기" in query_text:
         return "%2026년 2학기%" if "26" in query_text or "2026" in query_text else "%2학기%"
+    # 졸업식/학위수여식 쿼리: 전기 학위 수여식 chunk 우선 (2026학년도 전기 = 2027년 2월)
+    if any(term in query_text for term in ("졸업식", "학위수여식", "학위 수여식")):
+        return "%전기 학위 수여식%"
     return ""
 
 
@@ -1309,6 +1497,13 @@ def _canonical_notice_detail_terms(query_family: str) -> list[str]:
             "수업일수",
             "중간시험",
             "기말시험",
+            # 개강/종강/방학/졸업 관련 milestone (공백 포함 패턴)
+            "개강일",
+            "종강",
+            "하계방학",
+            "동계방학",
+            "학위 수여식",
+            "계절수업",
         ]
     return ["일정", "기간"]
 
@@ -1578,7 +1773,13 @@ def _apply_hybrid_final_scores(candidates: list[RetrievalCandidate]) -> list[Ret
         elif mode == "srrf":
             final_score = srrf_scores.get(candidate.chunk_id, 0.0)
         else:
-            final_score = lexical_norm * lexical_weight + vector_norm * vector_weight
+            # vector_score가 없는 lexical-only 문서는 유효 weight만으로 정규화
+            if candidate.vector_score is None and candidate.lexical_score is not None:
+                final_score = lexical_norm
+            elif candidate.lexical_score is None and candidate.vector_score is not None:
+                final_score = vector_norm
+            else:
+                final_score = lexical_norm * lexical_weight + vector_norm * vector_weight
         adjustment = _hybrid_relevance_adjustment(candidate)
         final_score = max(final_score + float(adjustment["bonus"]) - float(adjustment["penalty"]), 0.0)
 
@@ -1833,7 +2034,7 @@ def _hybrid_relevance_adjustment(candidate: RetrievalCandidate) -> dict[str, flo
         penalty += 0.12
         reasons.append("weak_attachment_match")
     if source_type in _NOISY_SOURCE_TYPES and not explicit_notice_query and title_hits == 0:
-        penalty += 0.12
+        penalty += 0.40
         reasons.append("noisy_source_type")
     if 0 < content_length < 120:
         penalty += 0.08
@@ -1887,7 +2088,7 @@ def _hybrid_relevance_adjustment(candidate: RetrievalCandidate) -> dict[str, flo
         reasons.append("curriculum_query_title_mismatch")
 
     return {
-        "bonus": round(bonus, 6),
+        "bonus": round(min(bonus, 0.50), 6),
         "penalty": round(min(penalty, 0.45), 6),
         "title_keyword_hits": float(title_hits),
         "content_keyword_hits": float(content_hits),
@@ -2299,16 +2500,21 @@ def _dedupe_retrieved_docs(docs: list[RetrievedDoc]) -> list[RetrievedDoc]:
             and not doc.metadata.get("canonical_source_supplement")
         ):
             continue
-        if canonical_group and canonical_group_counts.get(canonical_group, 0) >= max_per_source:
+        # canonical supplement(학사일정 scheduleList 등)는 여러 chunk가 필요하므로 한도 완화
+        is_canonical_supplement = bool(doc.metadata.get("canonical_source_supplement"))
+        effective_max_per_doc = (max_per_doc * 2) if is_canonical_supplement else max_per_doc
+        effective_max_per_source = (max_per_source * 2) if is_canonical_supplement else max_per_source
+
+        if canonical_group and canonical_group_counts.get(canonical_group, 0) >= effective_max_per_source:
             continue
 
         doc_count = doc_counts.get(doc.doc_id, 0)
-        if max_per_doc > 0 and doc_count >= max_per_doc:
+        if effective_max_per_doc > 0 and doc_count >= effective_max_per_doc:
             continue
 
         source_key = (_normalize_result_key(doc.title), _normalize_result_key(doc.source))
         source_count = source_counts.get(source_key, 0)
-        if source_key != ("", "") and max_per_source > 0 and source_count >= max_per_source:
+        if source_key != ("", "") and effective_max_per_source > 0 and source_count >= effective_max_per_source:
             continue
 
         if content_hash:
@@ -2458,10 +2664,6 @@ def _to_retrieved_docs(
 def _matches_filters(record: ChunkRecord, filters: dict[str, list[str]]) -> bool:
     if not filters:
         return True
-
-    departments = filters.get("department", [])
-    if departments and not _matches_any_value(record.department, departments):
-        return False
 
     return True
 

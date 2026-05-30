@@ -1,0 +1,625 @@
+# 동의대학교 RAG 대표 질문 데이터셋
+# 각 질문은 retrieval 평가를 위한 기대 정보를 포함함
+# expected_doc_ids: 정확한 chunk_id 목록 (모를 경우 빈 리스트)
+# expected_source_urls: 정답이 있어야 할 URL 패턴 목록
+# expected_keywords: 정답 chunk에 반드시 포함되어야 할 키워드
+# expected_attachment_names: 첨부파일 기반 답변일 경우 파일명
+# expected_department: 특정 학과 관련 질문
+# expected_category: 예상 카테고리
+# expected_source_types: 정답 문서의 source_type
+# forbidden_source_types: 결과에 섞이면 안 되는 source_type
+
+queries:
+
+  # === 학사 행정 ===
+
+  - id: q001
+    query: "수강신청 기간 알려줘"
+    expected_doc_ids:
+      - deu_academic_notice_84385_v001_chunk_003
+      - deu_academic_notice_84385_v001_chunk_004
+    expected_source_urls:
+      - "gra-notice.do?articleNo=84385"
+      - "gra-notice.do?articleNo=84378"
+    expected_keywords:
+      - 수강신청
+      - 기간
+      - 신청
+    expected_source_types:
+      - academic_notice
+      - academic
+    forbidden_source_types:
+      - job
+      - bids
+      - external_notice
+    category: course_registration
+    department: null
+    notes: "2025학년도 기준 수강신청 일정"
+
+  - id: q002
+    query: "수강정정 기간이 언제야"
+    expected_doc_ids:
+      - deu_academic_notice_84385_v001_chunk_004
+      - deu_academic_notice_84385_v001_chunk_005
+    expected_source_urls:
+      - "gra-notice.do?articleNo=84385"
+    expected_keywords:
+      - 수강정정
+      - 기간
+    expected_source_types:
+      - academic_notice
+    forbidden_source_types:
+      - job
+      - bids
+    category: course_registration
+    department: null
+    notes: "수강정정과 수강신청은 다름"
+
+  - id: q003
+    query: "휴학 신청 방법 알려줘"
+    expected_doc_ids:
+      - deu_academic_84441_v002_chunk_011
+      - deu_academic_84441_v002_chunk_012
+    expected_source_urls:
+      - "dess.deu.ac.kr"
+      - "deu-rule.do?articleNo=84441"
+    expected_keywords:
+      - 휴학
+      - 신청
+      - 방법
+    expected_source_types:
+      - academic_support
+      - academic_notice
+      - academic
+    forbidden_source_types:
+      - scholarship
+      - job
+      - bids
+      - dormitory
+    category: academic_admin
+    department: null
+    notes: "학칙 기반 휴학 절차"
+
+  - id: q004
+    query: "복학 신청 기간 언제야"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "dess.deu.ac.kr"
+      - "deu-rule.do?articleNo=84441"
+    expected_keywords:
+      - 복학
+      - 신청
+      - 기간
+    expected_source_types:
+      - academic_support
+      - academic_notice
+      - academic
+    forbidden_source_types:
+      - scholarship
+      - job
+      - bids
+    category: academic_admin
+    department: null
+    notes: "복학 신청 시기 관련"
+
+  - id: q005
+    query: "졸업요건 알려줘"
+    expected_doc_ids:
+      - deu_academic_84441_v002_chunk_013
+      - deu_academic_84441_v002_chunk_017
+    expected_source_urls:
+      - "deu-rule.do?articleNo=84441"
+    expected_keywords:
+      - 졸업
+      - 학점
+      - 요건
+    expected_source_types:
+      - academic
+      - academic_notice
+      - institution
+    forbidden_source_types:
+      - job
+      - bids
+      - external_notice
+      - dormitory
+    category: graduation
+    department: null
+    notes: "공통 졸업요건 (학점, 이수 조건)"
+
+  - id: q006
+    query: "컴퓨터공학과 졸업학점 알려줘"
+    expected_doc_ids: []
+    expected_source_urls: []
+    expected_keywords:
+      - 컴퓨터공학
+      - 졸업
+      - 학점
+    expected_source_types:
+      - department
+      - academic
+    forbidden_source_types:
+      - job
+      - bids
+    category: graduation
+    department: "컴퓨터공학과"
+    notes: "학과별 졸업학점 - 다른 학과 문서 섞임 주의"
+
+  - id: q007
+    query: "등록금 납부 기간 알려줘"
+    expected_doc_ids:
+      - deu_academic_84441_v002_chunk_024
+      - deu_notice_85581_v002_chunk_001
+    expected_source_urls:
+      - "deu-rule.do?articleNo=84441"
+    expected_keywords:
+      - 등록금
+      - 납부
+      - 기간
+    expected_source_types:
+      - academic_notice
+      - academic_support
+      - notice
+      - institution
+    forbidden_source_types:
+      - job
+      - bids
+    category: tuition
+    department: null
+    notes: "등록금 납부 일정"
+
+  - id: q008
+    query: "증명서 발급 방법 알려줘"
+    expected_doc_ids: []
+    expected_source_urls: []
+    expected_keywords:
+      - 증명서
+      - 발급
+    expected_source_types:
+      - academic_support
+      - institution
+    forbidden_source_types:
+      - job
+      - bids
+      - external_notice
+      - scholarship
+    category: certificate
+    department: null
+    notes: "재학증명서, 성적증명서 등"
+
+  # === 장학금 ===
+
+  - id: q009
+    query: "장학금 신청 기간 알려줘"
+    expected_doc_ids:
+      - deu_scholarship_81842_v002_chunk_001
+      - deu_scholarship_81842_v002_chunk_002
+    expected_source_urls:
+      - "deu-scholarship.do?articleNo=81842"
+    expected_keywords:
+      - 장학금
+      - 신청
+      - 기간
+    expected_source_types:
+      - scholarship
+      - notice
+    forbidden_source_types:
+      - job
+      - bids
+      - dormitory
+    category: scholarship
+    department: null
+    notes: "국가장학금 또는 교내장학금 신청 기간"
+
+  - id: q010
+    query: "성적우수장학금 선발 기준 알려줘"
+    expected_doc_ids: []
+    expected_source_urls: []
+    expected_keywords:
+      - 성적우수
+      - 장학금
+      - 선발
+      - 기준
+    expected_source_types:
+      - scholarship
+    forbidden_source_types:
+      - job
+      - bids
+    category: specific_scholarship
+    department: null
+    notes: "성적우수장학생 선발 조건"
+
+  # === 기숙사 ===
+
+  - id: q011
+    query: "기숙사 신청 방법 알려줘"
+    expected_doc_ids:
+      - static_489038e768a146d4_v001_chunk_001
+      - static_51ad97a54f7a0db7_v001_chunk_001
+      - static_26d633279a2768ef_v001_chunk_001
+    expected_source_urls:
+      - "deu.ac.kr/www/deu-dormitory.do"
+      - "dorm.deu.ac.kr/30/3030.do"
+    expected_keywords:
+      - 기숙사
+      - 신청
+      - 방법
+    expected_source_types:
+      - dormitory
+      - static
+    forbidden_source_types:
+      - scholarship
+      - job
+      - bids
+      - department
+    category: dormitory
+    department: null
+    notes: "생활관 입사 신청 절차"
+
+  - id: q012
+    query: "기숙사 비용 얼마야"
+    expected_doc_ids:
+      - static_56bd1d9f3eb3548a_v001_chunk_001
+    expected_source_urls:
+      - "dorm.deu.ac.kr"
+    expected_keywords:
+      - 기숙사
+      - 비용
+      - 납부
+    expected_source_types:
+      - dormitory
+      - static
+    forbidden_source_types:
+      - job
+      - bids
+    category: dormitory
+    department: null
+    notes: "기숙사 입사비 관련"
+
+  - id: q013
+    query: "기숙사 생활 규칙 알려줘"
+    expected_doc_ids:
+      - static_014ee735a1b20c1b_v001_chunk_001
+    expected_source_urls:
+      - "dorm.deu.ac.kr"
+    expected_keywords:
+      - 기숙사
+      - 생활
+      - 규칙
+    expected_source_types:
+      - dormitory
+      - static
+    forbidden_source_types:
+      - scholarship
+      - job
+    category: dormitory
+    department: null
+    notes: "상벌점, 생활수칙"
+
+  # === 건물/캠퍼스 ===
+
+  - id: q014
+    query: "정보공학관 위치 어디야"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu.ac.kr"
+    expected_keywords:
+      - 정보공학관
+      - 위치
+    expected_source_types:
+      - static
+      - institution
+    forbidden_source_types:
+      - job
+      - scholarship
+      - bids
+    category: building_location
+    department: null
+    notes: "캠퍼스 건물 위치 안내"
+
+  - id: q015
+    query: "동의대학교 찾아오는 길 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu.ac.kr"
+    expected_keywords:
+      - 찾아오시는
+      - 가야
+      - 캠퍼스
+    expected_source_types:
+      - static
+      - institution
+    forbidden_source_types:
+      - job
+      - bids
+    category: campus_address
+    department: null
+    notes: "캠퍼스 주소 및 교통 안내"
+
+  - id: q016
+    query: "학생식당 위치 어디야"
+    expected_doc_ids: []
+    expected_source_urls: []
+    expected_keywords:
+      - 학생식당
+      - 위치
+    expected_source_types:
+      - static
+      - institution
+    forbidden_source_types:
+      - job
+      - bids
+    category: welfare_facility
+    department: null
+    notes: "복지시설 위치"
+
+  # === 통학버스 ===
+
+  - id: q017
+    query: "통학버스 시간표 알려줘"
+    expected_doc_ids:
+      - static_59384ca5fbe6b8a7_v001_chunk_001
+      - static_59384ca5fbe6b8a7_v001_chunk_002
+    expected_source_urls:
+      - "deu.ac.kr/www/deu-sbus.do"
+    expected_keywords:
+      - 통학버스
+      - 시간표
+    expected_source_types:
+      - notice
+      - institution
+      - static
+    forbidden_source_types:
+      - job
+      - scholarship
+      - bids
+    category: shuttle
+    department: null
+    notes: "시외통학버스 시간표"
+
+  - id: q018
+    query: "통학버스 신청 방법 알려줘"
+    expected_doc_ids:
+      - static_59384ca5fbe6b8a7_v001_chunk_002
+      - static_59384ca5fbe6b8a7_v001_chunk_003
+    expected_source_urls:
+      - "deu.ac.kr/www/deu-sbus.do"
+    expected_keywords:
+      - 통학버스
+      - 신청
+    expected_source_types:
+      - notice
+      - institution
+      - static
+    forbidden_source_types:
+      - job
+      - scholarship
+    category: shuttle
+    department: null
+    notes: "통학버스 신청 절차"
+
+  # === 학사 일정 ===
+
+  - id: q019
+    query: "2025년 학사일정 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu.ac.kr"
+    expected_keywords:
+      - 학사일정
+      - 2025
+    expected_source_types:
+      - academic_notice
+      - academic
+      - institution
+    forbidden_source_types:
+      - job
+      - bids
+    category: academic_schedule
+    department: null
+    notes: "학사 캘린더 전체"
+
+  - id: q020
+    query: "중간고사 기간 언제야"
+    expected_doc_ids: []
+    expected_source_urls: []
+    expected_keywords:
+      - 중간고사
+      - 중간시험
+      - 기간
+    expected_source_types:
+      - academic_notice
+      - academic
+    forbidden_source_types:
+      - job
+      - bids
+    category: academic_schedule
+    department: null
+    notes: "중간시험 일정"
+
+  # === 대학 기관 ===
+
+  - id: q021
+    query: "동의대 역대 총장 목록"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu.ac.kr"
+    expected_keywords:
+      - 역대총장
+      - 총장
+    expected_source_types:
+      - institution
+    forbidden_source_types:
+      - job
+      - scholarship
+      - bids
+      - external_notice
+      - department
+    category: person_title
+    department: null
+    notes: "역대 총장 리스트"
+
+  - id: q022
+    query: "동의대학교 설립 연도 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu.ac.kr"
+    expected_keywords:
+      - 동의대학교
+      - 설립
+      - 연혁
+    expected_source_types:
+      - institution
+    forbidden_source_types:
+      - job
+      - bids
+    category: institution_history
+    department: null
+    notes: "학교 역사 정보"
+
+  # === 계절학기 ===
+
+  - id: q023
+    query: "하계 계절수업 신청 방법"
+    expected_doc_ids:
+      - deu_academic_notice_84378_v001_chunk_001
+    expected_source_urls:
+      - "gra-notice.do?articleNo=84378"
+    expected_keywords:
+      - 계절수업
+      - 하계
+      - 신청
+    expected_source_types:
+      - academic_notice
+    forbidden_source_types:
+      - job
+      - bids
+      - dormitory
+    category: seasonal_course_registration
+    department: null
+    notes: "하계 계절학기 수강신청"
+
+  # === 학과별 교육과정 ===
+
+  - id: q024
+    query: "컴퓨터공학과 교육과정 알려줘"
+    expected_doc_ids: []
+    expected_source_urls: []
+    expected_keywords:
+      - 컴퓨터공학
+      - 교육과정
+      - 이수표
+    expected_source_types:
+      - department
+      - academic
+    forbidden_source_types:
+      - job
+      - bids
+    category: department_curriculum
+    department: "컴퓨터공학과"
+    notes: "전공 교육과정 및 이수표"
+
+  - id: q025
+    query: "경영학부 전공필수 과목 알려줘"
+    expected_doc_ids: []
+    expected_source_urls: []
+    expected_keywords:
+      - 경영학부
+      - 전공필수
+    expected_source_types:
+      - department
+    forbidden_source_types:
+      - job
+      - bids
+    category: department_curriculum
+    department: "경영학부"
+    notes: "특정 학과 전공필수 교과목"
+
+  # === 엣지 케이스 ===
+
+  - id: q026
+    query: "동의대 식당 메뉴 알려줘"
+    expected_doc_ids: []
+    expected_source_urls: []
+    expected_keywords:
+      - 식당
+      - 메뉴
+    expected_source_types:
+      - static
+      - institution
+    forbidden_source_types:
+      - job
+      - bids
+    category: welfare_facility
+    department: null
+    notes: "학생식당 메뉴 - 동적 데이터라 DB에 없을 수 있음"
+
+  - id: q027
+    query: "학교 도서관 이용 시간 알려줘"
+    expected_doc_ids: []
+    expected_source_urls: []
+    expected_keywords:
+      - 도서관
+      - 이용
+      - 시간
+    expected_source_types:
+      - static
+      - institution
+    forbidden_source_types:
+      - job
+      - bids
+    category: welfare_facility
+    department: null
+    notes: "중앙도서관 운영 시간"
+
+  - id: q028
+    query: "취업지원센터 위치 알려줘"
+    expected_doc_ids: []
+    expected_source_urls: []
+    expected_keywords:
+      - 취업지원
+      - 위치
+    expected_source_types:
+      - static
+      - institution
+    forbidden_source_types:
+      - job
+      - bids
+    category: career
+    department: null
+    notes: "취업 관련 부서 위치"
+
+  - id: q029
+    query: "학생증 분실 재발급 방법"
+    expected_doc_ids: []
+    expected_source_urls: []
+    expected_keywords:
+      - 학생증
+      - 재발급
+      - 분실
+    expected_source_types:
+      - academic_support
+      - institution
+    forbidden_source_types:
+      - job
+      - bids
+    category: academic_admin
+    department: null
+    notes: "학생증 관련 행정 처리"
+
+  - id: q030
+    query: "전과 신청 방법 알려줘"
+    expected_doc_ids: []
+    expected_source_urls: []
+    expected_keywords:
+      - 전과
+      - 신청
+    expected_source_types:
+      - academic_support
+      - academic_notice
+    forbidden_source_types:
+      - job
+      - bids
+      - scholarship
+    category: academic_admin
+    department: null
+    notes: "학과 전과 절차"

@@ -1,11 +1,13 @@
 # crawler/extractors/board_list_extractor.py
 
+import os
 import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+import requests
 from bs4 import BeautifulSoup
 
-from crawler.utils.http_client import build_retry_session
+from crawler.utils.http_client import INSECURE_SSL_HOSTS, LegacyTLSAdapter, build_retry_session
 from crawler.extractors.board_adapters import adapter_for_url
 
 
@@ -24,9 +26,20 @@ class BoardListExtractor:
         self.timeout = timeout
 
     def fetch(self, url: str, params: dict | None = None) -> str:       #html 가져오기
-        res = self.session.get(url, params=params, timeout=self.timeout)
-        res.raise_for_status()
-        return res.text
+        try:
+            res = self.session.get(url, params=params, timeout=self.timeout)
+            res.raise_for_status()
+            return res.text
+        except requests.exceptions.SSLError:
+            host = urlsplit(url).netloc
+            if host in INSECURE_SSL_HOSTS and os.getenv("CRAWLER_ALLOW_INSECURE_SSL") == "1":
+                legacy = requests.Session()
+                legacy.headers.update(self.session.headers)
+                legacy.mount("https://", LegacyTLSAdapter())
+                res = legacy.get(url, params=params, timeout=self.timeout, verify=False)
+                res.raise_for_status()
+                return res.text
+            raise
 
     def normalize_list_request(
         self,
@@ -37,13 +50,19 @@ class BoardListExtractor:
         parsed = urlsplit(list_url)
         base_url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
         params = dict(parse_qsl(parsed.query, keep_blank_values=True))
-        params.update(
-            {
-                "article.offset": (page_no - 1) * page_size,
-                "articleLimit": page_size,
-                "mode": "list",
-            }
-        )
+
+        # lib.deu.ac.kr MIR CMS — page 번호 기반 페이지네이션 (DEU DEWS와 다름)
+        if parsed.netloc.lower() == "lib.deu.ac.kr" or parsed.path.lower().endswith(".mir"):
+            params["page"] = page_no
+            params["pageSize"] = page_size
+        else:
+            params.update(
+                {
+                    "article.offset": (page_no - 1) * page_size,
+                    "articleLimit": page_size,
+                    "mode": "list",
+                }
+            )
         return base_url, params
 
     def extract_article_no(self, url: str) -> str | None:               #게시글 번호 뽑기

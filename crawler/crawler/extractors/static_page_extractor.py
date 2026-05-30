@@ -3,10 +3,9 @@
 import re
 import hashlib
 import os
-import ssl
 from crawler.utils.content_hash import build_content_hash
 from datetime import datetime, timezone, timedelta
-from urllib.parse import parse_qs, urljoin, urlparse, urldefrag
+from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlparse, urldefrag, urlunparse
 
 from crawler.schemas.document_models import StaticPageRawDocument
 from crawler.extractors.base import BaseExtractor, FetchResult
@@ -14,6 +13,7 @@ from crawler.extractors.image_text_extractor import ImageTextExtractor
 from crawler.utils.text_quality import is_binary_like_text
 from crawler.config.domains import DEPARTMENT_HOSTS
 from crawler.utils.attachment_utils import dedupe_attachments_by_url
+from crawler.utils.http_client import INSECURE_SSL_HOSTS, LegacyTLSAdapter
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -32,16 +32,6 @@ HEADERS = {
 KST = timezone(timedelta(hours=9))
 
 
-class LegacyTLSAdapter(HTTPAdapter):
-    """Adapter for legacy DEU hosts that fail OpenSSL's default security level."""
-
-    def init_poolmanager(self, *args, **kwargs):
-        context = ssl.create_default_context()
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        context.set_ciphers("DEFAULT:@SECLEVEL=1")
-        kwargs["ssl_context"] = context
-        return super().init_poolmanager(*args, **kwargs)
 
 SOCIAL_LINK_HOSTS = {
     "facebook.com",
@@ -327,9 +317,18 @@ class StaticPageExtractor(BaseExtractor):
         text = re.sub(r"[ \t]+", " ", text)
         return text.strip()
 
+    _DEU_DOMAINS = (".deu.ac.kr",)
+
     def canonicalize_url(self, url: str) -> str:            #url중복처리를 위한 url 정규화
-        url, _ = urldefrag(url)
-        return url
+        canonical, _ = urldefrag(url.strip())
+        parsed = urlparse(canonical)
+
+        scheme = parsed.scheme
+        if scheme == "http" and any(parsed.netloc.lower().endswith(d) for d in self._DEU_DOMAINS):
+            scheme = "https"
+
+        clean_query = urlencode(parse_qsl(parsed.query, keep_blank_values=False))
+        return urlunparse(parsed._replace(scheme=scheme, query=clean_query))
 
     def is_main_page_url(self, url: str) -> bool:
         parsed = urlparse(url)
@@ -370,12 +369,7 @@ class StaticPageExtractor(BaseExtractor):
                 raw_html=self._response_text(res, url),
             )
         except requests.exceptions.SSLError as exc:
-            if "has.deu.ac.kr" in url:
-                raise requests.exceptions.SSLError(
-                    f"SSL verification failed for has.deu.ac.kr; keeping verify=True and skipping url={url}"
-                ) from exc
-            insecure_ssl_hosts = ("lib.deu.ac.kr",)
-            if any(host in url for host in insecure_ssl_hosts) and os.getenv("CRAWLER_ALLOW_INSECURE_SSL") == "1":
+            if any(host in url for host in INSECURE_SSL_HOSTS) and os.getenv("CRAWLER_ALLOW_INSECURE_SSL") == "1":
                 legacy_session = requests.Session()
                 legacy_session.headers.update(self.session.headers)
                 legacy_session.mount("https://", LegacyTLSAdapter())
@@ -917,13 +911,30 @@ class StaticPageExtractor(BaseExtractor):
             return []
 
         urls = []
+        _BINARY_EXTS = frozenset({".ai", ".ps", ".ttf", ".otf", ".woff", ".woff2", ".eot", ".swf"})
+
         for a in content_node.find_all("a", href=True):
             href = a["href"].strip()
             if href.startswith("javascript:") or href.startswith("mailto:") or href.startswith("tel:"): # javascript, mailto, tel 이 포함된 링크는 무시
                 continue
 
             full_url = self.canonicalize_url(urljoin(page_url, href))
-            host = urlparse(full_url).netloc.lower()                    # url 속 host 추출
+            parsed = urlparse(full_url)
+
+            # mode=download 쿼리 파라미터 → 첨부파일 URL, 내부 링크 수집 제외
+            if parse_qs(parsed.query).get("mode", [""])[0] == "download":
+                continue
+
+            # CMS 파일 다운로드 URL — static_page가 아닌 첨부파일 링크
+            path_lower = parsed.path.lower()
+            if "etcresourcedown" in path_lower or "etcresourceopen" in path_lower:
+                continue
+
+            # 바이너리/폰트/비HTML 정적 파일 → 내부 링크 수집 제외
+            if os.path.splitext(parsed.path)[1].lower() in _BINARY_EXTS:
+                continue
+
+            host = parsed.netloc.lower()                                # url 속 host 추출
 
             if not self.allowed_hosts or host in self.allowed_hosts:    # 허용 도메인만
                 urls.append(full_url)

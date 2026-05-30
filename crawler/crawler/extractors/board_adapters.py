@@ -115,8 +115,36 @@ class DeuBoardAdapter(GenericBoardAdapter):
         return urlunparse(parsed._replace(query=urlencode(query, doseq=True)))
 
 
+class LibraryMirAdapter(GenericBoardAdapter):
+    """lib.deu.ac.kr MIR CMS 게시판 — DEU DEWS와 다른 URL/페이지네이션 규칙 사용."""
+    name = "library_mir"
+
+    def article_no_from_url(self, url: str) -> str | None:
+        parsed = urlparse(url)
+        qs = parse_qs(parsed.query)
+        # MIR 시스템은 seq 또는 no를 식별자로 사용
+        for key in ("seq", "no", "idx", "id"):
+            value = qs.get(key, [None])[0]
+            if value:
+                return value
+        return super().article_no_from_url(url)
+
+    def strategy_for(self, full_url: str, href: str, onclick: str | None) -> str | None:
+        parsed = urlparse(full_url)
+        qs = parse_qs(parsed.query)
+        for key in ("seq", "no", "idx"):
+            if qs.get(key):
+                return f"query_{key}"
+        # _view.mir 패턴
+        if "_view.mir" in parsed.path.lower():
+            return "path_mir_view"
+        return super().strategy_for(full_url, href, onclick)
+
+
 def adapter_for_url(url: str) -> GenericBoardAdapter:
     host = urlparse(url).netloc.lower()
+    if host == "lib.deu.ac.kr":
+        return LibraryMirAdapter()
     if host.endswith("deu.ac.kr"):
         return DeuBoardAdapter()
     return GenericBoardAdapter()

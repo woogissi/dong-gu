@@ -1,14 +1,24 @@
 # crawler/parsers/file_text_router.py
 
-from pathlib import Path
-import zipfile
+import subprocess
 import tempfile
+import zipfile
+from pathlib import Path
 
-from crawler.parsers.pdf_parser import PDFParser
-from crawler.parsers.hwpx_parser import HWPXParser
 from crawler.parsers.hwp_parser import HWPParser
-from crawler.parsers.ooxml_parser import OOXMLParser
+from crawler.parsers.hwpx_parser import HWPXParser
 from crawler.parsers.image_parser import ImageParser
+from crawler.parsers.ooxml_parser import OOXMLParser
+from crawler.parsers.pdf_parser import PDFParser
+
+# LibreOffice 변환 대상 확장자 → 변환 후 타겟 포맷
+# .hwp는 hwp5txt 실패 시 폴백으로만 사용 (LibreOffice HWP 지원이 불완전함)
+_LIBREOFFICE_CONVERT_MAP = {
+    ".xls": "xlsx",
+    ".doc": "docx",
+    ".ppt": "pptx",
+    ".hwp": "docx",
+}
 
 
 class FileTextRouter:                                   # 파일 확장자를 보고 어떤 파서로 보낼지 결정하는 분기기(router)
@@ -54,12 +64,24 @@ class FileTextRouter:                                   # 파일 확장자를 �
 
         if ext == ".hwp":                               # 확장자가 hwp일때
             result = self.hwp_parser.extract_text(file_path)
+            if result.get("text"):
+                return {
+                    "parser_type": "hwp",
+                    "attachment_text": result["text"],
+                    "page_count": result["page_count"],
+                    "pages": result["pages"],
+                    "note": result.get("note"),
+                }
+            # hwp5txt 추출 실패 → LibreOffice 폴백
+            converted = self._convert_with_libreoffice(file_path, ext)
+            if converted:
+                return converted
             return {
                 "parser_type": "hwp",
-                "attachment_text": result["text"],
-                "page_count": result["page_count"],
-                "pages": result["pages"],
-                "note": result.get("note"),
+                "attachment_text": None,
+                "page_count": result.get("page_count"),
+                "pages": result.get("pages", []),
+                "note": result.get("note") or "hwp5txt extraction failed; LibreOffice fallback also failed",
             }
 
         if ext in {".xlsx", ".pptx", ".docx"}:
@@ -74,14 +96,17 @@ class FileTextRouter:                                   # 파일 확장자를 �
             }
 
         if ext in self.LEGACY_OFFICE_EXTENSIONS:
+            converted = self._convert_with_libreoffice(file_path, ext)
+            if converted:
+                return converted
             return {
                 "parser_type": "unsupported_legacy_office",
                 "attachment_text": None,
                 "page_count": None,
                 "pages": [],
                 "note": (
-                    f"unsupported legacy Office extension: {ext}; "
-                    "convert to OOXML or add a LibreOffice conversion parser"
+                    f"LibreOffice conversion failed for {ext}; "
+                    "install LibreOffice or convert to OOXML manually"
                 ),
             }
 
@@ -101,6 +126,39 @@ class FileTextRouter:                                   # 파일 확장자를 �
             "page_count": None,
             "pages": [],
             "note": f"unsupported extension: {ext or '(none)'}",
+        }
+
+    def _convert_with_libreoffice(self, file_path: str, src_ext: str) -> dict | None:
+        target_fmt = _LIBREOFFICE_CONVERT_MAP.get(src_ext)
+        if not target_fmt:
+            return None
+        with tempfile.TemporaryDirectory() as tmpdir:
+            try:
+                result = subprocess.run(
+                    ["libreoffice", "--headless", "--convert-to", target_fmt, file_path, "--outdir", tmpdir],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                return None
+            if result.returncode != 0:
+                return None
+            stem = Path(file_path).stem
+            converted_path = Path(tmpdir) / f"{stem}.{target_fmt}"
+            if not converted_path.exists():
+                return None
+            try:
+                parse_result = self.ooxml_parser.extract_text(str(converted_path))
+            except Exception:
+                return None
+        return {
+            "parser_type": f"{src_ext.lstrip('.')}_via_libreoffice",
+            "attachment_text": parse_result.get("text"),
+            "page_count": parse_result.get("page_count"),
+            "pages": parse_result.get("pages", []),
+            "raw_xml_files": parse_result.get("raw_xml_files", []),
+            "note": f"converted {src_ext} → .{target_fmt} via LibreOffice",
         }
 
     def extract_zip_and_parse(self, file_path: str) -> dict:

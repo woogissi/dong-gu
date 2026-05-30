@@ -135,34 +135,6 @@ class RegressionCaseUtilityTest(unittest.TestCase):
 
         self.assertEqual([doc.doc_id for doc in filtered], ["central"])
 
-    def test_person_title_list_answer_avoids_llm_not_found(self) -> None:
-        state = PipelineState.from_query("동의대 역대 총장 목록")
-        state.metadata["query_understanding"] = {"query_features": {"family": "person_title"}}
-        state.selected_docs = [
-            RetrievedDoc(
-                doc_id="presidents",
-                chunk_id="presidents_1",
-                title="역대총장 | 총장 | DEU",
-                content=(
-                    "## 동의대학교 제12대 · 13대총장\n"
-                    "## 한 수 환 ( 韓 洙 桓 )\n"
-                    "- 2020. 8. ~ 2023. 8. 동의대학교 제12대 총장\n"
-                    "- 2023. 8. ~ 동의대학교 제13대 총장"
-                ),
-                source="https://www.deu.ac.kr/www/former-university-presidents.do",
-                score=1.0,
-                metadata={"source_type": "institution"},
-            )
-        ]
-
-        answer = ChatPipeline()._build_person_title_answer(state)
-
-        self.assertIn("역대 총장", answer or "")
-        self.assertIn("제12대·13대 총장", answer or "")
-        self.assertIn("한수환", answer or "")
-        self.assertIn("former-university-presidents", answer or "")
-
-
 class LiveRegressionSelectionTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:

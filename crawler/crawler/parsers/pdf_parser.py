@@ -40,7 +40,8 @@ class PDFParser:
         ocr_first_pages: int | None = None,
     ):
         if skip_ocr is None:
-            skip_ocr = os.getenv("CRAWLER_SKIP_PDF_OCR", "1") == "1"
+            # 기본값: OCR 활성화. 비활성화하려면 CRAWLER_SKIP_PDF_OCR=1 설정
+            skip_ocr = os.getenv("CRAWLER_SKIP_PDF_OCR", "0") == "1"
         if ocr_max_pages is None:
             raw_max_pages = os.getenv("CRAWLER_PDF_OCR_MAX_PAGES", "5")
             ocr_max_pages = int(raw_max_pages) if raw_max_pages else None

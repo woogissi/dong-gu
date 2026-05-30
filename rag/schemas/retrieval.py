@@ -21,6 +21,7 @@ class RetrievalRequest(BaseModel):
     keywords: list[str] = Field(default_factory=list)
     query_vector: list[float] = Field(default_factory=list)
     filters: dict[str, list[str]] = Field(default_factory=dict)
+    ranking_hints: dict[str, object] = Field(default_factory=dict)
     category: str | None = None
     strategy: SearchStrategy = "lexical"
     top_k: int = 10

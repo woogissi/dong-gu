@@ -10,7 +10,7 @@ from typing import Any, Callable
 from psycopg2.extras import RealDictCursor
 
 from crawler.ingestion.pgvector_loader import PGVectorLoader
-from crawler.paths import CHUNK_DIR, CURATED_DOC_DIR, HF_CACHE_DIR
+from crawler.paths import CHUNK_DIR, CURATED_DOC_DIR, HF_CACHE_DIR, RAW_DOC_DIR
 from crawler.run.run_full_pipeline import process_static_seed, run_board_pipeline
 from crawler.run.run_single_file_pipeline import chunk_curated_file, vector_ingest_chunk_file
 from crawler.state.crawler_state_store import CrawlerStateStore
@@ -223,14 +223,66 @@ def handle_attachment_download(target: RetryTarget) -> None:
 
 
 def handle_file_parse(target: RetryTarget) -> None:
-    file_path = target.file_path or payload_value(target, "saved_path")
-    if not file_path:
-        raise ValueError("missing file_path for file_parse retry")
+    import json as _json
     from crawler.parsers.file_text_router import FileTextRouter
+    from crawler.run.run_full_pipeline import merge_attachment_texts
+    from crawler.run.run_single_file_pipeline import chunk_curated_file
 
-    result = FileTextRouter().extract_text(file_path)
+    file_path_str = target.file_path or payload_value(target, "saved_path")
+    if not file_path_str:
+        raise ValueError("missing file_path for file_parse retry")
+    if not target.doc_id or not target.source_type:
+        raise ValueError("missing doc_id/source_type for file_parse retry")
+
+    file_path = Path(file_path_str)
+    if not file_path.exists():
+        raise FileNotFoundError(f"attachment file not found: {file_path}")
+
+    # 1. 파일 재파싱
+    result = FileTextRouter().extract_text(str(file_path))
     if not result or not str(result.get("attachment_text") or "").strip():
         raise ValueError(f"file_parse produced no text: {file_path}")
+
+    # 2. raw doc의 해당 attachment 항목에 파싱 결과 반영
+    raw_path = RAW_DOC_DIR / target.source_type / f"{target.doc_id}.json"
+    if not raw_path.exists():
+        raise FileNotFoundError(f"raw document not found: {raw_path}")
+
+    raw_doc = _json.loads(raw_path.read_text(encoding="utf-8"))
+    file_url = payload_value(target, "file_url") or target.url
+    attachment_index = payload_value(target, "attachment_index")
+
+    updated = False
+    for att in raw_doc.get("downloaded_attachments", []):
+        match_url = bool(file_url and att.get("file_url") == file_url)
+        match_idx = attachment_index is not None and att.get("attachment_index") == int(attachment_index)
+        if match_url or match_idx:
+            att["attachment_text"] = result.get("attachment_text")
+            att["parser_type"] = result.get("parser_type")
+            att["parse_status"] = "parser_success"
+            att["page_count"] = result.get("page_count")
+            updated = True
+            break
+
+    if not updated:
+        raise ValueError(
+            f"attachment entry not found in raw doc: "
+            f"doc_id={target.doc_id} file_url={file_url} index={attachment_index}"
+        )
+
+    raw_path.write_text(_json.dumps(raw_doc, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # 3. curated doc의 attachment_text를 재병합하여 저장
+    curated_path = CURATED_DOC_DIR / target.source_type / f"{target.doc_id}.json"
+    if not curated_path.exists():
+        raise FileNotFoundError(f"curated document not found: {curated_path}")
+
+    curated_doc = _json.loads(curated_path.read_text(encoding="utf-8"))
+    curated_doc["attachment_text"] = merge_attachment_texts(raw_doc.get("downloaded_attachments", []))
+    curated_path.write_text(_json.dumps(curated_doc, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # 4. 청킹 재실행 (임베딩은 이후 run_vector_ingestion으로 처리)
+    chunk_curated_file(curated_path)
 
 
 def handle_board_detail(target: RetryTarget) -> None:

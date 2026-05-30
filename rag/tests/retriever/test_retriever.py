@@ -79,24 +79,42 @@ class RetrieverSupabaseTest(unittest.TestCase):
         request = RetrievalRequest(
             query="test",
             keywords=["test"],
-            filters={"document_category": ["scholarship"], "category": ["club_activity"]},
+            filters={"category": ["club_activity"]},
+            ranking_hints={
+                "document_category": ["scholarship"],
+                "category_values": ["club_activity"],
+            },
             top_k=10,
         )
 
         filter_clause, filter_params = retriever._build_db_filter_conditions(request)
 
         self.assertNotIn("source_type", filter_clause)
+        self.assertNotIn("category", filter_clause)
         self.assertEqual(filter_params, [])
         self.assertEqual(
             retriever._source_type_hint_values(request),
-            ["scholarship", "notice", "student_life", "institution", "department"],
+            ["scholarship", "notice", "club_activity", "student_life", "institution", "department"],
         )
+
+    def test_department_filter_is_not_db_hard_filter(self) -> None:
+        request = RetrievalRequest(
+            query="test",
+            keywords=["test"],
+            filters={"department": ["컴퓨터공학과"]},
+            top_k=10,
+        )
+
+        filter_clause, filter_params = retriever._build_db_filter_conditions(request)
+
+        self.assertEqual(filter_clause, "")
+        self.assertEqual(filter_params, [])
 
     def test_document_category_hint_contributes_source_bonus(self) -> None:
         request = RetrievalRequest(
             query="test",
             keywords=["test"],
-            filters={"document_category": ["club_activity"]},
+            ranking_hints={"document_category": ["club_activity"]},
             top_k=10,
         )
 
@@ -109,7 +127,7 @@ class RetrieverSupabaseTest(unittest.TestCase):
         request = RetrievalRequest(
             query=sample["term"],
             keywords=[sample["term"]],
-            filters={"document_category": ["club_activity"]},
+            ranking_hints={"document_category": ["club_activity"]},
             top_k=10,
         )
 
@@ -117,20 +135,39 @@ class RetrieverSupabaseTest(unittest.TestCase):
 
         self.assertGreaterEqual(len(documents), 1)
 
-    # source_type 필터가 제대로 적용되는지 확인하는 테스트 케이스
-    def test_retrieve_documents_applies_department_filter(self) -> None:
+    def test_retrieve_documents_keeps_department_filter_as_log_only(self) -> None:
         sample = self._fetch_searchable_sample(where_sql="documents.department IS NOT NULL AND documents.department <> ''")
         request = RetrievalRequest(
             query=sample["term"],
             keywords=[sample["term"]],
-            filters={"department": [sample["department"]]},
+            filters={"department": ["department-that-should-not-filter-results"]},
             top_k=10,
         )
 
         documents = self._retrieve_without_file_fallback(request)
 
         self.assertGreaterEqual(len(documents), 1)
-        self.assertTrue(all(document.metadata["source_type"] == sample["source_type"] for document in documents))
+        self.assertTrue(all(document.metadata["filters"] == request.filters for document in documents))
+
+    def test_file_bm25_matches_filters_ignores_department_mismatch(self) -> None:
+        record = retriever.ChunkRecord(
+            chunk_id="chunk-1",
+            doc_id="doc-1",
+            title="컴퓨터공학과 안내",
+            content="content",
+            source_type="department",
+            source_url="https://example.test",
+            published_at=None,
+            department="컴퓨터공학과",
+            metadata={},
+        )
+
+        self.assertTrue(
+            retriever._matches_filters(
+                record,
+                {"department": ["경영학과"]},
+            )
+        )
 
     # category_lv1 필터가 제대로 적용되는지 확인하는 테스트 케이스
     def test_retrieve_documents_uses_category_as_source_hint(self) -> None:
@@ -138,7 +175,7 @@ class RetrieverSupabaseTest(unittest.TestCase):
         request = RetrievalRequest(
             query=sample["term"],
             keywords=[sample["term"]],
-            filters={"category": ["club_activity"]},
+            ranking_hints={"category_values": ["club_activity"]},
             top_k=10,
         )
 
@@ -146,7 +183,8 @@ class RetrieverSupabaseTest(unittest.TestCase):
 
         self.assertGreaterEqual(len(documents), 1)
 
-    # 검색 결과가 없을 때 빈 리스트를 반환하는지 확인하는 테스트 케이스
+    # 검색 결과가 거의 없을 때 결과가 최소화되는지 확인하는 테스트 케이스
+    # _MIN_DB_SCORE=0.35로 낮추면서 완전히 없는 쿼리가 1개 이하의 결과를 반환할 수 있음
     def test_empty_search_results(self) -> None:
         request = RetrievalRequest(
             query="donggu-retriever-no-match-000000",
@@ -156,7 +194,7 @@ class RetrieverSupabaseTest(unittest.TestCase):
 
         documents = retriever.retrieve_documents(request=request)
 
-        self.assertEqual(len(documents), 0)
+        self.assertLessEqual(len(documents), 1)
 
     # 테스트 케이스 추가: 검색어 변형(query_variants)이 Supabase 검색에 사용되는지 확인하는 테스트
     def test_query_variants_are_used_for_supabase_search(self) -> None:

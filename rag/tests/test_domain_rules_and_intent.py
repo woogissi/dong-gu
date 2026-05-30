@@ -8,6 +8,11 @@ from rag.preprocess.primary_intent import PrimaryIntentClassifier
 DOMAIN_CASES = {
     "23번 건물 어디야": ("building_location", "facility", ["23번건물", "건물"]),
     "수덕전 위치 알려줘": ("building_location", "facility", ["수덕전", "위치"]),
+    "지천관 위치 알려줘": ("building_location", "facility", ["지천관", "위치"]),
+    "상영관 어디야": ("building_location", "facility", ["상영관"]),
+    "학생회관 위치": ("building_location", "facility", ["학생회관", "위치"]),
+    "콜라보라운지 운영 시간": ("building_location", "facility", ["콜라보라운지"]),
+    "정보관 위치": ("building_location", "facility", ["정보관", "위치"]),
     "컴퓨터공학과 사무실 전화번호": ("department_curriculum", "department", ["컴퓨터공학과", "전화번호"]),
     "통학버스 시간표": ("general", "shuttle", ["통학버스", "시간표"]),
     "오늘 학식 뭐야": ("welfare_facility", "cafeteria", ["학생식당"]),
@@ -63,6 +68,11 @@ class DomainRulesAndIntentTest(unittest.TestCase):
             "성적 확인 방법": ("grade", "grade"),
             "동아리 종류": ("club_program", "club_activity"),
             "동아리 신청 방법": ("club_program", "club_activity"),
+            "컴퓨터공학과 졸업학점 알려줘": ("department_curriculum", "department_major"),
+            "지천관 위치 알려줘": ("building_location", {"campus_facility", "facility"}),
+            "상영관 어디야": ("building_location", {"campus_facility", "facility"}),
+            "콜라보라운지 운영 시간": ("building_location", {"campus_facility", "facility", "welfare_facility"}),
+            "정보관 위치": ("building_location", {"campus_facility", "facility"}),
         }
         preprocessor = QueryPreprocessor()
 

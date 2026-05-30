@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
+import requests
 from bs4 import BeautifulSoup
 
-from crawler.utils.http_client import build_retry_session
+from crawler.utils.http_client import INSECURE_SSL_HOSTS, LegacyTLSAdapter, build_retry_session
 
 
 @dataclass
@@ -34,7 +37,17 @@ class BaseExtractor:
         self.timeout = timeout
 
     def fetch_result(self, url: str) -> FetchResult:
-        response = self.session.get(url, timeout=self.timeout)
+        try:
+            response = self.session.get(url, timeout=self.timeout)
+        except requests.exceptions.SSLError:
+            host = urlsplit(url).netloc
+            if host in INSECURE_SSL_HOSTS and os.getenv("CRAWLER_ALLOW_INSECURE_SSL") == "1":
+                legacy = requests.Session()
+                legacy.headers.update(self.session.headers)
+                legacy.mount("https://", LegacyTLSAdapter())
+                response = legacy.get(url, timeout=self.timeout, verify=False)
+            else:
+                raise
         response.raise_for_status()
         return FetchResult(
             url=url,

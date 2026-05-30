@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import MutableMapping
 
-from rag.fallback.policy import NO_ANSWER_MESSAGE, has_not_found_answer, strip_not_found_answer
+from rag.fallback.policy import NO_ANSWER_MESSAGE, has_not_found_answer, strip_not_found_answer, NOT_FOUND_ANSWER_PATTERNS
 
 
 def repair_negative_answer_with_context(
@@ -25,7 +25,7 @@ def repair_negative_answer_with_context(
         return cleaned
     if selected_docs and has_substantive_context(context):
         repaired = build_selected_context_answer(selected_docs, query=query)
-        if repaired:
+        if repaired and not has_not_found_answer(repaired):
             if metadata is not None:
                 metadata["negative_answer_repair"] = "selected_context_extract"
                 metadata["negative_answer_issue_stage"] = "answer_generation"
@@ -34,13 +34,17 @@ def repair_negative_answer_with_context(
 
 
 def strip_negative_answer_sentences(answer: str) -> str:
-    text = strip_not_found_answer(answer)
+    # 부정 패턴이 포함된 라인 전체를 제거하여 문장 조각이 남지 않도록 한다
+    lines = (answer or "").splitlines()
+    kept = [line for line in lines if not any(p in line for p in NOT_FOUND_ANSWER_PATTERNS)]
+    text = "\n".join(kept)
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
 def has_substantive_answer(answer: str) -> bool:
     normalized = re.sub(r"\s+", " ", answer or "").strip()
-    return len(normalized) >= 40 and not has_not_found_answer(normalized)
+    # 20자 이상이면 실질적 내용으로 판단 (기존 40자에서 완화)
+    return len(normalized) >= 20 and not has_not_found_answer(normalized)
 
 
 def has_substantive_context(context: str | None) -> bool:
@@ -51,7 +55,7 @@ def has_substantive_context(context: str | None) -> bool:
 def build_selected_context_answer(selected_docs: list[object], *, query: str | None = None) -> str:
     snippets = _ranked_doc_snippets(selected_docs, query=query)
     if not snippets:
-        return NO_ANSWER_MESSAGE
+        return ""  # 빈 문자열 반환 → 호출자가 원본 부정 답변으로 fallback
     lines = ["선택된 문서 기준으로 확인된 내용입니다."]
     for snippet in snippets[:3]:
         title = snippet["title"]
@@ -100,7 +104,7 @@ def _split_content_sentences(content: str) -> list[str]:
     cleaned_lines = [line.strip() for line in (content or "").splitlines() if line.strip()]
     normalized = re.sub(r"\s+", " ", " ".join(cleaned_lines)).strip()
     chunks = re.split(r"(?<=[.!?。])\s+|(?<=다\.)\s+", normalized)
-    return [chunk.strip(" -") for chunk in chunks if len(chunk.strip()) >= 20]
+    return [chunk.strip(" -") for chunk in chunks if len(chunk.strip()) >= 10]
 
 
 def _term_overlap_score(text: str, query_terms: set[str]) -> int:

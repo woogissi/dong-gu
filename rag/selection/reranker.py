@@ -8,33 +8,31 @@ from datetime import date, datetime
 from typing import Any
 
 from rag.preprocess.query_features import (
+    SPECIFIC_SCHOLARSHIP_TERMS,
     extract_query_features,
     required_entity_match_score,
     tokenize_koreanish,
     ui_noise_hits,
 )
+from rag.retrieval.temporal import temporal_rerank_signals
 from rag.schemas.retrieved_doc import RetrievedDoc
 
 _TOKEN_PATTERN = re.compile(r"[가-힣A-Za-z0-9]+")
 _WEAK_RELEVANCE_TOKENS = {
     "",
     "deu",
-    "\uac00\ub2a5",
-    "\uac1c\uc218",
-    "\uae30\uac04",
-    "\ubc29\ubc95",
-    "\ubc88\ud638",
-    "\uc54c\ub824\uc918",
-    "\uc5b4\ub5bb\uac8c",
-    "\uc624\ub298",
-    "\uc704\uce58",
-    "\uc774\ub984",
-    "\uc77c\uc815",
-    "\uc815\ubcf4",
-    "\uc885\ub958",
-    "\uc2dc\uc810",
-    "\uc5b8\uc81c",
-    "\uc5f0\ub77d\ucc98",
+    "가능",
+    "개수",
+    "번호",
+    "알려줘",
+    "어떻게",
+    "오늘",
+    "이름",
+    "정보",
+    "종류",
+    "시점",
+    "언제",
+    "연락처",
     "동의",
     "동의대",
     "동의대학교",
@@ -123,17 +121,20 @@ _INSTITUTION_SOURCE_TERMS = {"institution", "static", "profile", "history"}
 _INSTITUTION_NOISE_TERMS = {"council", "회의자료", "대의원", "첨부"}
 
 _DOMAIN_SECTION_TERMS = {
-    "장학금": {"장학", "장학금", "신청", "학자금"},
-    "scholarship": {"장학", "장학금", "국가장학금", "신청"},
+    # 계절수업을 앞에 배치 (하계/동계 키워드가 있으면 우선 매칭)
+    "seasonal_course_registration": {"계절수업", "계절학기", "하계", "동계"},
+    # 장학금: "신청" 단독 매칭 방지 → 핵심 용어만 유지
+    "장학금": {"장학", "장학금", "학자금"},
+    "scholarship": {"장학", "장학금", "국가장학금"},
     "통학버스": {"통학버스", "버스", "노선", "시간표"},
     "도서관": {"도서관", "운영시간", "자료실", "열람실"},
     "학사일정": {"학사일정", "일정", "수강", "보강", "시험"},
     "academic_schedule": {"학사일정", "학사정보", "일정", "보강", "보강일정"},
     "course_registration": {"수강신청", "수강", "정정", "1학기", "학사공지"},
-    "seasonal_course_registration": {"계절수업", "계절학기", "하계", "동계", "수강신청"},
     "department_curriculum": {"컴퓨터공학", "컴퓨터공학과", "이수표", "전공필수", "교육과정"},
     "specific_scholarship": {"성적우수", "성적우수장학금", "성적우수장학생", "장학금"},
-    "academic_admin": {"휴학", "복학", "전과", "신청", "학사지원"},
+    # academic_admin: "신청" 단독 매칭 방지
+    "academic_admin": {"휴학", "복학", "전과", "학사지원"},
     "certificate": {"제증명서", "증명서", "재학증명서", "성적증명서", "발급"},
     "institution_history": {"연혁", "연도별 연혁", "대학현황", "1960년대", "2020년대"},
     "welfare_facility": {"복지문화시설", "편의·복지", "학생식당", "헌혈의 집", "편의점", "편의시설"},
@@ -177,6 +178,15 @@ _UI_NOISE_PATTERNS = (
 )
 _FACULTY_QUERY_TERMS = {"교수", "교수님", "교수소개", "교수진", "faculty"}
 _LIFELONG_CONTEXT_TERMS = {"평생교육원", "음악학사", "creditbank", "lifelong"}
+_LIBRARY_JOB_NOISE_TERMS = {"채용", "공고", "기간제", "사서직", "근로자", "운영관리"}
+_CAFETERIA_QUERY_TERMS = {"학생식당", "교내식당", "학식", "식당"}
+_CAFETERIA_POSITIVE_TERMS = {"학생식당", "교내식당"}
+_DORMITORY_FOREIGN_CONTEXT_TERMS = {"외국인", "유학생", "행복기숙사"}
+_DORMITORY_FOREIGN_NOTICE_TERMS = {"외국인", "유학생", "수요조사", "행복기숙사"}
+_GRADUATION_GENERAL_POSITIVE_TERMS = {"졸업인증제도", "졸업인증", "졸업기준", "졸업요건", "졸업학점", "학사정보", "학칙"}
+_GRADUATION_NOTICE_NOISE_TERMS = {"졸업예정자", "졸업논문", "졸업시험 일정", "제출 안내", "학위청구논문심사", "졸업논문심사"}
+_DEPARTMENT_CURRICULUM_POSITIVE_TERMS = {"교육과정", "이수표", "이수학점", "졸업기준", "졸업학점", "전공필수", "교양필수"}
+_DEPARTMENT_CURRICULUM_NOISE_TERMS = {"진로", "약사", "취업 현황", "취업현황", "학위청구논문심사", "졸업논문심사", "졸업논문"}
 
 
 def rerank_documents(
@@ -186,6 +196,7 @@ def rerank_documents(
     keywords: list[str] | None = None,
     category: str | None = None,
     filters: dict[str, list[str]] | None = None,
+    ranking_hints: dict[str, Any] | None = None,
 ) -> list[RetrievedDoc]:
     """Return documents ordered by retrieval score plus lightweight relevance signals."""
     if not docs:
@@ -193,6 +204,7 @@ def rerank_documents(
 
     keywords = keywords or []
     filters = filters or {}
+    ranking_hints = ranking_hints or {}
     query_tokens = _tokenize(query)
     keyword_tokens = _dedupe_tokens([*keywords, *query_tokens])
     query_features = extract_query_features(query, keyword_tokens)
@@ -209,17 +221,43 @@ def rerank_documents(
             query_features=query_features.to_log_dict(),
             category=category,
             filters=filters,
+            ranking_hints=ranking_hints,
             max_base_score=max_base_score,
         )
         rerank_score = round(
-            sum(value for key, value in signals.items() if key != "noise_score"),
+            sum(
+                value
+                for key, value in signals.items()
+                if key not in {"noise_score", "temporal_match", "temporal_mismatch", "temporal_recency"}
+            ),
             6,
         )
         reranked_doc = _copy_with_rerank_metadata(doc, rerank_score, signals)
         reranked.append((rerank_score, index, reranked_doc))
 
     reranked.sort(key=lambda item: (-item[0], item[1]))
-    return [doc for _, _, doc in reranked]
+    return _dedup_by_content_hash(reranked)
+
+
+def _dedup_by_content_hash(
+    reranked: list[tuple[float, int, RetrievedDoc]],
+) -> list[RetrievedDoc]:
+    """동일 content_hash를 가진 chunk는 최고 rank 1개만 남긴다.
+
+    content_hash가 없거나 빈 chunk는 dedup 대상에서 제외한다.
+    이미 rerank score 기준으로 정렬된 상태에서 호출되므로
+    먼저 등장한 것이 곧 최고 rank다.
+    """
+    seen_hashes: set[str] = set()
+    result: list[RetrievedDoc] = []
+    for _, _, doc in reranked:
+        content_hash = str(doc.metadata.get("content_hash") or "").strip()
+        if content_hash and content_hash in seen_hashes:
+            continue
+        if content_hash:
+            seen_hashes.add(content_hash)
+        result.append(doc)
+    return result
 
 
 def _score_doc(
@@ -231,6 +269,7 @@ def _score_doc(
     query_features: dict[str, Any],
     category: str | None,
     filters: dict[str, list[str]],
+    ranking_hints: dict[str, Any],
     max_base_score: float,
 ) -> dict[str, float]:
     title = doc.title or ""
@@ -297,8 +336,12 @@ def _score_doc(
     )
     if required_terms and required_entity_match == 0.0:
         query_family_penalty -= 1.2
-    category_match = _category_match_score(doc, category, filters)
+    category_match = _category_match_score(doc, category, filters, ranking_hints)
     recency = _recency_score(doc.metadata.get("published_at"))
+    temporal_signals = ranking_hints.get("temporal_signals") if isinstance(ranking_hints, dict) else {}
+    if not isinstance(temporal_signals, dict):
+        temporal_signals = {}
+    temporal = temporal_rerank_signals(doc, temporal_signals)
     noise_score = abs(
         min(attachment_noise, 0.0)
         + min(exif_noise, 0.0)
@@ -330,6 +373,10 @@ def _score_doc(
         "query_family_penalty": round(query_family_penalty, 6),
         "category_match": round(category_match, 6),
         "recency": round(recency, 6),
+        "temporal_score": round(temporal.get("temporal_score", 0.0), 6),
+        "temporal_match": round(temporal.get("temporal_match", 0.0), 6),
+        "temporal_mismatch": round(temporal.get("temporal_mismatch", 0.0), 6),
+        "temporal_recency": round(temporal.get("temporal_recency", 0.0), 6),
         "noise_score": round(noise_score, 6),
     }
 
@@ -470,7 +517,7 @@ def _missing_strong_terms_penalty(tokens: list[str], full_text: str) -> float:
     strong_tokens = _strong_tokens(tokens)
     if not strong_tokens:
         return 0.0
-    return 0.0 if any(token in full_text for token in strong_tokens) else -2.0
+    return 0.0 if any(token in full_text for token in strong_tokens) else -0.8
 
 
 def _attachment_noise_penalty(
@@ -515,7 +562,12 @@ def _ui_static_noise_penalty(doc: RetrievedDoc, full_text: str) -> float:
         penalty -= 1.0
     elif ui_hits >= 2:
         penalty -= 0.5
-    if 0 < content_length < 120:
+    if 0 < content_length < 50:
+        # 극단적으로 짧은 chunk: 메뉴·헤더·스텁 거의 확실
+        penalty -= 1.5
+    elif 0 < content_length < 80:
+        penalty -= 0.9
+    elif 0 < content_length < 120:
         penalty -= 0.4
     return penalty
 
@@ -603,9 +655,18 @@ def _query_family_boost(
         source_boost = 0.5 if source_type in {"institution", "campus"} else 0.0
         return min(title_bonus + source_boost, 2.4)
     if query_family == "welfare_facility":
+        if _is_cafeteria_query(query_text):
+            title_bonus = 2.2 if _term_hits(_CAFETERIA_POSITIVE_TERMS, title_section_text) else 0.0
+            source_boost = 1.3 if source_type == "welfare" else 0.0
+            body_hits = _term_hits(_CAFETERIA_POSITIVE_TERMS | {"운영시간"}, f"{title_section_text}\n{full_text}")
+            return min(title_bonus + source_boost + body_hits * 0.35, 3.2)
         title_bonus = 1.8 if "복지문화시설" in title_section_text else 0.0
         facility_hits = _term_hits(_DOMAIN_SECTION_TERMS["welfare_facility"], f"{title_section_text}\n{full_text}")
         return min(title_bonus + facility_hits * 0.35, 2.4)
+    if query_family == "library":
+        title_bonus = 1.4 if any(term in title_section_text for term in ("도서관소개", "도서관")) else 0.0
+        source_boost = 1.4 if source_type == "library" else 0.0
+        return min(title_bonus + source_boost, 2.6)
     if query_family == "dormitory":
         has_application_intent = _has_dormitory_application_intent(query_text)
         title_bonus = 1.8 if any(term in title_section_text for term in ("기숙사", "생활관", "효민생활관", "입사신청")) else 0.0
@@ -643,13 +704,26 @@ def _query_family_boost(
             title_bonus += 1.2
         return min(title_bonus + _term_hits(_DOMAIN_SECTION_TERMS["seasonal_course_registration"], full_text) * 0.15, 3.0)
     if query_family == "specific_scholarship":
-        return 2.4 if any(term in title_section_text for term in ("성적우수장학금", "성적우수장학생", "성적우수")) else 0.0
+        # 쿼리에 등장한 특정 장학금명이 문서 제목에 있으면 높은 boost
+        query_specific_terms = [t for t in SPECIFIC_SCHOLARSHIP_TERMS if t in query_text]
+        if query_specific_terms and any(term in title_section_text for term in query_specific_terms):
+            return 3.0
+        if any(term in title_section_text for term in ("성적우수장학금", "성적우수장학생", "성적우수")):
+            return 2.4
+        return 0.0
     if query_family == "academic_admin":
         title_bonus = 1.8 if any(term in title_section_text for term in ("휴학", "전과", "복학")) else 0.0
         first_heading = title_section_text.splitlines()[0].strip()
         if first_heading in {"휴학", "전과", "복학"}:
             title_bonus += 2.2
         return min(title_bonus + _term_hits(_DOMAIN_SECTION_TERMS["academic_admin"], full_text) * 0.12, 4.0)
+    if query_family == "department_curriculum":
+        positive_text = f"{title_section_text}\n{full_text}"
+        title_hits = _term_hits(_DEPARTMENT_CURRICULUM_POSITIVE_TERMS, title_section_text)
+        body_hits = _term_hits(_DEPARTMENT_CURRICULUM_POSITIVE_TERMS, positive_text)
+        credit_bonus = 1.4 if _is_department_graduation_credit_query(query_text) and body_hits > 0 else 0.0
+        source_boost = 0.4 if source_type == "department" else 0.0
+        return min(title_hits * 0.75 + body_hits * 0.3 + credit_bonus + source_boost, 4.2)
     if query_family == "graduation":
         title_bonus = 0.0
         graduation_title_terms = (
@@ -665,6 +739,8 @@ def _query_family_boost(
             title_bonus += 1.0
         if "\uc878\uc5c5" in title_section_text:
             title_bonus += 1.2
+        if _term_hits(_GRADUATION_GENERAL_POSITIVE_TERMS, title_section_text) > 0:
+            title_bonus += 1.2
         body_hits = _term_hits(
             {
                 "\uc878\uc5c5",
@@ -676,7 +752,7 @@ def _query_family_boost(
             },
             full_text,
         )
-        source_boost = 0.5 if source_type in {"academic_notice", "academic", "institution"} else 0.0
+        source_boost = 0.8 if source_type in {"academic_support", "academic", "institution"} else 0.3 if source_type == "academic_notice" else 0.0
         return min(title_bonus + body_hits * 0.25 + source_boost, 5.0)
     if query_family == "certificate":
         return 2.2 if any(term in title_section_text for term in ("제증명서", "증명서 발급", "재학증명서", "성적증명서")) else 0.0
@@ -691,8 +767,29 @@ def _query_family_boost(
     return 0.0
 
 
+_CANONICAL_PRIORITY_FAMILIES = {
+    "academic_schedule",
+    "course_registration",
+    "seasonal_course_registration",
+    "scholarship",
+    "specific_scholarship",
+    "dormitory",
+    "certificate",
+}
+
+_CANONICAL_AUTHORITY_SOURCES = {
+    "institution",
+    "academic_notice",
+    "academic",
+    "campus",
+    "scholarship",
+    "dormitory",
+    "notice",
+}
+
+
 def _canonical_source_priority(*, doc: RetrievedDoc, query_family: str, title_section_text: str) -> float:
-    if query_family not in {"academic_schedule", "course_registration", "seasonal_course_registration"}:
+    if query_family not in _CANONICAL_PRIORITY_FAMILIES:
         return 0.0
 
     source = _normalize_value(doc.source)
@@ -705,16 +802,34 @@ def _canonical_source_priority(*, doc: RetrievedDoc, query_family: str, title_se
         central_bonus += 2.0
     if any(marker in source for marker in ("dess.deu.ac.kr", "www.deu.ac.kr/www", "www.deu.ac.kr/deu")):
         central_bonus += 0.9
-    if source_type in {"institution", "academic_notice", "academic", "campus"}:
+    if source_type in _CANONICAL_AUTHORITY_SOURCES:
         central_bonus += 0.35
     if any(term in title for term in ("학사공지", "학사지원", "학사일정", "수강신청")):
         central_bonus += 0.35
+
+    # 장학금 계열: 공식 장학 페이지 우선
+    if query_family in {"scholarship", "specific_scholarship"}:
+        if source_type == "scholarship":
+            central_bonus += 0.8
+        if any(term in title for term in ("장학금", "국가장학금", "장학생")):
+            central_bonus += 0.3
+
+    # 기숙사/생활관 공식 출처 우선
+    if query_family == "dormitory" and source_type == "dormitory":
+        central_bonus += 0.8
+
+    # 증명서 공식 출처 우선
+    if query_family == "certificate" and source_type in {"institution", "academic_notice"}:
+        central_bonus += 0.6
 
     duplicate_penalty = 0.0
     if source_type == "department" or re.search(r"/[a-z0-9_-]+/sub0[67]_", source):
         duplicate_penalty -= 0.7
     if source_type == "department" and any(term in title for term in ("수강신청 안내", "보강일정", "학사일정")):
         duplicate_penalty -= 0.3
+    # 장학금 쿼리에서 학과 복사본 페널티 강화
+    if query_family in {"scholarship", "specific_scholarship"} and source_type == "department":
+        duplicate_penalty -= 0.5
 
     return max(min(central_bonus + duplicate_penalty, 3.0), -1.0)
 
@@ -773,10 +888,22 @@ def _query_family_penalty(
         return penalty
     if query_family == "welfare_facility":
         penalty = 0.0
+        if _is_cafeteria_query(query_text):
+            if source_type == "dormitory" or "효민생활관" in title_section_text:
+                penalty -= 3.0
+            if not any(term in f"{title_section_text}\n{full_text}" for term in ("학생식당", "교내식당", "식당")):
+                penalty -= 0.8
         if "캠퍼스맵" in title_section_text and "복지문화시설" not in title_section_text:
             penalty -= 1.1
         if source_type in {"job", "scholarship", "external_notice", "bids", "collabo"}:
             penalty -= 1.4
+        return penalty
+    if query_family == "library":
+        penalty = 0.0
+        if source_type == "department" and _term_hits(_LIBRARY_JOB_NOISE_TERMS, f"{title_section_text}\n{full_text}") > 0:
+            penalty -= 4.0
+        if source_type in {"job", "external_notice", "bids"}:
+            penalty -= 2.0
         return penalty
     if query_family == "institution":
         penalty = 0.0
@@ -795,6 +922,13 @@ def _query_family_penalty(
         return -1.4
     if query_family == "dormitory" and source_type in {"scholarship", "job", "external_notice", "bids", "department"}:
         return -1.6
+    if (
+        query_family == "dormitory"
+        and source_type == "exchange"
+        and _is_foreign_dormitory_notice(title_section_text, full_text)
+        and not _is_foreign_dormitory_query(query_text)
+    ):
+        return -4.0
     if query_family == "dormitory" and _has_dormitory_application_intent(query_text) and _is_dormitory_homepage_like(doc, title_section_text, full_text):
         return -1.2
     if query_family == "club_activity":
@@ -808,6 +942,14 @@ def _query_family_penalty(
         if "동아리" not in full_text and "club" not in full_text:
             penalty -= 1.2
         return penalty
+    if query_family == "career":
+        # 위치/시설 질문에서 채용공고 문서는 무관
+        if source_type == "job" and any(term in query_text for term in ("위치", "어디", "어디에", "장소", "찾아")):
+            return -4.0
+        # 채용공고/모집공고 제목은 취업지원센터 안내와 무관
+        if source_type == "job" and any(term in title_section_text for term in ("채용공고", "모집공고", "채용", "연구원", "직원")):
+            if not any(term in query_text for term in ("채용", "공고", "모집", "취업정보")):
+                return -3.0
     if query_family == "academic_schedule" and "학사일정" not in title_section_text and any(term in title_section_text for term in ("수강신청", "계절수업", "장학", "선발", "졸업인증")):
         return -1.6
     if query_family == "course_registration" and any(term in title_section_text for term in ("계절수업", "타대학", "마이크로디그리")):
@@ -818,10 +960,29 @@ def _query_family_penalty(
         seasonal_heading = first_heading or title_section_text
         if "계절" not in seasonal_heading:
             return -1.4
-        if any(term in seasonal_heading for term in ("타대학", "폐강", "수강정정", "마이크로디그리")):
-            return -1.6
-    if query_family == "department_curriculum" and any(term in title_section_text for term in ("실습실", "마이크로디그리")) and "이수표" not in title_section_text:
-        return -1.2
+        # 타대학 관련 문서는 본교 계절수업 신청 질문과 무관 → 강한 페널티
+        if "타대학" in seasonal_heading or (
+            "타대학" in title_section_text and "타대학" in full_text[:300]
+        ):
+            return -8.0
+        if any(term in seasonal_heading for term in ("폐강", "수강정정", "마이크로디그리")):
+            return -4.0
+    if query_family == "department_curriculum":
+        penalty = 0.0
+        if any(term in title_section_text for term in ("실습실", "마이크로디그리")) and "이수표" not in title_section_text:
+            penalty -= 1.2
+        if _is_department_graduation_credit_query(query_text):
+            positive_hits = _term_hits(_DEPARTMENT_CURRICULUM_POSITIVE_TERMS, f"{title_section_text}\n{full_text}")
+            if positive_hits == 0:
+                penalty -= 2.0
+            if _term_hits(_DEPARTMENT_CURRICULUM_NOISE_TERMS, title_section_text) > 0:
+                penalty -= 2.4
+            elif _term_hits(_DEPARTMENT_CURRICULUM_NOISE_TERMS, full_text) > 0 and positive_hits <= 1:
+                penalty -= 1.2
+        # 쿼리에 명시된 학과와 다른 학과 문서 페널티 (학과 불일치)
+        dept_mismatch = _department_mismatch_penalty(query_text, title_section_text, full_text)
+        penalty += dept_mismatch
+        return penalty
     if query_family == "specific_scholarship" and "성적우수" not in title_section_text:
         return -2.2
     if query_family == "academic_admin" and source_type == "scholarship":
@@ -830,8 +991,15 @@ def _query_family_penalty(
         return -1.3
     if query_family == "graduation":
         penalty = 0.0
+        general_graduation_query = not _has_department_anchor(query_text)
         if any(term in title_section_text for term in ("\ud68c\uc758\ub85d", "\ud3c9\uc758\uc6d0\ud68c", "\ucc44\uc6a9", "\uacf5\ubaa8\uc804", "\uc218\uc0c1\uc790")):
             penalty -= 1.6
+        if general_graduation_query and source_type == "department":
+            penalty -= 1.4
+        if general_graduation_query and _has_department_anchor(title_section_text):
+            penalty -= 1.0
+        if general_graduation_query and _is_specific_department_graduation_notice(title_section_text):
+            penalty -= 2.6
         if "\uc878\uc5c5" not in full_text and "\ud559\uce59" not in full_text:
             penalty -= 1.4
         if not any(term in title_section_text for term in ("\ud559\uc0ac\uc815\ubcf4", "\ud559\uce59", "\uc878\uc5c5")):
@@ -859,6 +1027,34 @@ def _required_heading_match_score(query_family: str, title_section_text: str) ->
 def _has_dormitory_application_intent(query_text: str) -> bool:
     text = query_text.lower()
     return any(term in text for term in ("신청", "날짜", "기간", "모집", "입사신청", "입사 신청", "언제", "deadline", "apply"))
+
+
+def _is_cafeteria_query(query_text: str) -> bool:
+    return any(term in query_text for term in _CAFETERIA_QUERY_TERMS)
+
+
+def _is_foreign_dormitory_query(query_text: str) -> bool:
+    return any(term in query_text for term in _DORMITORY_FOREIGN_CONTEXT_TERMS)
+
+
+def _is_foreign_dormitory_notice(title_section_text: str, full_text: str) -> bool:
+    text = f"{title_section_text}\n{full_text}"
+    return _term_hits(_DORMITORY_FOREIGN_NOTICE_TERMS, text) > 0
+
+
+def _is_department_graduation_credit_query(query_text: str) -> bool:
+    text = query_text or ""
+    return "졸업" in text and any(term in text for term in ("학점", "이수학점", "졸업학점", "졸업기준"))
+
+
+def _has_department_anchor(text: str) -> bool:
+    return bool(re.search(r"[가-힣A-Za-z0-9]+(?:학과|전공|학부)", text or ""))
+
+
+def _is_specific_department_graduation_notice(title_section_text: str) -> bool:
+    if _term_hits(_GRADUATION_NOTICE_NOISE_TERMS, title_section_text) > 0:
+        return True
+    return bool(_has_department_anchor(title_section_text) and any(term in title_section_text for term in ("공지", "안내", "제출", "심사", "일정")))
 
 
 def _has_dormitory_application_notice(title_section_text: str, full_text: str) -> bool:
@@ -894,11 +1090,10 @@ def _category_match_score(
     doc: RetrievedDoc,
     category: str | None,
     filters: dict[str, list[str]],
+    ranking_hints: dict[str, Any] | None = None,
 ) -> float:
     candidates = {
-        _normalize_value(doc.category),
         _normalize_value(doc.metadata.get("source_type")),
-        _normalize_value(doc.metadata.get("department")),
     }
     candidates.discard("")
 
@@ -907,6 +1102,13 @@ def _category_match_score(
         expected_values.append(category)
     for values in filters.values():
         expected_values.extend(values)
+    hints = ranking_hints or {}
+    for key in ("category", "category_values", "document_category", "source_boosts"):
+        value = hints.get(key)
+        if isinstance(value, (list, tuple, set)):
+            expected_values.extend(str(item) for item in value if item is not None)
+        elif value:
+            expected_values.append(str(value))
 
     for expected in expected_values:
         normalized = _normalize_value(expected)
@@ -941,6 +1143,49 @@ def _parse_date(value: Any) -> date | None:
     return None
 
 
+# 학과명 키워드 목록 - 쿼리에서 특정 학과를 요청할 때 다른 학과 문서 억제
+_KNOWN_DEPT_NAMES: list[str] = [
+    "컴퓨터공학과", "컴퓨터공학", "컴공",
+    "전자공학과", "전자공학",
+    "게임공학과", "게임공학",
+    "인공지능학과", "인공지능학", "인공지능",
+    "소프트웨어학과", "소프트웨어",
+    "간호학과", "간호학", "간호",
+    "경찰행정학과", "경찰행정",
+    "경영학과", "경영학", "경영",
+    "시각디자인과", "시각디자인",
+    "물리치료학과", "물리치료",
+    "작업치료학과", "작업치료",
+    "의용공학과", "의용공학",
+    "건축학과", "건축",
+    "화학공학과", "화학공학",
+    "기계공학과", "기계공학",
+    "토목공학과", "토목공학",
+    "관광경영학과", "관광경영",
+    "영어영문학과", "영어영문",
+    "법학과",
+    "사회복지학과", "사회복지",
+]
+
+
+def _department_mismatch_penalty(query_text: str, title_section_text: str, full_text: str) -> float:
+    """쿼리에 특정 학과가 명시됐는데 문서가 다른 학과인 경우 페널티."""
+    query_dept = None
+    for dept in _KNOWN_DEPT_NAMES:
+        if dept in query_text:
+            query_dept = dept
+            break
+    if not query_dept:
+        return 0.0
+    # 쿼리 학과가 문서에 없으면 다른 학과 문서일 가능성
+    if query_dept not in title_section_text and query_dept not in full_text[:400]:
+        # 다른 알려진 학과명이 제목에 있으면 강한 페널티
+        for dept in _KNOWN_DEPT_NAMES:
+            if dept != query_dept and dept in title_section_text:
+                return -3.5
+    return 0.0
+
+
 def _copy_with_rerank_metadata(
     doc: RetrievedDoc,
     rerank_score: float,
@@ -951,6 +1196,12 @@ def _copy_with_rerank_metadata(
         "original_score": doc.score,
         "rerank_score": rerank_score,
         "rerank_signals": signals,
+        "temporal_rerank_signals": {
+            "temporal_score": signals.get("temporal_score", 0.0),
+            "temporal_match": signals.get("temporal_match", 0.0),
+            "temporal_mismatch": signals.get("temporal_mismatch", 0.0),
+            "temporal_recency": signals.get("temporal_recency", 0.0),
+        },
     }
     return doc.model_copy(update={"score": rerank_score, "metadata": metadata})
 

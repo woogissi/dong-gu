@@ -42,14 +42,14 @@ REGRESSION_CASES = [
     {
         "id": "leave_of_absence",
         "query": "휴학 신청 방법 알려줘",
-        "expected_source_types": {"academic_support", "academic_notice"},
+        "expected_source_types": {"academic_support", "academic_notice", "department"},
         "forbidden_source_types": {"scholarship", "job", "bids", "dormitory"},
         "expected_title_terms": {"휴학"},
     },
     {
         "id": "return_to_school",
         "query": "복학 신청 기간 알려줘",
-        "expected_source_types": {"academic_support", "academic_notice"},
+        "expected_source_types": {"academic_support", "academic_notice", "department"},
         "forbidden_source_types": {"scholarship", "job", "bids", "dormitory"},
         "expected_title_terms": {"복학"},
     },

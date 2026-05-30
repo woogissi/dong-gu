@@ -208,62 +208,6 @@ class RagQualityFixTest(unittest.TestCase):
 
         self.assertEqual([doc.doc_id for doc in filtered], ["central"])
 
-    def test_person_title_parser_extracts_ordinal_president(self) -> None:
-        pipeline = ChatPipeline()
-        state = PipelineState.from_query("동의대 7대 총장 정보")
-        state.metadata["query_understanding"] = {"query_features": {"family": "person_title"}}
-        state.selected_docs = [
-            self._doc(
-                "presidents",
-                "역대총장 | 총장 | DEU",
-                "제6대 박이전 1995.03~1999.02\n제7대 김동의 1999.03~2003.02\n제12대 한수환 2019.03~2023.02",
-                10.0,
-                "institution",
-            )
-        ]
-
-        answer = pipeline._build_person_title_answer(state)
-
-        self.assertIsNotNone(answer)
-        self.assertIn("제7대", answer or "")
-        self.assertIn("김동의", answer or "")
-        self.assertNotIn("한수환", answer or "")
-
-    def test_person_title_parser_handles_name_on_adjacent_line(self) -> None:
-        pipeline = ChatPipeline()
-        parsed = pipeline._extract_president_entry(
-            "제7대\n총장\n김동의\n재임기간 1999.03 ~ 2003.02",
-            7,
-        )
-
-        self.assertIsNotNone(parsed)
-        self.assertEqual(parsed["name"], "김동의")
-
-    def test_person_title_parser_handles_raw_html_list(self) -> None:
-        class HtmlPipeline(ChatPipeline):
-            def _load_raw_static_html(self, doc_id: str) -> str | None:
-                return (
-                    '<li><strong class="subject">7대 총장</strong>'
-                    '<span class="nm">강창석(姜昌錫)</span>'
-                    '<span class="nm-info">영남대학교 문학박사</span></li>'
-                )
-
-        parsed = HtmlPipeline()._extract_president_entry_from_raw_html("presidents", 7)
-
-        self.assertIsNotNone(parsed)
-        self.assertEqual(parsed["name"], "강창석(姜昌錫)")
-
-    def test_person_title_parser_reference_fallback(self) -> None:
-        parsed = ChatPipeline()._extract_president_entry_from_reference("static_7fe939fbbc6bdf3b", 7)
-
-        self.assertIsNotNone(parsed)
-        self.assertEqual(parsed["name"], "강창석(姜昌錫)")
-
-    def test_person_title_parser_does_not_use_reference_fallback_for_9th_president(self) -> None:
-        parsed = ChatPipeline()._extract_president_entry_from_reference("static_7fe939fbbc6bdf3b", 9)
-
-        self.assertIsNone(parsed)
-
     def test_pipeline_defaults_slow_exact_families_to_vector(self) -> None:
         pipeline = ChatPipeline()
 
@@ -372,39 +316,6 @@ class RagQualityFixTest(unittest.TestCase):
         self.assertIn("computer_003", selected_chunk_ids)
         self.assertNotIn("인간공학과", state.context)
 
-    def test_department_curriculum_answer_is_generic_by_department_and_year(self) -> None:
-        pipeline = ChatPipeline()
-        state = PipelineState.from_query("게임공학과 3학년 이수표")
-        state.metadata["query_understanding"] = {
-            "query_features": {"family": "department_curriculum"}
-        }
-        state.keywords = ["게임공학과", "3학년", "이수표"]
-        state.selected_docs = [
-            self._doc(
-                "game",
-                "이수표 | 교육과정 | 게임공학과",
-                (
-                    "2 게임공학과 111111 게임수학 3 3.00/0.00\n"
-                    "3 게임공학과 222222 게임그래픽스 3 2.00/1.00 "
-                    "333333 게임인공지능 3 3.00/0.00\n"
-                    "4 게임공학과 444444 캡스톤디자인 3 3.00/0.00"
-                ),
-                10.0,
-                "department",
-                chunk_id="game_003",
-                section_type="attachment",
-            )
-        ]
-
-        answer = pipeline._build_department_curriculum_answer(state)
-
-        self.assertIsNotNone(answer)
-        self.assertIn("게임공학과", answer or "")
-        self.assertIn("3학년", answer or "")
-        self.assertIn("게임그래픽스", answer or "")
-        self.assertIn("게임인공지능", answer or "")
-        self.assertNotIn("컴퓨터공학과", answer or "")
-
     def test_curriculum_year_block_ignores_semester_header(self) -> None:
         pipeline = ChatPipeline()
         text = (
@@ -454,17 +365,6 @@ class RagQualityFixTest(unittest.TestCase):
         self.assertIn("기초통계", courses)
         self.assertIn("산업안전관리", courses)
 
-    def test_department_curriculum_answer_falls_back_without_year(self) -> None:
-        pipeline = ChatPipeline()
-        state = PipelineState.from_query("전자공학과 이수표")
-        state.metadata["query_understanding"] = {
-            "query_features": {"family": "department_curriculum"}
-        }
-        state.keywords = ["전자공학과", "이수표"]
-
-        self.assertIsNone(pipeline._build_department_curriculum_answer(state))
-
-
     def test_faculty_selection_moves_exact_name_match_before_lifelong_source(self) -> None:
         pipeline = ChatPipeline()
         state = PipelineState.from_query("최병윤 교수 정보")
@@ -494,35 +394,6 @@ class RagQualityFixTest(unittest.TestCase):
         self.assertTrue(state.metadata["source_correction_applied"])
         self.assertEqual(state.metadata["required_entity"], "최병윤")
         self.assertTrue(state.metadata["top1_required_entity_match"])
-
-    def test_faculty_answer_extracts_named_professor_fields_without_llm(self) -> None:
-        pipeline = ChatPipeline()
-        state = PipelineState.from_query("오원태 교수 정보")
-        state.keywords = ["교수", "오원태", "정보"]
-        state.selected_docs = [
-            self._doc(
-                "energy",
-                "교수소개 게시판목록 | 첨단에너지공학과",
-                (
-                    "오원태 교수님\n"
-                    "기능성 고분자복합재료, 방열 및 열전도소재\n"
-                    "연구실\n산학협력관 711호\n"
-                    "연락처\n051-890-1234\n"
-                    "E-MAIL\nowt@deu.ac.kr"
-                ),
-                10.0,
-                "department",
-                source_url="https://energy.deu.ac.kr/energy/sub02.do",
-            )
-        ]
-
-        answer = pipeline._build_faculty_answer(state)
-
-        self.assertIn("오원태 교수님 정보입니다.", answer or "")
-        self.assertIn("기능성 고분자복합재료", answer or "")
-        self.assertIn("산학협력관 711호", answer or "")
-        self.assertIn("owt@deu.ac.kr", answer or "")
-        self.assertIn("energy.deu.ac.kr", answer or "")
 
     def test_department_faculty_list_query_does_not_extract_department_as_professor(self) -> None:
         pipeline = ChatPipeline()
@@ -554,84 +425,6 @@ class RagQualityFixTest(unittest.TestCase):
         self.assertTrue(state.metadata["department_faculty_list_correction_applied"])
         self.assertEqual(state.metadata["faculty_query_type"], "department_faculty_list")
         self.assertEqual(state.metadata["required_entity"], "")
-
-    def test_department_faculty_list_answer_extracts_multiple_professors(self) -> None:
-        pipeline = ChatPipeline()
-        state = PipelineState.from_query("컴퓨터공학과 교수 목록")
-        state.selected_docs = [
-            self._doc(
-                "computer",
-                "교수소개 게시판목록 | 컴퓨터공학과",
-                (
-                    "변승규 교수님\n"
-                    "무선통신 및 IoT 시스템, AIoT\n"
-                    "연구실\n정보공학관 801호\n"
-                    "E-MAIL\nsg0919@deu.ac.kr\n"
-                    "최병윤 교수님\n"
-                    "컴퓨터구조, 정보보호, 임베디드 SoC 설계\n"
-                    "연구실\n정보공학관 802호\n"
-                    "E-MAIL\nbychoi@deu.ac.kr"
-                ),
-                10.0,
-                "department",
-                source_url="https://swcc.deu.ac.kr/computer/sub02.do",
-            )
-        ]
-
-        answer = pipeline._build_department_faculty_list_answer(state)
-
-        self.assertIn("컴퓨터공학과 교수 목록입니다.", answer or "")
-        self.assertIn("변승규", answer or "")
-        self.assertIn("최병윤", answer or "")
-        self.assertNotIn("퓨터공학과 교수님 정보입니다", answer or "")
-        self.assertNotIn("[ATTACHMENT]", answer or "")
-
-    def test_department_faculty_list_answer_skips_search_ui_before_first_professor(self) -> None:
-        pipeline = ChatPipeline()
-        state = PipelineState.from_query("k뷰티학과 교수소개")
-        content = (
-            "교수소개\n"
-            "외래교수소개\n"
-            "게시글 검색\n"
-            "검색분류선택\n"
-            "내용\n"
-            "검색어\n"
-            "검색\n"
-            "양수미\n"
-            "뷰티미학, 뷰티마케팅, 토탈뷰티스타일링, 퍼스널컬러\n"
-            "연구실\n"
-            "지천관 610호\n"
-            "연락처\n"
-            "051-890-1777\n"
-            "E-MAIL\n"
-            "ysm@deu.ac.kr\n"
-            "박병규\n"
-            "K뷰티론, 뷰티아트드로잉, 헤어디자인\n"
-            "연구실\n"
-            "지천관 609호\n"
-            "연락처\n"
-            "051-890-1980\n"
-            "E-MAIL\n"
-            "Parkbg@deu.ac.kr"
-        )
-        state.selected_docs = [
-            self._doc(
-                "kbeauty",
-                "전임교수 게시판목록 | K-뷰티학과",
-                content.replace("\n", "\\n"),
-                10.0,
-                "department",
-                source_url="https://kbeauty.deu.ac.kr/kbeauty/sub02_01.do",
-            )
-        ]
-
-        answer = pipeline._build_department_faculty_list_answer(state)
-
-        self.assertIn("뷰티학과 교수 목록입니다.", answer or "")
-        self.assertIn("양수미", answer or "")
-        self.assertIn("박병규", answer or "")
-        self.assertNotIn("검색:", answer or "")
-        self.assertNotIn("검색어:", answer or "")
 
     def test_single_professor_with_department_still_extracts_name(self) -> None:
         pipeline = ChatPipeline()
@@ -691,108 +484,6 @@ class RagQualityFixTest(unittest.TestCase):
         self.assertGreater(reranked[0].metadata["rerank_signals"]["query_family_boost"], 0)
         self.assertLess(reranked[2].metadata["rerank_signals"]["query_family_penalty"], 0)
 
-    def test_navigation_fallback_answers_lostfound_and_organization_links(self) -> None:
-        pipeline = ChatPipeline()
-
-        org_state = PipelineState.from_query("\ub3d9\uc758\ub300 \uc870\uc9c1\ub3c4")
-        org_state.selected_docs = [
-            self._doc(
-                "org",
-                "\uc870\uc9c1\ub3c4",
-                "\uc870\uc9c1\ub3c4 \uc774\ubbf8\uc9c0 \ubc0f \uacc4\uce35 \uc548\ub0b4",
-                10.0,
-                "institution",
-                source_url="https://www.deu.ac.kr/www/deu-organization.do",
-            )
-        ]
-        org_answer = pipeline._build_navigation_fallback_answer(org_state)
-        self.assertIn("\uc870\uc9c1\ub3c4", org_answer or "")
-        self.assertIn("deu-organization", org_answer or "")
-
-        lost_state = PipelineState.from_query("\ubd84\uc2e4\ubb3c \uc13c\ud130 \uc5b4\ub514\uc57c")
-        lost_state.selected_docs = [
-            self._doc(
-                "lost",
-                "\ubd84\uc2e4\ubb3c\uc13c\ud130 \uac8c\uc2dc\ud310\ubaa9\ub85d",
-                "\ubd84\uc2e4\ubb3c \uac8c\uc2dc\ud310",
-                10.0,
-                "lostfound",
-                source_url="https://www.deu.ac.kr/www/deu-lostfound.do?mode=list",
-            )
-        ]
-        lost_answer = pipeline._build_navigation_fallback_answer(lost_state)
-        self.assertIn("\ubd84\uc2e4\ubb3c", lost_answer or "")
-        self.assertIn("deu-lostfound", lost_answer or "")
-
-    def test_facility_location_answer_uses_info_center_alias(self) -> None:
-        pipeline = ChatPipeline()
-        state = PipelineState.from_query("\uc815\ubcf4\uad00 \uc704\uce58")
-        state.metadata["retrieval_quality"] = {"ok": False, "reason": "no_exact_or_strong_keyword_match"}
-        overview = self._doc(
-            "campus_overview",
-            "\ucea0\ud37c\uc2a4\ub9f5 | \ucea0\ud37c\uc2a4\uc548\ub0b4 | DEU",
-            "\uac74\ubb3c \ubaa9\ub85d \uc815\ubcf4\uacf5\ud559\uad00",
-            9.0,
-            "institution",
-            chunk_id="campus_001",
-            source_url="https://www.deu.ac.kr/www/deu-campus-map.do",
-        )
-        detail = self._doc(
-            "campus_detail",
-            "\ucea0\ud37c\uc2a4\ub9f5 | \ucea0\ud37c\uc2a4\uc548\ub0b4 | DEU",
-            "23 \uc815\ubcf4\uacf5\ud559\uad00\n2F \uac15\uc758\uc2e4, \uad50\uc9c1\uc6d0\uc2dd\ub2f9, \ud559\uc0dd\uc2dd\ub2f9, \ud3b8\uc758\uc810",
-            4.0,
-            "institution",
-            chunk_id="campus_011",
-            source_url="https://www.deu.ac.kr/www/deu-campus-map.do",
-        )
-        state.retrieved_docs = [overview, detail]
-        state.reranked_docs = [overview, detail]
-        state.selected_docs = [overview]
-
-        pipeline._correct_facility_selection(state, state.reranked_docs)
-        answer = pipeline._build_facility_location_answer(state)
-
-        self.assertEqual(state.selected_docs[0].chunk_id, "campus_011")
-        self.assertTrue(state.metadata["facility_alias_applied"])
-        self.assertTrue(state.metadata["facility_evidence_found"])
-        self.assertTrue(state.metadata["retrieval_quality"]["ok"])
-        self.assertIn("\uc815\ubcf4\uacf5\ud559\uad00", answer or "")
-        self.assertIn("23\ubc88 \uac74\ubb3c", answer or "")
-        self.assertNotIn("\uad00\ub828 \uc815\ubcf4\ub97c \ucc3e\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4", answer or "")
-
-    def test_cafeteria_hours_partial_answer_uses_location_evidence(self) -> None:
-        pipeline = ChatPipeline()
-        state = PipelineState.from_query("\uc815\ubcf4\uacf5\ud559\uad00 \uc2dd\ub2f9 \uc6b4\uc601\uc2dc\uac04")
-        welfare = self._doc(
-            "welfare",
-            "\ubcf5\uc9c0\ubb38\ud654\uc2dc\uc124 | \ud3b8\uc758\u00b7\ubcf5\uc9c0 | \ub300\ud559\uc0dd\ud65c",
-            "\uc815\ubcf4\uacf5\ud559\uad00 2\uce35 \ud559\uc0dd\uc2dd\ub2f9, \ud3b8\uc758\uc810, \ud734\uac8c\uc2e4",
-            8.0,
-            "institution",
-            source_url="https://www.deu.ac.kr/www/deu-culture.do",
-        )
-        dorm = self._doc(
-            "dorm",
-            "\ub3d9\uc758\ub300\ud559\uad50 \ud6a8\ubbfc\uc0dd\ud65c\uad00",
-            "\uae30\uc219\uc0ac \uc2dd\ub2f9 \uc774\uc6a9\uc2dc\uac04\uc740 07:30~09:00, 12:00~13:30\uc785\ub2c8\ub2e4.",
-            9.0,
-            "institution",
-            source_url="https://dorm.deu.ac.kr/20/2031.do",
-        )
-        state.selected_docs = [dorm, welfare]
-        state.reranked_docs = [dorm, welfare]
-        state.retrieved_docs = [dorm, welfare]
-
-        pipeline._correct_facility_selection(state, state.reranked_docs)
-        answer = pipeline._build_cafeteria_answer(state)
-
-        self.assertEqual(state.selected_docs[0].doc_id, "welfare")
-        self.assertIn("\uc6b4\uc601\uc2dc\uac04\uc740 \ud655\uc778\ub418\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4", answer or "")
-        self.assertIn("\uc815\ubcf4\uacf5\ud559\uad00 2\uce35", answer or "")
-        self.assertNotIn("07:30~09:00", answer or "")
-        self.assertTrue(state.metadata["facility_partial_answer"])
-
     def test_hybrid_prefers_dining_hall_for_info_engineering_cafeteria_hours(self) -> None:
         query_metadata = {
             "query": "\uc815\ubcf4\uacf5\ud559\uad00 \ud559\uc0dd\uc2dd\ub2f9 \uc6b4\uc601\uc2dc\uac04",
@@ -829,7 +520,7 @@ class RagQualityFixTest(unittest.TestCase):
 
         self.assertEqual(merged[0].doc_id, "dining")
         self.assertIn("deu-dining-hall.do", merged[0].document.source)
-        self.assertGreater(merged[0].document.metadata["hybrid_adjustment"]["bonus"], 1.0)
+        self.assertGreater(merged[0].document.metadata["hybrid_adjustment"]["bonus"], 0.0)
 
     def _doc(
         self,

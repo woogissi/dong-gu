@@ -14,27 +14,27 @@ _DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 _DEFAULT_OLLAMA_BASE_URL = "http://host.docker.internal:11434"
 _DEFAULT_LLAMA_MODEL = "llama3.2:3b"
 _DEFAULT_TIMEOUT_SECONDS = 90
-_DEFAULT_MAX_TOKENS = 512
+_DEFAULT_MAX_TOKENS = 800
 _DEFAULT_NUM_PREDICT = 256
 
 
-def generate_answer(prompt: str) -> str:
+def generate_answer(prompt: str, *, system_prompt: str | None = None) -> str:
     try:
-        return _generate_with_provider(prompt)
+        return _generate_with_provider(prompt, system_prompt=system_prompt)
     except Exception as exc:
         return build_extractive_fallback(prompt, error=str(exc))
 
 
-def _generate_with_provider(prompt: str) -> str:
+def _generate_with_provider(prompt: str, *, system_prompt: str | None = None) -> str:
     provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
     if provider == "openai":
-        return _generate_with_openai(prompt)
+        return _generate_with_openai(prompt, system_prompt=system_prompt)
     if provider == "ollama":
         return _generate_with_ollama(prompt)
     raise RuntimeError(f"Unsupported LLM_PROVIDER: {provider}")
 
 
-def _generate_with_openai(prompt: str) -> str:
+def _generate_with_openai(prompt: str, *, system_prompt: str | None = None) -> str:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is not set.")
@@ -44,9 +44,17 @@ def _generate_with_openai(prompt: str) -> str:
     timeout = float(os.getenv("OPENAI_TIMEOUT_SECONDS", str(_DEFAULT_TIMEOUT_SECONDS)))
     max_tokens = int(os.getenv("OPENAI_MAX_TOKENS", str(_DEFAULT_MAX_TOKENS)))
 
+    if system_prompt:
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt},
+        ]
+    else:
+        messages = [{"role": "user", "content": prompt}]
+
     payload = {
         "model": model,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": messages,
         "temperature": 0.2,
         "top_p": 0.9,
         "max_tokens": max_tokens,

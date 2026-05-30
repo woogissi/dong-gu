@@ -11,7 +11,11 @@ class RerankerTest(unittest.TestCase):
                 doc_id="general_notice",
                 chunk_id="general_notice_1",
                 title="General campus notice",
-                content="Registration office hours and campus announcements.",
+                content=(
+                    "Registration office hours and campus announcements. "
+                    "Please visit the administration building for details. "
+                    "Office is open Monday through Friday 09:00 to 18:00."
+                ),
                 score=10.0,
                 category="notice",
                 metadata={"source_type": "notice", "published_at": "2026-01-01"},
@@ -20,7 +24,11 @@ class RerankerTest(unittest.TestCase):
                 doc_id="scholarship_notice",
                 chunk_id="scholarship_notice_1",
                 title="Scholarship application period",
-                content="Scholarship application documents and deadline information.",
+                content=(
+                    "Scholarship application documents and deadline information. "
+                    "Students must submit required documents before the deadline. "
+                    "Application period runs from March 1st to March 31st."
+                ),
                 score=5.0,
                 category="academic_notice",
                 metadata={"source_type": "academic_notice", "published_at": "2026-04-01"},
@@ -49,6 +57,384 @@ class RerankerTest(unittest.TestCase):
         reranked = rerank_documents(docs, query="", keywords=[])
 
         self.assertEqual([doc.doc_id for doc in reranked], ["a", "b"])
+
+    def test_temporal_rerank_prefers_matching_year_and_semester(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="course_2025",
+                chunk_id="course_2025_1",
+                title="2025\ub144 1\ud559\uae30 \uc218\uac15\uc2e0\uccad \uc548\ub0b4",
+                content="2025\ub144 1\ud559\uae30 \uc218\uac15\uc2e0\uccad \uae30\uac04",
+                score=5.0,
+                metadata={"published_at": "2025-01-10"},
+            ),
+            RetrievedDoc(
+                doc_id="course_2026",
+                chunk_id="course_2026_1",
+                title="2026\ub144 1\ud559\uae30 \uc218\uac15\uc2e0\uccad \uc548\ub0b4",
+                content="2026\ub144 1\ud559\uae30 \uc218\uac15\uc2e0\uccad \uae30\uac04",
+                score=5.0,
+                metadata={"published_at": "2026-01-10"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="2026\ub144 1\ud559\uae30 \uc218\uac15\uc2e0\uccad",
+            keywords=["2026\ub144", "1\ud559\uae30", "\uc218\uac15\uc2e0\uccad"],
+            ranking_hints={
+                "temporal_signals": {
+                    "years": ["2026"],
+                    "semesters": ["1\ud559\uae30"],
+                    "relative_dates": [],
+                    "recency_intent": False,
+                    "has_explicit_temporal": True,
+                }
+            },
+        )
+
+        self.assertEqual(reranked[0].doc_id, "course_2026")
+        self.assertGreater(reranked[0].metadata["rerank_signals"]["temporal_score"], 0)
+        self.assertLess(reranked[1].metadata["rerank_signals"]["temporal_score"], 0)
+        self.assertIn("temporal_rerank_signals", reranked[0].metadata)
+
+    def test_recency_intent_prefers_recent_published_document(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="scholarship_old",
+                chunk_id="scholarship_old_1",
+                title="\uc7a5\ud559 \uacf5\uc9c0",
+                content="\uc7a5\ud559 \uc2e0\uccad \uc548\ub0b4",
+                score=5.0,
+                metadata={"published_at": "2024-01-01"},
+            ),
+            RetrievedDoc(
+                doc_id="scholarship_new",
+                chunk_id="scholarship_new_1",
+                title="\uc7a5\ud559 \uacf5\uc9c0",
+                content="\uc7a5\ud559 \uc2e0\uccad \uc548\ub0b4",
+                score=5.0,
+                metadata={"published_at": "2026-05-20"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="\ucd5c\uc2e0 \uc7a5\ud559 \uacf5\uc9c0",
+            keywords=["\ucd5c\uc2e0", "\uc7a5\ud559", "\uacf5\uc9c0"],
+            ranking_hints={
+                "temporal_signals": {
+                    "years": [],
+                    "semesters": [],
+                    "relative_dates": [],
+                    "recency_intent": True,
+                    "has_explicit_temporal": True,
+                }
+            },
+        )
+
+        self.assertEqual(reranked[0].doc_id, "scholarship_new")
+        self.assertGreater(
+            reranked[0].metadata["rerank_signals"]["temporal_score"],
+            reranked[1].metadata["rerank_signals"]["temporal_score"],
+        )
+
+    def test_department_metadata_does_not_create_category_match(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="department_noise",
+                chunk_id="department_noise_1",
+                title="General notice",
+                content="General application information.",
+                score=1.0,
+                metadata={"department": "\uc7a5\ud559\uc9c0\uc6d0\ud300", "source_type": "notice"},
+            )
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="\uc7a5\ud559\uae08 \uc2e0\uccad",
+            keywords=["\uc7a5\ud559\uae08", "\uc2e0\uccad"],
+            category="scholarship",
+            ranking_hints={"category_values": ["\uc7a5\ud559"]},
+        )
+
+        self.assertEqual(reranked[0].metadata["rerank_signals"]["category_match"], 0.0)
+
+    def test_ranking_hints_still_drive_category_match_by_source_type(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="scholarship_source",
+                chunk_id="scholarship_source_1",
+                title="Scholarship notice",
+                content="Scholarship application details.",
+                score=1.0,
+                metadata={"source_type": "scholarship", "department": "\ud559\uacfc\uc870\uad50"},
+            )
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="scholarship application",
+            keywords=["scholarship", "application"],
+            filters={},
+            ranking_hints={"document_category": ["scholarship"]},
+        )
+
+        self.assertEqual(reranked[0].metadata["rerank_signals"]["category_match"], 0.7)
+
+    def test_request_injected_doc_category_does_not_create_category_match(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="library_job",
+                chunk_id="library_job_1",
+                title="Library staff job posting",
+                content="Hiring notice for library operations.",
+                score=1.0,
+                category="library",
+                metadata={"source_type": "department"},
+            )
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="library hours",
+            keywords=["library", "hours"],
+            category="library",
+            filters={},
+            ranking_hints={"document_category": ["library"]},
+        )
+
+        self.assertEqual(reranked[0].metadata["rerank_signals"]["category_match"], 0.0)
+
+    def test_library_source_type_still_creates_category_match(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="library_page",
+                chunk_id="library_page_1",
+                title="Library hours",
+                content="Library operating hours.",
+                score=1.0,
+                category="library",
+                metadata={"source_type": "library"},
+            )
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="library hours",
+            keywords=["library", "hours"],
+            filters={},
+            ranking_hints={"document_category": ["library"]},
+        )
+
+        self.assertEqual(reranked[0].metadata["rerank_signals"]["category_match"], 0.7)
+
+    def test_library_query_penalizes_department_job_postings(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="library_job",
+                chunk_id="library_job_1",
+                title="\ub3c4\uc11c\uad00 \uc6b4\uc601\uad00\ub9ac \uc0ac\ubb34\uc6d0 \ucc44\uc6a9 \uacf5\uace0",
+                content="\uae30\uac04\uc81c \uc0ac\uc11c\uc9c1 \uadfc\ub85c\uc790 \ucc44\uc6a9",
+                score=5.0,
+                metadata={"source_type": "department"},
+            ),
+            RetrievedDoc(
+                doc_id="library_page",
+                chunk_id="library_page_1",
+                title="\ub3c4\uc11c\uad00\uc18c\uac1c",
+                content="\ub3c4\uc11c\uad00 \uc6b4\uc601\uc2dc\uac04 \uc548\ub0b4",
+                score=5.0,
+                metadata={"source_type": "library"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="\ub3c4\uc11c\uad00 \uc6b4\uc601\uc2dc\uac04 \uc54c\ub824\uc918",
+            keywords=["\ub3c4\uc11c\uad00", "\uc6b4\uc601\uc2dc\uac04"],
+            ranking_hints={"document_category": ["library"]},
+        )
+
+        self.assertEqual(reranked[0].doc_id, "library_page")
+        self.assertLess(reranked[1].metadata["rerank_signals"]["query_family_penalty"], 0)
+
+    def test_cafeteria_query_prefers_welfare_cafeteria_over_dormitory(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="dormitory_cafeteria",
+                chunk_id="dormitory_cafeteria_1",
+                title="\ub3d9\uc758\ub300\ud559\uad50 \ud6a8\ubbfc\uc0dd\ud65c\uad00",
+                content="\uc0dd\ud65c\uad00 \uc2dd\ub2f9 \uc6b4\uc601\uc2dc\uac04 \uc548\ub0b4",
+                score=5.0,
+                metadata={"source_type": "dormitory"},
+            ),
+            RetrievedDoc(
+                doc_id="campus_cafeteria",
+                chunk_id="campus_cafeteria_1",
+                title="\uad50\ub0b4\uc2dd\ub2f9 | \ud3b8\uc758\u00b7\ubcf5\uc9c0 | \ub300\ud559\uc0dd\ud65c",
+                content="\ud559\uc0dd\uc2dd\ub2f9 \uc6b4\uc601\uc2dc\uac04 \uc548\ub0b4",
+                score=5.0,
+                metadata={"source_type": "welfare"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="\ud559\uc0dd\uc2dd\ub2f9 \uc6b4\uc601\uc2dc\uac04 \uc54c\ub824\uc918",
+            keywords=["\ud559\uc0dd\uc2dd\ub2f9", "\uc6b4\uc601\uc2dc\uac04"],
+            ranking_hints={"document_category": ["institution", "static"]},
+        )
+
+        self.assertEqual(reranked[0].doc_id, "campus_cafeteria")
+        self.assertLess(reranked[1].metadata["rerank_signals"]["query_family_penalty"], 0)
+
+    def test_dormitory_query_penalizes_foreign_exchange_notice_when_not_requested(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="foreign_dorm",
+                chunk_id="foreign_dorm_1",
+                title="2026-1\ud559\uae30 \uc678\uad6d\uc778 \uc720\ud559\uc0dd \ud589\ubcf5\uae30\uc219\uc0ac \uc218\uc694\uc870\uc0ac \uc2e0\uccad \uc548\ub0b4",
+                content="\uae30\uc219\uc0ac \uc2e0\uccad \uae30\uac04",
+                score=5.0,
+                metadata={"source_type": "exchange"},
+            ),
+            RetrievedDoc(
+                doc_id="general_dorm",
+                chunk_id="general_dorm_1",
+                title="\ub3d9\uc758\ub300\ud559\uad50 \ud6a8\ubbfc\uc0dd\ud65c\uad00",
+                content="\uae30\uc219\uc0ac \uc785\uc0ac \uc2e0\uccad \uae30\uac04 \uc548\ub0b4",
+                score=5.0,
+                metadata={"source_type": "dormitory"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="\uae30\uc219\uc0ac \uc2e0\uccad \uae30\uac04 \uc54c\ub824\uc918",
+            keywords=["\uae30\uc219\uc0ac", "\uc2e0\uccad", "\uae30\uac04"],
+            category="dormitory",
+            ranking_hints={"document_category": ["dormitory", "notice"]},
+        )
+
+        self.assertEqual(reranked[0].doc_id, "general_dorm")
+        self.assertLess(reranked[1].metadata["rerank_signals"]["query_family_penalty"], 0)
+
+    def test_foreign_dormitory_query_keeps_exchange_notice_available(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="foreign_dorm",
+                chunk_id="foreign_dorm_1",
+                title="2026-1\ud559\uae30 \uc678\uad6d\uc778 \uc720\ud559\uc0dd \ud589\ubcf5\uae30\uc219\uc0ac \uc218\uc694\uc870\uc0ac \uc2e0\uccad \uc548\ub0b4",
+                content="\uc678\uad6d\uc778 \uc720\ud559\uc0dd \uae30\uc219\uc0ac \uc2e0\uccad \uae30\uac04",
+                score=5.0,
+                metadata={"source_type": "exchange"},
+            )
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="\uc678\uad6d\uc778 \uc720\ud559\uc0dd \uae30\uc219\uc0ac \uc2e0\uccad",
+            keywords=["\uc678\uad6d\uc778", "\uc720\ud559\uc0dd", "\uae30\uc219\uc0ac", "\uc2e0\uccad"],
+            category="dormitory",
+            ranking_hints={"document_category": ["dormitory", "notice"]},
+        )
+
+        self.assertEqual(reranked[0].metadata["rerank_signals"]["query_family_penalty"], 0.0)
+
+    def test_general_graduation_prefers_policy_over_department_notice(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="department_graduation_notice",
+                chunk_id="department_graduation_notice_1",
+                title="컴퓨터공학과 졸업예정자 졸업논문 제출 안내",
+                content="졸업예정자 졸업논문 제출 일정 안내",
+                score=5.0,
+                metadata={"source_type": "department"},
+            ),
+            RetrievedDoc(
+                doc_id="graduation_policy",
+                chunk_id="graduation_policy_1",
+                title="졸업인증제도 | 학사정보",
+                content="졸업요건 졸업기준 졸업학점 이수학점 안내",
+                score=5.0,
+                metadata={"source_type": "academic_support"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="졸업요건 알려줘",
+            keywords=["졸업요건", "졸업", "요건"],
+            category="graduation",
+            ranking_hints={"document_category": ["academic_notice", "academic_support", "institution"]},
+        )
+
+        self.assertEqual(reranked[0].doc_id, "graduation_policy")
+        self.assertLess(reranked[1].metadata["rerank_signals"]["query_family_penalty"], 0)
+
+    def test_department_graduation_credit_prefers_curriculum_evidence(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="career_page",
+                chunk_id="career_page_1",
+                title="진로 및 취업 현황 | 컴퓨터공학과",
+                content="컴퓨터공학과 진로 약사 취업 현황 안내",
+                score=5.0,
+                metadata={"source_type": "department"},
+            ),
+            RetrievedDoc(
+                doc_id="curriculum_page",
+                chunk_id="curriculum_page_1",
+                title="이수표 | 교육과정 | 컴퓨터공학과",
+                content="컴퓨터공학과 졸업학점 이수학점 전공필수 교양필수 졸업기준",
+                score=5.0,
+                metadata={"source_type": "department"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="컴퓨터공학과 졸업학점 알려줘",
+            keywords=["컴퓨터공학과", "졸업학점", "학점"],
+            category="graduation",
+            ranking_hints={"query_family": "department_curriculum", "document_category": ["department"]},
+        )
+
+        self.assertEqual(reranked[0].doc_id, "curriculum_page")
+        self.assertGreater(reranked[0].metadata["rerank_signals"]["query_family_boost"], 0)
+        self.assertLess(reranked[1].metadata["rerank_signals"]["query_family_penalty"], 0)
+
+    def test_department_curriculum_query_still_prefers_curriculum_page(self) -> None:
+        docs = [
+            RetrievedDoc(
+                doc_id="career_page",
+                chunk_id="career_page_1",
+                title="학과 약사 | 컴퓨터공학과",
+                content="컴퓨터공학과 약사 및 진로 안내",
+                score=5.0,
+                metadata={"source_type": "department"},
+            ),
+            RetrievedDoc(
+                doc_id="curriculum_page",
+                chunk_id="curriculum_page_1",
+                title="이수표 | 교육과정 | 컴퓨터공학과",
+                content="컴퓨터공학과 교육과정 이수표 전공필수",
+                score=5.0,
+                metadata={"source_type": "department"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="컴퓨터공학과 교육과정 알려줘",
+            keywords=["컴퓨터공학과", "교육과정"],
+            category="department",
+            ranking_hints={"query_family": "department_curriculum", "document_category": ["department"]},
+        )
+
+        self.assertEqual(reranked[0].doc_id, "curriculum_page")
 
     def test_dormitory_query_prefers_dormitory_source_over_housing_scholarship(self) -> None:
         docs = [

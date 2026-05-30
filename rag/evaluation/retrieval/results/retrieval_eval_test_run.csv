@@ -1,0 +1,35 @@
+﻿query_id,query,category,department,normalized_query,rewritten_query,intent,retrieval_strategy,fallback_used,retrieved_count,selected_count,top1_hit,top3_hit,top5_hit,selected_context_hit,irrelevant_document_included,answer_grounded_in_selected_context,failure_stage,answer_preview
+q001,수강신청 기간 알려줘,course_registration,,수강신청 기간 알려줘,수강신청 학사공지 기간 일정 마감일 수업,INFO,vector,False,20,2,False,False,False,True,False,True,vector_search_issue,"2026학년도 1학기 수강신청 기간은 다음과 같습니다:
+
+1. 1학년 신입생: 03.01.(일) 10:00 ~ 17:00, 03.02.(월) 13:00 ~ 17:00
+2. 2학년: 02.19.(목) ~ 02.24.(화) 10:00 ~ 17:00
+3. 3학년: 02.20.(금) ~ 02.24.(화) 10:00 ~ 17:00
+4. 4∼5학년: 02.23.(월) ~ 02.24.(화) 10:00 ~ 17:00
+5. 2∼5학년: 02.24.(화) 10:00 ~ 17:00
+
+각 학년별로 수강신청 기간을 확인하시기 바랍니다."
+q002,수강정정 기간이 언제야,course_registration,,수강정정 기간이 언제야,수강신청 학사공지 기간 수강정정 일정 마감일,INFO,vector,False,20,3,False,False,False,False,False,True,vector_search_issue,"수강정정 기간은 2026년 3월 5일(목)부터 3월 6일(금), 그리고 3월 9일(월)까지입니다. 정정 가능 시간은 10:00부터 17:00까지입니다. 수강정정 시 인원 초과로 인해 신청이 불가할 수 있으니 주의하시기 바랍니다."
+q003,휴학 신청 방법 알려줘,academic_admin,,휴학 신청 방법 알려줘,휴학 신청 방법 절차 제출처 필요서류,INFO,hybrid,False,20,3,True,True,True,True,False,True,,"휴학 신청 방법은 다음과 같습니다:
+
+1. 신청 기한: 
+   - 등록 휴학: 2026년 2월 24일(화) 16:00까지
+   - 미등록 휴학: 2026년 2월 27일(금) 17:00까지
+
+2. 신청 방법: 
+   - 학생경력관리포털에 접속하여 [학생정보시스템] → [개인정보] → [휴학신청]을 이용합니다.
+
+3. 유의사항: 
+   - 군 입대 예정 학생은 먼저 '가사 휴학'으로 신청 후, 입영통지서가 발급되면 '군 휴학'으로 변경해야 합니다.
+   - 미등록 휴학 시 장학금이 취소될 수 있으니 사전에 확인이 필요합니다."
+q004,복학 신청 기간 언제야,academic_admin,,복학 신청 기간 언제야,복학 신청 기간 일정 마감일,INFO,hybrid,False,20,3,False,False,True,True,False,True,,"복학 신청 기간은 다음과 같습니다:
+
+- 2026년 1월 20일(화) 10시부터 3월 26일(목) 17시까지입니다.
+
+신청 대상자는 2026학년도 1학기 일반휴학자 및 입대휴학 복학예정자입니다. 조기복학자는 2026-2학기 이전의 2, 3, 4, 5학년 복학예정자와 2026년 3월 3일(화)부터 3월 26일(목)까지 전역하는 입대휴학자입니다."
+q005,졸업요건 알려줘,graduation,,졸업요건 알려줘,졸업요건 자격 대상,INFO,hybrid,False,20,3,False,False,False,True,False,True,vector_search_issue,"학사과정 졸업 요건은 다음과 같습니다:
+
+1. 졸업학점 요건을 충족해야 하며, 졸업학기의 전체 평점평균이 3.0 이상이어야 합니다.
+2. 졸업논문 등은 면제됩니다.
+3. 졸업 요건을 충족하지 못한 경우, 자격이 상실될 수 있습니다.
+
+자세한 내용은 학사정보 종합안내 가이드를 참고하시기 바랍니다."

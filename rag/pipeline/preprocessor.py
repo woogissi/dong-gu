@@ -78,7 +78,18 @@ def _protected_query_terms(query: str, keywords: list[str]) -> list[str]:
 
 def _missing_protected_terms(text: str, protected_terms: list[str]) -> list[str]:
     normalized = text or ""
-    return [term for term in protected_terms if term and term not in normalized]
+    missing = []
+    for term in protected_terms:
+        if not term:
+            continue
+        if term in normalized:
+            continue
+        # 정규화 확장형이 텍스트에 있으면 손실 아님 (예: "정보관" → "정보공학관")
+        expanded = normalize_query(term)
+        if expanded and expanded != term and expanded in normalized:
+            continue
+        missing.append(term)
+    return missing
 
 
 def _append_missing_terms(text: str, missing_terms: list[str]) -> str:

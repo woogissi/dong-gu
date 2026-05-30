@@ -50,6 +50,24 @@ class PipelineState:
         return cls(original_query=query)
 
     def to_log_dict(self) -> dict[str, Any]:
+        retrieval_strategy_log = self.metadata.get("retrieval_strategy_log", {})
+        request_filters = (
+            retrieval_strategy_log.get("filters", self.filters)
+            if isinstance(retrieval_strategy_log, dict)
+            else self.filters
+        )
+        ranking_hints = (
+            retrieval_strategy_log.get("ranking_hints", {})
+            if isinstance(retrieval_strategy_log, dict)
+            else {}
+        )
+        temporal_signals = (
+            retrieval_strategy_log.get("temporal_signals")
+            if isinstance(retrieval_strategy_log, dict)
+            else None
+        )
+        if temporal_signals is None and isinstance(ranking_hints, dict):
+            temporal_signals = ranking_hints.get("temporal_signals", {})
         return {
             "original_query": self.original_query,
             "primary_intent": self.primary_intent,
@@ -59,11 +77,13 @@ class PipelineState:
             "query_bundle": self.query_bundle,
             "keywords": self.keywords,
             "entities": self.entities,
-            "filters": self.filters,
+            "filters": request_filters,
+            "ranking_hints": ranking_hints,
+            "temporal_signals": temporal_signals or {},
             "category": self.category,
             "retrieval_strategy": self.retrieval_strategy,
             "retrieval_top_k": self.retrieval_top_k,
-            "retrieval_strategy_log": self.metadata.get("retrieval_strategy_log", {}),
+            "retrieval_strategy_log": retrieval_strategy_log,
             "fallback_used": self.fallback_used,
             "retrieved_doc_count": len(self.retrieved_docs),
             "reranked_doc_count": len(self.reranked_docs),

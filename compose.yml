@@ -33,6 +33,7 @@ services:
       - .env
     environment:
       PYTHONPATH: /app
+      RAG_LOG_BRANCH_CANDIDATES: "1"
     command: uvicorn rag.app.main:app --host 0.0.0.0 --port 8001 --reload
     depends_on:
       postgres:
@@ -72,7 +73,9 @@ services:
       - .env
     environment:
       - HWP5TXT_PATH=hwp5txt
-      - CRAWLER_ALLOW_INSECURE_SSL=${CRAWLER_ALLOW_INSECURE_SSL:-0}
+      - CRAWLER_ALLOW_INSECURE_SSL=${CRAWLER_ALLOW_INSECURE_SSL:-1}
+      - CRAWLER_ALLOW_NEEDS_REVIEW_ATTACHMENT_CHUNKS=1
+      - CRAWLER_BLOCK_SOURCE_DUPLICATE_CHUNKS=1
       # - CRAWLER_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB}
     depends_on:
       postgres:

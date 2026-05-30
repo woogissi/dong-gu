@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Iterable
 
-from rag.preprocess.domain_knowledge import DOMAIN_BLACKLIST, DOMAIN_RULES, ENTITY_ALIASES
+from rag.preprocess.domain_knowledge import DOMAIN_BLACKLIST, DOMAIN_PRIORITY_ORDER, DOMAIN_RULES, ENTITY_ALIASES
 from rag.preprocess.dynamic_entities import get_dynamic_entity_aliases
 
 
@@ -14,6 +14,7 @@ _TOKEN_PATTERN = re.compile(r"[\uac00-\ud7a3A-Za-z0-9]+")
 _BUILDING_NO_PATTERN = re.compile(r"\d+\s*\ubc88\s*\uac74\ubb3c")
 _FLOOR_PATTERN = re.compile(r"\d+\s*\uce35")
 _YEAR_MAJOR_PATTERN = re.compile(r"\d+\s*\ud559\ub144")
+_DEPARTMENT_ANCHOR_PATTERN = re.compile(r"[\uac00-\ud7a3A-Za-z0-9]+(?:\ud559\uacfc|\uc804\uacf5|\ud559\ubd80)")
 
 GENERIC_QUERY_TERMS = {
     "동의대",
@@ -52,9 +53,16 @@ GENERIC_QUERY_TERMS.update(GENERIC_FAMILY_INTENT_TERMS)
 
 PROTECTED_LITERAL_TERMS = (
     "정보공학관",
+    "정보관",
     "국제관",
     "산학협력관",
     "의료보건관",
+    "지천관",
+    "상영관",
+    "학생회관",
+    "수덕전",
+    "수덕관",
+    "콜라보라운지",
     "컴퓨터공학과",
     "컴공",
     "이수표",
@@ -94,9 +102,16 @@ FACILITY_TERMS = {
     "건물",
     "건물번호",
     "정보공학관",
+    "정보관",
     "국제관",
     "산학협력관",
     "의료보건관",
+    "지천관",
+    "상영관",
+    "학생회관",
+    "수덕전",
+    "수덕관",
+    "콜라보라운지",
     "가야캠퍼스",
     "가야 캠퍼스",
     "찾아오시는길",
@@ -122,6 +137,16 @@ SCHEDULE_TERMS = {
     "기말고사",
     "휴강일",
     "시험",
+    # 개강/종강/방학 관련
+    "개강",
+    "개강일",
+    "종강",
+    "종강일",
+    "하계방학",
+    "동계방학",
+    "방학",
+    # 졸업식 → 학위수여식과 동의어, scheduleList에 있음
+    "학위수여식",
 }
 
 SEASONAL_COURSE_TERMS = {
@@ -155,6 +180,16 @@ SPECIFIC_SCHOLARSHIP_TERMS = {
     "동의복지장학금",
     "근로장학금",
     "국가근로장학금",
+    "형제장학금",
+    "나눔희망장학금",
+    "나눔장학금",
+    "희망장학금",
+    "주거안정장학금",
+    "국가고시합격장학금",
+    "장학사정관제장학금",
+    "다전공활성화장학금",
+    "연구진흥장학금",
+    "인문100년장학금",
 }
 
 SPECIFIC_SCHOLARSHIP_TERMS.update(
@@ -165,6 +200,9 @@ SPECIFIC_SCHOLARSHIP_TERMS.update(
         "성적우수",
         "근로장학금",
         "국가근로장학금",
+        "형제 장학금",
+        "나눔, 희망장학금",
+        "나눔·희망장학금",
     }
 )
 
@@ -350,6 +388,12 @@ def detect_query_family(query: str, terms: Iterable[str] | None = None) -> str:
     values.update(str(term).casefold() for term in (terms or []) if term)
     joined = " ".join(values)
     raw_text = (query or "").casefold()
+    if (
+        "\uc878\uc5c5" in raw_text
+        and any(term in raw_text for term in ("\ud559\uc810", "\uc774\uc218\ud559\uc810", "\uc878\uc5c5\ud559\uc810", "\uc878\uc5c5\uae30\uc900"))
+        and _has_department_anchor(values, raw_text)
+    ):
+        return "department_curriculum"
     if "졸업" in raw_text and any(term in raw_text for term in ("학점", "요건", "이수", "자격", "심사")):
         return "graduation"
     if any(term.casefold() in raw_text for term in CAMPUS_ADDRESS_TERMS):
@@ -397,6 +441,19 @@ def detect_query_family(query: str, terms: Iterable[str] | None = None) -> str:
     return "general"
 
 
+def _has_department_anchor(values: set[str], raw_text: str) -> bool:
+    if _DEPARTMENT_ANCHOR_PATTERN.search(raw_text or ""):
+        return True
+    return any(value.endswith(("\ud559\uacfc", "\uc804\uacf5", "\ud559\ubd80")) for value in values)
+
+
+def _domain_priority(domain: str) -> int:
+    try:
+        return DOMAIN_PRIORITY_ORDER.index(domain)
+    except ValueError:
+        return len(DOMAIN_PRIORITY_ORDER)
+
+
 def detect_domain(query: str, terms: Iterable[str] | None = None) -> tuple[str | None, list[str]]:
     query_text = (query or "").casefold()
     term_text = " ".join(str(term) for term in (terms or []) if term).casefold()
@@ -420,7 +477,11 @@ def detect_domain(query: str, terms: Iterable[str] | None = None) -> tuple[str |
                     if text and text.casefold() not in DOMAIN_BLACKLIST and text.casefold() in haystack:
                         score += 2 if text.casefold() in query_text else 1
                         matched_terms.append(text)
-        if score > best_score:
+        if score > best_score or (
+            score == best_score
+            and best_domain is not None
+            and _domain_priority(domain) < _domain_priority(best_domain)
+        ):
             best_domain = domain
             best_score = score
             hits = [f"domain:{domain}:{term}" for term in ordered_unique(matched_terms)]
@@ -512,7 +573,9 @@ def _required_terms_for_family(family: str, strong_terms: list[str], protected_t
     if family == "welfare_facility":
         return [term for term in source if term in WELFARE_FACILITY_TERMS or any(marker in term for marker in ("식당", "헌혈", "편의"))][:4]
     if family == "academic_schedule":
-        return [term for term in source if term in SCHEDULE_TERMS or "보강" in term or "학사일정" in term or "고사" in term][:4]
+        return [term for term in source if term in SCHEDULE_TERMS or any(
+            marker in term for marker in ("보강", "학사일정", "고사", "개강", "종강", "방학", "학위수여식")
+        )][:4]
     if family == "seasonal_course_registration":
         return [term for term in source if "계절" in term or "수강" in term or term in SEASONAL_COURSE_TERMS][:4]
     if family == "course_registration":

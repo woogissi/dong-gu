@@ -31,6 +31,9 @@ class URLClassifier:
         if ext in DOWNLOAD_EXTENSIONS or query_ext in DOWNLOAD_EXTENSIONS:
             return "attachment"
 
+        if "etcresourcedown" in path or "etcresourceopen" in path:
+            return "attachment"
+
         if "download" in path:
             return "attachment"
 
@@ -46,6 +49,11 @@ class URLClassifier:
         if "article.offset" in query:
             return "board_list"
 
+        # 학과 교수 소개 게시판: /sub02.do, /sub02_01.do 등
+        import re
+        if re.search(r"/sub02(_\d+)?\.do$", path):
+            return "board_list"
+
         if path.endswith(".do"):
             return "static_page"
 
@@ -55,6 +63,8 @@ class URLClassifier:
         lower = url.lower()
         host = urlparse(url).netloc.lower()
 
+        if "schedulelist" in lower and "advising" not in host:
+            return "academic_calendar"
         if "deu-notice.do" in lower:
             return "notice"
         if "deu-scholarship.do" in lower:

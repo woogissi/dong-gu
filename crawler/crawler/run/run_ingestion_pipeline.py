@@ -1,5 +1,6 @@
 # crawler/run/run_ingestion_pipeline.py
 
+import argparse
 import json
 from pathlib import Path
 
@@ -92,13 +93,23 @@ def record_chunk_state(doc: dict, status: str, chunk_path: Path | None = None, e
         log_error(f"[CHUNK STATE ERROR] doc_id={doc.get('doc_id')} error={logging_error}")
 
 
-def collect_curated_documents() -> list[Path]:      # chunking 대상이 될 curated 문서 파일들을 전부 모으는 함수
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="curated 문서를 청킹합니다.", add_help=False)
+    parser.add_argument("-h", "--help", action="help", help="도움말을 보여주고 종료합니다.")
+    parser.add_argument("--limit", type=int, default=None, help="처리할 최대 문서 수.")
+    parser.add_argument("--source-type", type=str, default=None, help="특정 source_type만 처리합니다.")
+    return parser.parse_args()
+
+
+def collect_curated_documents(source_type: str | None = None) -> list[Path]:      # chunking 대상이 될 curated 문서 파일들을 전부 모으는 함수
     doc_paths = []
     if not CURATED_DIR.exists():
         return doc_paths
 
     for source_type_dir in CURATED_DIR.iterdir():   # curated/documents 하위 폴더 탐색
         if not source_type_dir.is_dir():
+            continue
+        if source_type and source_type_dir.name != source_type:
             continue
 
         for file_path in source_type_dir.glob("*.json"):        # 각 source_type 폴더 안의 JSON 문서 탐색
@@ -117,7 +128,10 @@ def chunk_path_for(source_type: str, doc_id: str) -> Path:
 
 
 def run_ingestion():                # 전체 ingestion 파이프라인 함수
-    doc_paths = collect_curated_documents()         # chunking할 curated 문서 파일들을 모으고, 몇 개인지 출력
+    args = parse_args()
+    doc_paths = collect_curated_documents(source_type=args.source_type)
+    if args.limit:
+        doc_paths = doc_paths[:args.limit]
     print(f"[INFO] curated documents found: {len(doc_paths)}")
 
     for path in doc_paths:

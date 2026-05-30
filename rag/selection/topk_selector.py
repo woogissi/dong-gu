@@ -101,6 +101,9 @@ def _rejection(doc: RetrievedDoc, reason: str) -> dict:
     }
 
 
+_DIVERSITY_EXEMPT_SOURCE_TYPES = {"static", "index", "menu"}
+
+
 def _would_overfill_source_type(
     doc: RetrievedDoc,
     selected: list[RetrievedDoc],
@@ -112,6 +115,9 @@ def _would_overfill_source_type(
         return False
     source_type = _source_type(doc)
     if not source_type:
+        return False
+    # 캠퍼스 안내·학과정보 등 static 문서는 동일 source_type 3개가 연속으로 필요할 수 있음
+    if source_type in _DIVERSITY_EXEMPT_SOURCE_TYPES:
         return False
     same_type_count = sum(1 for selected_doc in selected if _source_type(selected_doc) == source_type)
     if same_type_count < 2:
@@ -184,8 +190,12 @@ def _is_context_contamination_candidate(doc: RetrievedDoc) -> bool:
     if query_family_boost >= 0.6 and heading_relevance <= 0.0 and exact_query_match <= 0.0 and strong_term_match <= 0.45:
         return True
     if has_required_terms and required_entity_match <= 0.0 and heading_relevance <= 0.0:
+        if _float_signal(signals, "content_match") >= 0.3:
+            return False
         return True
     if noise_score >= 0.8 and _float_signal(signals, "query_family_penalty") < 0.0:
+        if _float_signal(signals, "content_match") >= 0.3:
+            return False
         return True
     if noise_score >= 1.5 and heading_relevance <= 0.0:
         return True

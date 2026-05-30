@@ -336,7 +336,8 @@ class DocumentChunker:
 
         section_type = section["section_type"].upper()
         section_title = section.get("section_title")
-        if section_title:
+        # section_title이 section_type과 동일한 경우 (예: type="table", title="table") 불필요한 반복 방지
+        if section_title and section_title.lower() != section_type.lower():
             parts.append(f"[{section_type}]\n{section_title}")
         else:
             parts.append(f"[{section_type}]")

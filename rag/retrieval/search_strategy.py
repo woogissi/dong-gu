@@ -10,9 +10,11 @@ from typing import Any
 from rag.pipeline.state import PipelineState
 from rag.preprocess.query_features import extract_query_features, sanitize_filters
 from rag.schemas.retrieval import RetrievalRequest
+from rag.retrieval.temporal import extract_temporal_signals
 
 DEFAULT_TOP_K = 20
 SUPPORTED_FILTER_FIELDS = ("category", "target", "department", "time", "time_scope")
+HARD_FILTER_FIELDS: tuple[str, ...] = ()
 KEYWORD_STRATEGY = "lexical"
 
 # TODO: Improve category/source hints for scholarship, shuttle bus, and library
@@ -43,12 +45,18 @@ def build_retrieval_request(state: PipelineState) -> RetrievalRequest:
     )
 
     query = query_variants[0] if query_variants else state.original_query
-    filters = _normalize_filters(state.filters)
-    filters, dropped_filters = sanitize_filters(filters)
+    soft_filters = _normalize_filters(state.filters)
+    soft_filters, dropped_filters = sanitize_filters(soft_filters)
     query_features = extract_query_features(query, state.keywords)
-    if query_features.source_boosts and query_features.family != "course_registration":
-        filters["document_category"] = list(query_features.source_boosts)
-    category = state.category or query_features.category or _first_value(filters.get("category", []))
+    category = state.category or query_features.category or _first_value(soft_filters.get("category", []))
+    ranking_hints = _build_ranking_hints(
+        query=query,
+        keywords=state.keywords,
+        filters=soft_filters,
+        category=category,
+        query_features=query_features.to_log_dict(),
+    )
+    filters = _hard_filters(soft_filters)
     top_k = state.retrieval_top_k or DEFAULT_TOP_K
     fallback_triggers = _fallback_triggers(
         query=query,
@@ -60,6 +68,7 @@ def build_retrieval_request(state: PipelineState) -> RetrievalRequest:
         query_variants=query_variants,
         keywords=state.keywords,
         filters=filters,
+        ranking_hints=ranking_hints,
         category=category,
         top_k=top_k,
         fallback_triggers=fallback_triggers,
@@ -73,6 +82,7 @@ def build_retrieval_request(state: PipelineState) -> RetrievalRequest:
         keywords=_dedupe(state.keywords),
         query_vector=list(state.query_vector or []),
         filters=filters,
+        ranking_hints=ranking_hints,
         category=category,
         strategy=KEYWORD_STRATEGY,
         top_k=top_k,
@@ -88,6 +98,7 @@ def build_strategy_log_fields(
     keywords: list[str],
     filters: dict[str, list[str]],
     category: str | None,
+    ranking_hints: dict[str, object] | None = None,
     top_k: int,
     fallback_triggers: list[str],
     query_features: dict[str, object] | None = None,
@@ -99,8 +110,11 @@ def build_strategy_log_fields(
         "query_variant_count": len(query_variants),
         "keywords": _dedupe(keywords),
         "filters": filters,
+        "ranking_hints": ranking_hints or {},
+        "temporal_signals": (ranking_hints or {}).get("temporal_signals", {}),
         "category": category,
-        "document_category_hints": query_features.get("source_boosts") or _CATEGORY_DOCUMENT_HINTS.get(category or "", []),
+        "source_boosts": (ranking_hints or {}).get("source_boosts", []),
+        "document_category_hints": (ranking_hints or {}).get("document_category", []),
         "top_k": top_k,
         "fallback_triggers": fallback_triggers,
         "filter_rules_applied": _filter_rules_applied(filters),
@@ -122,11 +136,42 @@ def _normalize_filters(filters: dict[str, list[str]]) -> dict[str, list[str]]:
         if values:
             normalized[field] = _dedupe(values)
 
-    category = _first_value(normalized.get("category", []))
-    if category and category in _CATEGORY_DOCUMENT_HINTS:
-        normalized["document_category"] = _CATEGORY_DOCUMENT_HINTS[category]
-
     return normalized
+
+
+def _hard_filters(filters: dict[str, list[str]]) -> dict[str, list[str]]:
+    return {
+        field: _dedupe(filters.get(field, []))
+        for field in HARD_FILTER_FIELDS
+        if filters.get(field)
+    }
+
+
+def _build_ranking_hints(
+    *,
+    query: str,
+    keywords: list[str],
+    filters: dict[str, list[str]],
+    category: str | None,
+    query_features: dict[str, object],
+) -> dict[str, object]:
+    source_boosts = _dedupe([str(value) for value in query_features.get("source_boosts", [])])
+    category_values = _dedupe(filters.get("category", []))
+    document_category = list(source_boosts)
+    if not document_category:
+        for value in category_values:
+            document_category.extend(_CATEGORY_DOCUMENT_HINTS.get(value, []))
+        document_category = _dedupe(document_category)
+
+    return {
+        "category": category,
+        "category_values": category_values,
+        "document_category": document_category,
+        "source_boosts": source_boosts,
+        "query_family": query_features.get("family"),
+        "temporal_signals": extract_temporal_signals(query, keywords=keywords, filters=filters),
+        "soft_filters": filters,
+    }
 
 
 # - TODO - 검색어가 너무 짧거나 일반적인 경우, 추가 정보를 요청하는 메시지로 대응
@@ -153,11 +198,9 @@ def _fallback_triggers(
 
 def _filter_rules_applied(filters: dict[str, list[str]]) -> list[str]:
     rules: list[str] = []
-    for field in SUPPORTED_FILTER_FIELDS:
+    for field in HARD_FILTER_FIELDS:
         if filters.get(field):
             rules.append(f"{field}_filter")
-    if filters.get("document_category"):
-        rules.append("category_to_document_category_hint")
     return rules
 
 # - 유틸 함수

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
-from urllib.parse import urldefrag
+from urllib.parse import urlencode, urldefrag, urlparse, urlunparse, parse_qsl
 
 from psycopg2.extras import Json, RealDictCursor
 
@@ -150,9 +150,22 @@ ALTER TABLE crawler_retry_queue ENABLE ROW LEVEL SECURITY;
 """
 
 
+_DEU_DOMAINS = (".deu.ac.kr",)
+
+
 def canonicalize_url(url: str) -> str:
     canonical, _fragment = urldefrag(url.strip())
-    return canonical
+    parsed = urlparse(canonical)
+
+    # http → https for DEU domains
+    scheme = parsed.scheme
+    if scheme == "http" and any(parsed.netloc.lower().endswith(d) for d in _DEU_DOMAINS):
+        scheme = "https"
+
+    # 빈 쿼리 파라미터 제거 (e.g. "?foo=&bar=baz" → "?bar=baz")
+    clean_query = urlencode(parse_qsl(parsed.query, keep_blank_values=False))
+
+    return urlunparse(parsed._replace(scheme=scheme, query=clean_query))
 
 
 def utc_now_iso() -> str:
@@ -562,8 +575,8 @@ class CrawlerStateStore:
                   chunk_status = COALESCE(EXCLUDED.chunk_status, crawler_documents.chunk_status),
                   vector_status = COALESCE(EXCLUDED.vector_status, crawler_documents.vector_status),
                   seed_status = COALESCE(crawler_documents.seed_status, EXCLUDED.seed_status),
-                  source_type = COALESCE(EXCLUDED.source_type, crawler_documents.source_type),
-                  page_kind = COALESCE(EXCLUDED.page_kind, crawler_documents.page_kind),
+                  source_type = COALESCE(crawler_documents.source_type, EXCLUDED.source_type),
+                  page_kind = COALESCE(crawler_documents.page_kind, EXCLUDED.page_kind),
                   checksum = COALESCE(EXCLUDED.checksum, crawler_documents.checksum),
                   artifact_paths = crawler_documents.artifact_paths || EXCLUDED.artifact_paths,
                   extractor_name = COALESCE(EXCLUDED.extractor_name, crawler_documents.extractor_name),

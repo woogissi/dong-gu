@@ -15,7 +15,7 @@ from rag.retrieval.search_strategy import build_retrieval_request
 
 
 class SearchStrategyTest(unittest.TestCase):
-    def test_builds_lexical_request_with_category_filter(self) -> None:
+    def test_builds_lexical_request_with_ranking_hints(self) -> None:
         state = PipelineState.from_query("수강신청 언제까지야?")
         state.normalized_query = "수강신청 언제까지야?"
         state.rewritten_queries = ["수강신청 언제까지야?", "수강신청 기간"]
@@ -41,9 +41,35 @@ class SearchStrategyTest(unittest.TestCase):
 
         self.assertEqual(request.strategy, "lexical")
         self.assertEqual(request.category, "수강")
-        self.assertEqual(request.filters["document_category"], ["academic_notice"])
+        self.assertEqual(request.filters, {})
+        self.assertEqual(request.ranking_hints["category"], "수강")
+        self.assertEqual(request.ranking_hints["category_values"], ["수강"])
+        self.assertEqual(
+            request.ranking_hints["document_category"],
+            ["academic_notice", "academic_support", "department", "institution"],
+        )
+        self.assertEqual(request.log_fields["filters"], {})
+        self.assertEqual(request.log_fields["ranking_hints"], request.ranking_hints)
         self.assertEqual(request.fallback_triggers, [])
-        self.assertIn("category_filter", request.log_fields["filter_rules_applied"])
+        self.assertEqual(request.log_fields["filter_rules_applied"], [])
+
+    def test_moves_time_filters_to_temporal_ranking_hints(self) -> None:
+        state = PipelineState.from_query("2026\ub144 1\ud559\uae30 \uc218\uac15\uc2e0\uccad")
+        state.normalized_query = "2026\ub144 1\ud559\uae30 \uc218\uac15\uc2e0\uccad"
+        state.rewritten_query = "2026\ub144 1\ud559\uae30 \uc218\uac15\uc2e0\uccad"
+        state.keywords = ["2026\ub144", "1\ud559\uae30", "\uc218\uac15\uc2e0\uccad"]
+        state.filters = {"time": ["2026\ub144"], "time_scope": ["1\ud559\uae30"], "category": ["\uc218\uac15"]}
+        state.category = "\uc218\uac15"
+
+        request = build_retrieval_request(state)
+
+        self.assertEqual(request.filters, {})
+        temporal_signals = request.ranking_hints["temporal_signals"]
+        self.assertEqual(temporal_signals["years"], ["2026"])
+        self.assertEqual(temporal_signals["semesters"], ["1\ud559\uae30"])
+        self.assertEqual(request.log_fields["temporal_signals"], temporal_signals)
+        self.assertEqual(request.ranking_hints["soft_filters"]["time"], ["2026\ub144"])
+        self.assertEqual(request.ranking_hints["soft_filters"]["time_scope"], ["1\ud559\uae30"])
 
     def test_adds_fallback_trigger_for_empty_search_terms(self) -> None:
         state = PipelineState.from_query("")

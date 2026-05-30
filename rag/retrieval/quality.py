@@ -10,6 +10,7 @@ BLOCKING_RETRIEVAL_QUALITY_REASONS = {
     "excessive_duplicate_doc_ids",
     "top_candidate_noise",
     "no_required_entity_match",
+    "missing_temporal_evidence",
 }
 
 

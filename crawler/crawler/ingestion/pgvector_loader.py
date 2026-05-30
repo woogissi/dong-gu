@@ -45,6 +45,17 @@ class PGVectorLoader:
     def _strip_nul(cls, value: Any) -> Any:
         return strip_nul_value(value)
 
+    @classmethod
+    def _safe_timestamp(cls, value: Any) -> str | None:
+        """timestamp로 파싱 불가능한 값(예: '조회')을 None으로 처리."""
+        raw = strip_nul_value(value)
+        if not raw or not isinstance(raw, str):
+            return raw
+        import re
+        if not re.search(r"\d", raw):
+            return None
+        return raw
+
     def _json(self, value: Any) -> Json:
         return Json(self._strip_nul(value))
 
@@ -293,10 +304,10 @@ class PGVectorLoader:
             "department": self._strip_nul(doc.get("department")),
             "title": self._strip_nul(doc.get("title") or ""),
             "source_url": self._strip_nul(doc.get("source_url")),
-            "published_at": self._strip_nul(doc.get("published_at")),
-            "updated_at": self._strip_nul(doc.get("updated_at")),
+            "published_at": self._safe_timestamp(doc.get("published_at")),
+            "updated_at": self._safe_timestamp(doc.get("updated_at")),
             "content_hash": self._strip_nul(doc.get("content_hash")),
-            "collected_at": self._strip_nul(doc.get("collected_at")),
+            "collected_at": self._safe_timestamp(doc.get("collected_at")),
             "metadata": self._json(doc.get("metadata", {})),
         }
 
@@ -756,7 +767,7 @@ class PGVectorLoader:
         if os.getenv("CRAWLER_BLOCK_SOURCE_DUPLICATE_CHUNKS", "").strip().lower() not in {"1", "true", "yes"}:
             return rows
         hashes = sorted({row.get("content_hash") for row in rows if row.get("content_hash")})
-        if not hashes or not source_type:
+        if not hashes:
             return rows
 
         with self.conn.cursor() as cur:
@@ -764,12 +775,10 @@ class PGVectorLoader:
                 """
                 SELECT c.content_hash
                 FROM chunks c
-                JOIN documents d ON d.doc_id = c.doc_id
-                WHERE d.source_type = %s
-                  AND c.content_hash = ANY(%s)
+                WHERE c.content_hash = ANY(%s)
                   AND c.doc_id <> %s;
                 """,
-                (source_type, hashes, rows[0]["doc_id"]),
+                (hashes, rows[0]["doc_id"]),
             )
             duplicate_hashes = {row[0] for row in cur.fetchall()}
 
@@ -795,12 +804,12 @@ class PGVectorLoader:
                 content_type=row.get("section_type") or "chunk",
                 metadata={
                     "quality_status": "duplicate_blocked",
-                    "note": "chunk skipped before storage: duplicate_content_hash_in_source",
-                    "skip_reason": "duplicate_content_hash_in_source",
+                    "note": "chunk skipped before storage: duplicate_content_hash_cross_source",
+                    "skip_reason": "duplicate_content_hash_cross_source",
                     "quality": {
                         "content_hash": row.get("content_hash"),
                         "chunk_id": row.get("chunk_id"),
-                        "dedupe_scope": "source_type",
+                        "dedupe_scope": "global",
                     },
                 },
             )
@@ -860,6 +869,16 @@ class PGVectorLoader:
             )
 
         rows = self._filter_source_duplicate_chunks(rows, chunks[0].get("source_type"))
+
+        # cross-source dedup으로 필터된 chunk는 원본 dict에 duplicate_blocked 마킹
+        # → split_chunks_by_embedding_quality가 임베딩 제외하여 FK violation 방지
+        filtered_chunk_ids = {row["chunk_id"] for row in rows}
+        for chunk in chunks:
+            chunk_id = chunk.get("chunk_id")
+            if chunk_id and chunk_id not in filtered_chunk_ids:
+                metadata = chunk.setdefault("metadata", {})
+                if metadata.get("quality_status") not in {"binary_blocked"}:
+                    metadata["quality_status"] = "duplicate_blocked"
 
         if not rows:
             with self.conn.cursor() as cur:

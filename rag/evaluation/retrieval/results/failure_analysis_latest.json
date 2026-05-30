@@ -1,0 +1,1692 @@
+{
+  "failure_count": 4,
+  "failures": [
+    {
+      "query_id": "q013",
+      "query": "기숙사 생활 규칙 알려줘",
+      "category": "dormitory",
+      "department": null,
+      "original_query": "기숙사 생활 규칙 알려줘",
+      "normalized_query": "기숙사 생활 규칙 알려줘",
+      "rewritten_query": "기숙사 생활 규칙 알려줘",
+      "intent": "INFO",
+      "keywords": [
+        "dormitory",
+        "제2효민생활관",
+        "효민생활관",
+        "기숙사",
+        "생활관",
+        "생활",
+        "규칙",
+        "기숙사생활규칙",
+        "2효민생활관",
+        "기숙사생활",
+        "생활규칙",
+        "2효민"
+      ],
+      "filters": {
+        "category": [
+          "기숙사",
+          "dormitory"
+        ]
+      },
+      "retrieval_strategy": "hybrid",
+      "fallback_used": false,
+      "retrieved_count": 20,
+      "reranked_count": 20,
+      "selected_count": 3,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "selected_context_hit": true,
+      "irrelevant_document_included": false,
+      "answer_grounded_in_selected_context": false,
+      "top5_retrieved": [
+        {
+          "rank": 1,
+          "doc_id": "static_d0e3b3235a71e0a4",
+          "chunk_id": "static_d0e3b3235a71e0a4_v001_chunk_001",
+          "title": "동의대학교 효민생활관",
+          "source_url": "https://dorm.deu.ac.kr/20/2030.do",
+          "source_type": "dormitory",
+          "score": 0.5130180683806667,
+          "lexical_score": null,
+          "vector_score": 0.6139989546538032,
+          "content_length": 929
+        },
+        {
+          "rank": 2,
+          "doc_id": "static_00e10e402f8999af",
+          "chunk_id": "static_00e10e402f8999af_v001_chunk_001",
+          "title": "동의대학교 효민생활관",
+          "source_url": "https://dorm.deu.ac.kr/20/2012.do",
+          "source_type": "dormitory",
+          "score": 0.5103366898712368,
+          "lexical_score": null,
+          "vector_score": 0.5206681596834571,
+          "content_length": 929
+        },
+        {
+          "rank": 3,
+          "doc_id": "static_e63b3a4cb5e3d543",
+          "chunk_id": "static_e63b3a4cb5e3d543_v001_chunk_001",
+          "title": "동의대학교 효민생활관",
+          "source_url": "https://dorm.deu.ac.kr/60/6023.do",
+          "source_type": "dormitory",
+          "score": 0.4400326139472098,
+          "lexical_score": null,
+          "vector_score": 0.6870883957042222,
+          "content_length": 929
+        },
+        {
+          "rank": 4,
+          "doc_id": "static_f33ad37c7f04d53d",
+          "chunk_id": "static_f33ad37c7f04d53d_v001_chunk_005",
+          "title": "동의대학교 효민생활관",
+          "source_url": "https://dorm.deu.ac.kr/40/4030.do",
+          "source_type": "dormitory",
+          "score": 0.43963485915797856,
+          "lexical_score": null,
+          "vector_score": 0.6698787743069943,
+          "content_length": 330
+        },
+        {
+          "rank": 5,
+          "doc_id": "static_f33ad37c7f04d53d",
+          "chunk_id": "static_f33ad37c7f04d53d_v001_chunk_004",
+          "title": "동의대학교 효민생활관",
+          "source_url": "https://dorm.deu.ac.kr/40/4030.do",
+          "source_type": "dormitory",
+          "score": 0.4394055143841513,
+          "lexical_score": null,
+          "vector_score": 0.6609280728740659,
+          "content_length": 929
+        }
+      ],
+      "selected_chunks": [
+        {
+          "rank": 1,
+          "doc_id": "static_9da619eb2fa46324",
+          "chunk_id": "static_9da619eb2fa46324_v001_chunk_003",
+          "title": "동의대학교 효민생활관",
+          "source_url": "https://dorm.deu.ac.kr/30/3010.do",
+          "source_type": "dormitory",
+          "score": 12.017709,
+          "rerank_score": 12.017709,
+          "content_preview": "[TITLE]\n동의대학교 효민생활관\n\n[BODY]\n\n이지에 정리되어 있으므로 숙지하여 불이익을 받는 일이 없도록 주의하시길 바랍니다.\n룸메이트 신청 안내\n① 신청기간 : 홈페이지 공지사항 → 해당학기 모집공고 참고\n② 신청조건 : 효민생활관에 합격하고, 납부를 완료한 자만 신청 가능\n③ 룸메이트 신청 시 주의사항 : 희망 룸메이트와 합격한 생활관과 거주기간"
+        },
+        {
+          "rank": 2,
+          "doc_id": "static_d0e3b3235a71e0a4",
+          "chunk_id": "static_d0e3b3235a71e0a4_v001_chunk_001",
+          "title": "동의대학교 효민생활관",
+          "source_url": "https://dorm.deu.ac.kr/20/2030.do",
+          "source_type": "dormitory",
+          "score": 10.213077,
+          "rerank_score": 10.213077,
+          "content_preview": "[TITLE]\n동의대학교 효민생활관\n\n[BODY]\n\n효민생활관\n행복기숙사\n식당\n휴게실\n세탁실\n헬스장\n정독실\n탁구장\n편의점\n식당 이용 안내\n위치안내\n제1효민생활관 : 생활관 1층\n이용안내\n이용시간은\n커뮤니티 > 주간식단표\n를 참고바랍니다.\n식사 시 모바일 학생증을 제시하여야 합니다.\n식당 식사는 규정된 시간 및 장소에서만 가능합니다.\n휴게실 이용 안내\n위치안"
+        },
+        {
+          "rank": 3,
+          "doc_id": "static_00e10e402f8999af",
+          "chunk_id": "static_00e10e402f8999af_v001_chunk_001",
+          "title": "동의대학교 효민생활관",
+          "source_url": "https://dorm.deu.ac.kr/20/2012.do",
+          "source_type": "dormitory",
+          "score": 10.206805,
+          "rerank_score": 10.206805,
+          "content_preview": "[TITLE]\n동의대학교 효민생활관\n\n[BODY]\n\n제2효민생활관\n행복기숙사\n제1효민생활관\n1층\n2층\n3층\n4층\n5층~9층\n10층\n지하1층\n안내도 및 비상대피도\n1층\n2층\n3층\n4층\n5층 ~ 9층\n10층\n지하1층\n화재발생시 행동요령\n구두, 유선, 옥내소화전 비상밸을 눌러 화재사실을 주위에 알린다\n인근에 비치된 소화기와 옥내소화전 등으로 신속히 화재를 진압한"
+        }
+      ],
+      "answer_preview": "제공된 문서에서 기숙사 생활 규칙에 대한 구체적인 내용은 찾을 수 없었습니다. 기숙사 생활에 대한 규칙이나 수칙은 효민생활관 홈페이지나 관련 공지사항을 참고하시기 바랍니다.",
+      "failure_stage": "answer_generation_issue",
+      "quality_info": {
+        "ok": true,
+        "blocking": false,
+        "reason": "",
+        "diagnostic_ok": false,
+        "diagnostic_reason": "no_exact_or_strong_keyword_match",
+        "top1_score": 0.5130180683806667,
+        "avg_topk_score": 0.44518240013906246,
+        "context_chars": 16796,
+        "duplicate_doc_ratio": 0.35,
+        "top_noise_score": 0.0,
+        "top_strong_term_match": 0.0,
+        "exact_or_title_match_count": 0,
+        "required_entity": "",
+        "required_entity_match_count": 0,
+        "top1_required_entity_match": false,
+        "temporal_signals": {
+          "years": [],
+          "semesters": [],
+          "relative_dates": [],
+          "recency_intent": false,
+          "has_explicit_temporal": false
+        },
+        "temporal_validation": {
+          "valid": true,
+          "needs_validation": false,
+          "matched": true,
+          "reason": "",
+          "missing": [],
+          "temporal_signals": {
+            "years": [],
+            "semesters": [],
+            "relative_dates": [],
+            "recency_intent": false,
+            "has_explicit_temporal": false
+          },
+          "doc_results": [
+            {
+              "rank": 1,
+              "doc_id": "static_9da619eb2fa46324",
+              "chunk_id": "static_9da619eb2fa46324_v001_chunk_003",
+              "title": "동의대학교 효민생활관",
+              "years": [],
+              "semesters": [],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            },
+            {
+              "rank": 2,
+              "doc_id": "static_d0e3b3235a71e0a4",
+              "chunk_id": "static_d0e3b3235a71e0a4_v001_chunk_001",
+              "title": "동의대학교 효민생활관",
+              "years": [],
+              "semesters": [],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            },
+            {
+              "rank": 3,
+              "doc_id": "static_00e10e402f8999af",
+              "chunk_id": "static_00e10e402f8999af_v001_chunk_001",
+              "title": "동의대학교 효민생활관",
+              "years": [],
+              "semesters": [],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            }
+          ]
+        },
+        "selection_quality": {
+          "selected_context_contamination": false,
+          "attachment_ratio": 0.0,
+          "noise_ratio": 0.0,
+          "top_heading_query_match": true,
+          "single_selected_heading_mismatch": false,
+          "doc_signals": [
+            {
+              "rank": 1,
+              "doc_id": "static_9da619eb2fa46324",
+              "chunk_id": "static_9da619eb2fa46324_v001_chunk_003",
+              "title": "동의대학교 효민생활관",
+              "section_title": "body",
+              "source_type": "dormitory",
+              "is_attachment": false,
+              "noise_score": 0.0,
+              "heading_query_match": true,
+              "rerank_score": 12.017709,
+              "rerank_signals": {
+                "base_score": 1.021555,
+                "title_match": 0.692308,
+                "section_title_match": 0.0,
+                "content_match": 0.553846,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.4,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 6.2,
+                "canonical_source_priority": 1.15,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.8,
+                "required_entity_match": 0.5,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.7,
+                "recency": 0.0,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.0
+              }
+            },
+            {
+              "rank": 2,
+              "doc_id": "static_d0e3b3235a71e0a4",
+              "chunk_id": "static_d0e3b3235a71e0a4_v001_chunk_001",
+              "title": "동의대학교 효민생활관",
+              "section_title": "body",
+              "source_type": "dormitory",
+              "is_attachment": false,
+              "noise_score": 0.0,
+              "heading_query_match": true,
+              "rerank_score": 10.213077,
+              "rerank_signals": {
+                "base_score": 1.2,
+                "title_match": 0.692308,
+                "section_title_match": 0.0,
+                "content_match": 0.430769,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.7,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 3.54,
+                "canonical_source_priority": 1.15,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.7,
+                "recency": 0.0,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.0
+              }
+            },
+            {
+              "rank": 3,
+              "doc_id": "static_00e10e402f8999af",
+              "chunk_id": "static_00e10e402f8999af_v001_chunk_001",
+              "title": "동의대학교 효민생활관",
+              "section_title": "body",
+              "source_type": "dormitory",
+              "is_attachment": false,
+              "noise_score": 0.0,
+              "heading_query_match": true,
+              "rerank_score": 10.206805,
+              "rerank_signals": {
+                "base_score": 1.193728,
+                "title_match": 0.692308,
+                "section_title_match": 0.0,
+                "content_match": 0.430769,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.7,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 3.54,
+                "canonical_source_priority": 1.15,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.7,
+                "recency": 0.0,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.0
+              }
+            }
+          ],
+          "temporal_validation": {
+            "valid": true,
+            "needs_validation": false,
+            "matched": true,
+            "reason": "",
+            "missing": [],
+            "temporal_signals": {
+              "years": [],
+              "semesters": [],
+              "relative_dates": [],
+              "recency_intent": false,
+              "has_explicit_temporal": false
+            },
+            "doc_results": [
+              {
+                "rank": 1,
+                "doc_id": "static_9da619eb2fa46324",
+                "chunk_id": "static_9da619eb2fa46324_v001_chunk_003",
+                "title": "동의대학교 효민생활관",
+                "years": [],
+                "semesters": [],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              },
+              {
+                "rank": 2,
+                "doc_id": "static_d0e3b3235a71e0a4",
+                "chunk_id": "static_d0e3b3235a71e0a4_v001_chunk_001",
+                "title": "동의대학교 효민생활관",
+                "years": [],
+                "semesters": [],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              },
+              {
+                "rank": 3,
+                "doc_id": "static_00e10e402f8999af",
+                "chunk_id": "static_00e10e402f8999af_v001_chunk_001",
+                "title": "동의대학교 효민생활관",
+                "years": [],
+                "semesters": [],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              }
+            ]
+          }
+        }
+      },
+      "query_understanding": {
+        "normalized_query": "기숙사 생활 규칙 알려줘",
+        "original_query": "기숙사 생활 규칙 알려줘",
+        "lexical_query": "기숙사 생활 규칙 알려줘 제2효민생활관",
+        "expanded_query": "기숙사 생활 규칙 알려줘 dormitory 제2효민생활관 효민생활관 기숙사 생활관 생활 규칙 기숙사생활규칙 2효민생활관 기숙사생활 생활규칙 2효민",
+        "embedding_query": "기숙사 생활 규칙 알려줘",
+        "query_bundle": {
+          "original": "기숙사 생활 규칙 알려줘",
+          "semantic_query": "기숙사 생활 규칙 알려줘",
+          "keyword_query": "기숙사 생활 규칙 알려줘",
+          "entity_query": "기숙사 생활관",
+          "intent": null,
+          "entities": [
+            "기숙사",
+            "생활관"
+          ],
+          "rewrite_entities": [
+            "기숙사",
+            "생활관"
+          ],
+          "filters": {
+            "category": [
+              "기숙사"
+            ]
+          }
+        },
+        "keywords": [
+          "dormitory",
+          "제2효민생활관",
+          "효민생활관",
+          "기숙사",
+          "생활관",
+          "생활",
+          "규칙",
+          "기숙사생활규칙",
+          "2효민생활관",
+          "기숙사생활",
+          "생활규칙",
+          "2효민"
+        ],
+        "extracted_entities": {
+          "category": [
+            "기숙사",
+            "dormitory"
+          ],
+          "target": [],
+          "time": [],
+          "department": [],
+          "action": [],
+          "domain": [
+            "dormitory"
+          ]
+        },
+        "rewrite_entities": [
+          "기숙사",
+          "생활관"
+        ],
+        "rewrite_quality": {
+          "protected_terms": [
+            "제2효민생활관",
+            "효민생활관",
+            "생활관",
+            "2효민생활관",
+            "2효민",
+            "기숙사"
+          ],
+          "missing_protected_terms": [
+            "제2효민생활관",
+            "효민생활관",
+            "2효민생활관",
+            "2효민"
+          ],
+          "original_len": 13,
+          "rewrite_len": 15,
+          "rewrite_preserved": false
+        },
+        "query_features": {
+          "family": "dormitory",
+          "domain": "dormitory",
+          "category": "dormitory",
+          "protected_terms": [
+            "기숙사"
+          ],
+          "strong_terms": [
+            "기숙사",
+            "생활",
+            "규칙",
+            "dormitory",
+            "제2효민생활관",
+            "효민생활관",
+            "생활관",
+            "기숙사생활규칙",
+            "2효민생활관",
+            "기숙사생활",
+            "생활규칙",
+            "2효민"
+          ],
+          "required_terms": [
+            "기숙사",
+            "제2효민생활관"
+          ],
+          "source_boosts": [
+            "dormitory",
+            "notice"
+          ],
+          "rule_hit_names": [
+            "domain:dormitory:기숙사",
+            "domain:dormitory:생활관",
+            "domain:dormitory:효민생활관",
+            "domain:dormitory:제2효민생활관",
+            "domain:dormitory:2효민생활관"
+          ]
+        },
+        "entities": {
+          "category": [
+            "기숙사",
+            "dormitory"
+          ],
+          "target": [],
+          "time": [],
+          "department": [],
+          "action": [],
+          "domain": [
+            "dormitory"
+          ]
+        },
+        "filters": {
+          "category": [
+            "기숙사",
+            "dormitory"
+          ]
+        },
+        "dropped_filters": [],
+        "primary_category": "dormitory",
+        "detected_domain": "dormitory",
+        "detected_category": "dormitory",
+        "rule_hit_names": [
+          "domain:dormitory:기숙사",
+          "domain:dormitory:생활관",
+          "domain:dormitory:효민생활관",
+          "domain:dormitory:제2효민생활관",
+          "domain:dormitory:2효민생활관"
+        ],
+        "applied_boosts": [
+          "dormitory",
+          "notice"
+        ],
+        "rewritten_queries": [
+          "기숙사 생활 규칙 알려줘",
+          "기숙사 생활 규칙 알려줘 제2효민생활관",
+          "기숙사 생활관 규칙 2 효민 제2효민생활관 효민생활관 2효민생활관 2효민",
+          "기숙사 생활관 규칙 2 효민",
+          "기숙사 생활관",
+          "기숙사 생활 규칙 2 효민 생활관"
+        ],
+        "hybrid_keyword_extraction": {
+          "mode": "auto",
+          "kiwi_enabled": true,
+          "kiwi_called": true,
+          "kiwi_cache_hit": false,
+          "aho_keyword_count": 5
+        }
+      },
+      "elapsed_ms": 47034
+    },
+    {
+      "query_id": "q019",
+      "query": "2025년 학사일정 알려줘",
+      "category": "academic_schedule",
+      "department": null,
+      "error": "'in <string>' requires string as left operand, not int",
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "selected_context_hit": false,
+      "irrelevant_document_included": false,
+      "answer_grounded_in_selected_context": false,
+      "failure_stage": "pipeline_error",
+      "elapsed_ms": 20626
+    },
+    {
+      "query_id": "q028",
+      "query": "취업지원센터 위치 알려줘",
+      "category": "career",
+      "department": null,
+      "original_query": "취업지원센터 위치 알려줘",
+      "normalized_query": "취업지원센터 위치 알려줘",
+      "rewritten_query": "취업지원센터 위치 신청 접수",
+      "intent": "INFO",
+      "keywords": [
+        "facility",
+        "career",
+        "취업지원센터",
+        "위치",
+        "취업지원센터위치",
+        "지원센터위치",
+        "취업지원",
+        "지원센터",
+        "센터위치",
+        "취업",
+        "지원",
+        "센터"
+      ],
+      "filters": {
+        "category": [
+          "career"
+        ]
+      },
+      "retrieval_strategy": "hybrid",
+      "fallback_used": false,
+      "retrieved_count": 20,
+      "reranked_count": 20,
+      "selected_count": 3,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "selected_context_hit": true,
+      "irrelevant_document_included": true,
+      "answer_grounded_in_selected_context": false,
+      "top5_retrieved": [
+        {
+          "rank": 1,
+          "doc_id": "deu_education_84262",
+          "chunk_id": "deu_education_84262_v001_chunk_001",
+          "title": "[취업지원팀]2026 취업 1 Day Class - 내 꿈을 이루는 취업 전략",
+          "source_url": "https://www.deu.ac.kr/www/deu-education.do?article.offset=20&articleLimit=10&articleNo=84262&mode=view",
+          "source_type": "education",
+          "score": 0.5231953884324371,
+          "lexical_score": 0.7368421102164524,
+          "vector_score": 0.46535390615463257,
+          "content_length": 961
+        },
+        {
+          "rank": 2,
+          "doc_id": "static_49ac106ba7409f63",
+          "chunk_id": "static_49ac106ba7409f63_v001_chunk_002",
+          "title": "진로/취업 로드맵 | 진로/취업지원",
+          "source_url": "https://www.deu.ac.kr/pluscenter/sub04_05.do",
+          "source_type": "advising",
+          "score": 0.5203673373648491,
+          "lexical_score": 0.6666666673289405,
+          "vector_score": 0.457666906257457,
+          "content_length": 529
+        },
+        {
+          "rank": 3,
+          "doc_id": "deu_job_81123",
+          "chunk_id": "deu_job_81123_v001_chunk_004",
+          "title": "동의대학교 유학생취업지원센터 연구원 채용공고",
+          "source_url": "https://www.deu.ac.kr/www/deu-job.do?article.offset=20&articleLimit=10&articleNo=81123&mode=view",
+          "source_type": "job",
+          "score": 0.5117719178310363,
+          "lexical_score": 0.7058823530700793,
+          "vector_score": null,
+          "content_length": 573
+        },
+        {
+          "rank": 4,
+          "doc_id": "deu_job_81123",
+          "chunk_id": "deu_job_81123_v001_chunk_001",
+          "title": "동의대학교 유학생취업지원센터 연구원 채용공고",
+          "source_url": "https://www.deu.ac.kr/www/deu-job.do?article.offset=20&articleLimit=10&articleNo=81123&mode=view",
+          "source_type": "job",
+          "score": 0.51107739121953,
+          "lexical_score": 0.6875000023283064,
+          "vector_score": null,
+          "content_length": 941
+        },
+        {
+          "rank": 5,
+          "doc_id": "deu_education_84559",
+          "chunk_id": "deu_education_84559_v001_chunk_001",
+          "title": "2026 부·울·경 초광역형 외국인 유학생 채용 박람회(BUSAN Dream Job Fair) 개최 안내",
+          "source_url": "https://www.deu.ac.kr/www/deu-education.do?article.offset=10&articleLimit=10&articleNo=84559&mode=view",
+          "source_type": "education",
+          "score": 0.4769331136825815,
+          "lexical_score": null,
+          "vector_score": 0.4682582058598783,
+          "content_length": 795
+        }
+      ],
+      "selected_chunks": [
+        {
+          "rank": 1,
+          "doc_id": "deu_job_81123",
+          "chunk_id": "deu_job_81123_v001_chunk_004",
+          "title": "동의대학교 유학생취업지원센터 연구원 채용공고",
+          "source_url": "https://www.deu.ac.kr/www/deu-job.do?article.offset=20&articleLimit=10&articleNo=81123&mode=view",
+          "source_type": "job",
+          "score": 5.611898,
+          "rerank_score": 5.611898,
+          "content_preview": "[TITLE]\n동의대학교 유학생취업지원센터 연구원 채용공고\n\n[ATTACHMENT]\n1. 유학생취업지원센터 연구원 채용공고 및 유의사항.hwp\n\n《유학생취업지원센터 연구원 채용공고》\n\n동의대학교 유학생취업지원센터에서 함께 근무할 연구원을 채용하고자 하오니 관심 있는 분들의 많은 지원 바랍니다.\n\n■ 채용분야 및 인원\n\n<표>\n\n■ 지원자격\n1. 4년제 정규"
+        },
+        {
+          "rank": 2,
+          "doc_id": "static_921a2e834d12172a",
+          "chunk_id": "static_921a2e834d12172a_v001_chunk_020",
+          "title": "진로/취업 프로그램 | 진로/취업지원",
+          "source_url": "https://www.deu.ac.kr/pluscenter/sub04_06.do",
+          "source_type": "advising",
+          "score": 3.72264,
+          "rerank_score": 3.72264,
+          "content_preview": "[TITLE]\n진로/취업 프로그램 | 진로/취업지원\n\n[BODY]\n3) 취업 경쟁력 제고\n\n- 나. 대상 : 3,4학년 재학생 (8개학기 이후의 현장실습학기제는 신청불가, 5년제의 경우 10학기)\n- 라. 현장실습 과정\n- ＊ 신청 : 기업신청 → 학생신청 → 면접진행\n- ＊ 승인 : 기업승인 → 지도교수 승인 → 학과장승인 → 현장실습운영위원회 승인 → "
+        },
+        {
+          "rank": 3,
+          "doc_id": "deu_education_84262",
+          "chunk_id": "deu_education_84262_v001_chunk_001",
+          "title": "[취업지원팀]2026 취업 1 Day Class - 내 꿈을 이루는 취업 전략",
+          "source_url": "https://www.deu.ac.kr/www/deu-education.do?article.offset=20&articleLimit=10&articleNo=84262&mode=view",
+          "source_type": "education",
+          "score": 3.358365,
+          "rerank_score": 3.358365,
+          "content_preview": "[TITLE]\n[취업지원팀]2026 취업 1 Day Class - 내 꿈을 이루는 취업 전략\n\n[BODY]\n\n[취업지원팀]2026 취업 1 Day Class - 내 꿈을 이루는 취업 전략\n취업 전문가의 현실 취업전략 특강과 \"취업 선배 15인의 리얼스토리\" 현직자 멘토링을 통해 내 꿈에 한 걸음 다가가 보세요!\n<2026년 취업 1 Day Class - 내"
+        }
+      ],
+      "answer_preview": "제공된 문서에서 취업지원센터의 위치에 대한 정보는 찾을 수 없었습니다.",
+      "failure_stage": "answer_generation_issue",
+      "quality_info": {
+        "ok": true,
+        "blocking": false,
+        "reason": "",
+        "diagnostic_ok": true,
+        "diagnostic_reason": "",
+        "top1_score": 0.5231953884324371,
+        "avg_topk_score": 0.4595761763636263,
+        "context_chars": 13259,
+        "duplicate_doc_ratio": 0.30000000000000004,
+        "top_noise_score": 0.0,
+        "top_strong_term_match": 0.0,
+        "exact_or_title_match_count": 4,
+        "required_entity": "",
+        "required_entity_match_count": 0,
+        "top1_required_entity_match": false,
+        "temporal_signals": {
+          "years": [],
+          "semesters": [],
+          "relative_dates": [],
+          "recency_intent": false,
+          "has_explicit_temporal": false
+        },
+        "temporal_validation": {
+          "valid": true,
+          "needs_validation": false,
+          "matched": true,
+          "reason": "",
+          "missing": [],
+          "temporal_signals": {
+            "years": [],
+            "semesters": [],
+            "relative_dates": [],
+            "recency_intent": false,
+            "has_explicit_temporal": false
+          },
+          "doc_results": [
+            {
+              "rank": 1,
+              "doc_id": "deu_job_81123",
+              "chunk_id": "deu_job_81123_v001_chunk_004",
+              "title": "동의대학교 유학생취업지원센터 연구원 채용공고",
+              "years": [
+                "2026"
+              ],
+              "semesters": [],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            },
+            {
+              "rank": 2,
+              "doc_id": "static_921a2e834d12172a",
+              "chunk_id": "static_921a2e834d12172a_v001_chunk_020",
+              "title": "진로/취업 프로그램 | 진로/취업지원",
+              "years": [],
+              "semesters": [],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            },
+            {
+              "rank": 3,
+              "doc_id": "deu_education_84262",
+              "chunk_id": "deu_education_84262_v001_chunk_001",
+              "title": "[취업지원팀]2026 취업 1 Day Class - 내 꿈을 이루는 취업 전략",
+              "years": [
+                "2026"
+              ],
+              "semesters": [],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            }
+          ]
+        },
+        "selection_quality": {
+          "selected_context_contamination": false,
+          "attachment_ratio": 0.3333333333333333,
+          "noise_ratio": 0.0,
+          "top_heading_query_match": true,
+          "single_selected_heading_mismatch": false,
+          "doc_signals": [
+            {
+              "rank": 1,
+              "doc_id": "deu_job_81123",
+              "chunk_id": "deu_job_81123_v001_chunk_004",
+              "title": "동의대학교 유학생취업지원센터 연구원 채용공고",
+              "section_title": "1. 유학생취업지원센터 연구원 채용공고 및 유의사항.hwp",
+              "source_type": "job",
+              "is_attachment": true,
+              "noise_score": 0.0,
+              "heading_query_match": true,
+              "rerank_score": 5.611898,
+              "rerank_signals": {
+                "base_score": 1.173799,
+                "title_match": 0.771429,
+                "section_title_match": 1.028571,
+                "content_match": 0.457143,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.514286,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 0.0,
+                "canonical_source_priority": 0.0,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.0,
+                "required_entity_match": 0.666667,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.7,
+                "recency": 0.300003,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.0
+              }
+            },
+            {
+              "rank": 2,
+              "doc_id": "static_921a2e834d12172a",
+              "chunk_id": "static_921a2e834d12172a_v001_chunk_020",
+              "title": "진로/취업 프로그램 | 진로/취업지원",
+              "section_title": "3) 취업 경쟁력 제고",
+              "source_type": "advising",
+              "is_attachment": false,
+              "noise_score": 0.0,
+              "heading_query_match": true,
+              "rerank_score": 3.72264,
+              "rerank_signals": {
+                "base_score": 1.089307,
+                "title_match": 0.642857,
+                "section_title_match": 0.685714,
+                "content_match": 0.457143,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.514286,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 0.0,
+                "canonical_source_priority": 0.0,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.0,
+                "required_entity_match": 0.333333,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.0,
+                "recency": 0.0,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.0
+              }
+            },
+            {
+              "rank": 3,
+              "doc_id": "deu_education_84262",
+              "chunk_id": "deu_education_84262_v001_chunk_001",
+              "title": "[취업지원팀]2026 취업 1 Day Class - 내 꿈을 이루는 취업 전략",
+              "section_title": "body",
+              "source_type": "education",
+              "is_attachment": false,
+              "noise_score": 0.0,
+              "heading_query_match": true,
+              "rerank_score": 3.358365,
+              "rerank_signals": {
+                "base_score": 1.2,
+                "title_match": 0.642857,
+                "section_title_match": 0.0,
+                "content_match": 0.4,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.428571,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 0.0,
+                "canonical_source_priority": 0.0,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.0,
+                "required_entity_match": 0.333333,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.0,
+                "recency": 0.353604,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.0
+              }
+            }
+          ],
+          "temporal_validation": {
+            "valid": true,
+            "needs_validation": false,
+            "matched": true,
+            "reason": "",
+            "missing": [],
+            "temporal_signals": {
+              "years": [],
+              "semesters": [],
+              "relative_dates": [],
+              "recency_intent": false,
+              "has_explicit_temporal": false
+            },
+            "doc_results": [
+              {
+                "rank": 1,
+                "doc_id": "deu_job_81123",
+                "chunk_id": "deu_job_81123_v001_chunk_004",
+                "title": "동의대학교 유학생취업지원센터 연구원 채용공고",
+                "years": [
+                  "2026"
+                ],
+                "semesters": [],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              },
+              {
+                "rank": 2,
+                "doc_id": "static_921a2e834d12172a",
+                "chunk_id": "static_921a2e834d12172a_v001_chunk_020",
+                "title": "진로/취업 프로그램 | 진로/취업지원",
+                "years": [],
+                "semesters": [],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              },
+              {
+                "rank": 3,
+                "doc_id": "deu_education_84262",
+                "chunk_id": "deu_education_84262_v001_chunk_001",
+                "title": "[취업지원팀]2026 취업 1 Day Class - 내 꿈을 이루는 취업 전략",
+                "years": [
+                  "2026"
+                ],
+                "semesters": [],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              }
+            ]
+          }
+        }
+      },
+      "query_understanding": {
+        "normalized_query": "취업지원센터 위치 알려줘",
+        "original_query": "취업지원센터 위치 알려줘",
+        "lexical_query": "취업지원센터 위치 알려줘",
+        "expanded_query": "취업지원센터 위치 알려줘 facility career 취업지원센터 위치 취업지원센터위치 지원센터위치 취업지원 지원센터 센터위치 취업 지원 센터",
+        "embedding_query": "취업지원센터 위치 알려줘",
+        "query_bundle": {
+          "original": "취업지원센터 위치 알려줘",
+          "semantic_query": "취업지원센터 위치 알려줘 신청",
+          "keyword_query": "취업지원센터 위치 신청 접수",
+          "entity_query": "",
+          "intent": "신청",
+          "entities": [],
+          "rewrite_entities": [],
+          "filters": {}
+        },
+        "keywords": [
+          "facility",
+          "career",
+          "취업지원센터",
+          "위치",
+          "취업지원센터위치",
+          "지원센터위치",
+          "취업지원",
+          "지원센터",
+          "센터위치",
+          "취업",
+          "지원",
+          "센터"
+        ],
+        "extracted_entities": {
+          "category": [
+            "career"
+          ],
+          "target": [],
+          "time": [],
+          "department": [],
+          "action": [
+            "신청"
+          ],
+          "domain": [
+            "career"
+          ]
+        },
+        "rewrite_entities": [],
+        "rewrite_quality": {
+          "protected_terms": [
+            "취업지원센터",
+            "지원센터",
+            "지원",
+            "취업지원"
+          ],
+          "missing_protected_terms": [],
+          "original_len": 13,
+          "rewrite_len": 15,
+          "rewrite_preserved": true
+        },
+        "query_features": {
+          "family": "career",
+          "domain": "career",
+          "category": "career",
+          "protected_terms": [
+            "지원",
+            "취업지원"
+          ],
+          "strong_terms": [
+            "지원",
+            "취업지원",
+            "취업지원센터",
+            "위치",
+            "facility",
+            "career",
+            "취업지원센터위치",
+            "지원센터위치",
+            "지원센터",
+            "센터위치",
+            "취업",
+            "센터"
+          ],
+          "required_terms": [
+            "취업지원",
+            "취업지원센터",
+            "취업지원센터위치"
+          ],
+          "source_boosts": [
+            "job",
+            "department",
+            "institution"
+          ],
+          "rule_hit_names": [
+            "domain:career:취업",
+            "domain:career:취업지원센터",
+            "domain:career:취업지원"
+          ]
+        },
+        "entities": {
+          "category": [
+            "career"
+          ],
+          "target": [],
+          "time": [],
+          "department": [],
+          "action": [
+            "신청"
+          ],
+          "domain": [
+            "career"
+          ]
+        },
+        "filters": {
+          "category": [
+            "career"
+          ]
+        },
+        "dropped_filters": [],
+        "primary_category": "career",
+        "detected_domain": "career",
+        "detected_category": "career",
+        "rule_hit_names": [
+          "domain:career:취업",
+          "domain:career:취업지원센터",
+          "domain:career:취업지원"
+        ],
+        "applied_boosts": [
+          "job",
+          "department",
+          "institution"
+        ],
+        "rewritten_queries": [
+          "취업지원센터 위치 신청 접수",
+          "취업지원센터 위치 알려줘 신청",
+          "취업 지원 센터 위치",
+          "취업지원센터 위치 알려줘"
+        ],
+        "hybrid_keyword_extraction": {
+          "mode": "auto",
+          "kiwi_enabled": true,
+          "kiwi_called": true,
+          "kiwi_cache_hit": false,
+          "aho_keyword_count": 4
+        }
+      },
+      "elapsed_ms": 29532
+    },
+    {
+      "query_id": "q030",
+      "query": "전과 신청 방법 알려줘",
+      "category": "academic_admin",
+      "department": null,
+      "original_query": "전과 신청 방법 알려줘",
+      "normalized_query": "전과 신청 방법 알려줘",
+      "rewritten_query": "전과 신청 방법 알려줘",
+      "intent": "INFO",
+      "keywords": [
+        "academic",
+        "신청",
+        "전과"
+      ],
+      "filters": {
+        "category": [
+          "academic"
+        ]
+      },
+      "retrieval_strategy": "hybrid",
+      "fallback_used": false,
+      "retrieved_count": 11,
+      "reranked_count": 11,
+      "selected_count": 3,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "selected_context_hit": true,
+      "irrelevant_document_included": false,
+      "answer_grounded_in_selected_context": false,
+      "top5_retrieved": [
+        {
+          "rank": 1,
+          "doc_id": "deu_academic_notice_79965",
+          "chunk_id": "deu_academic_notice_79965_v001_chunk_002",
+          "title": "2026학년도 1학기 전과 신청기간 공지",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=30&articleLimit=10&articleNo=79965&mode=view",
+          "source_type": "academic_notice",
+          "score": 0.528739197855516,
+          "lexical_score": 0.8360655750519677,
+          "vector_score": 0.7081622242927551,
+          "content_length": 939
+        },
+        {
+          "rank": 2,
+          "doc_id": "deu_academic_notice_79965",
+          "chunk_id": "deu_academic_notice_79965_v001_chunk_005",
+          "title": "2026학년도 1학기 전과 신청기간 공지",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=30&articleLimit=10&articleNo=79965&mode=view",
+          "source_type": "academic_notice",
+          "score": 0.5283316782702032,
+          "lexical_score": 0.8165137662840213,
+          "vector_score": 0.7353964426877245,
+          "content_length": 881
+        },
+        {
+          "rank": 3,
+          "doc_id": "deu_department_80046",
+          "chunk_id": "deu_department_80046_v001_chunk_001",
+          "title": "2026학년도 1학기 전과 신청 안내",
+          "source_url": "https://hsde.deu.ac.kr/hsde/sub06_03.do?article.offset=30&articleLimit=10&articleNo=80046&mode=view",
+          "source_type": "department",
+          "score": 0.5275116804766657,
+          "lexical_score": 0.8360655737704918,
+          "vector_score": 0.6377551771548297,
+          "content_length": 938
+        },
+        {
+          "rank": 4,
+          "doc_id": "deu_department_80046",
+          "chunk_id": "deu_department_80046_v001_chunk_009",
+          "title": "2026학년도 1학기 전과 신청 안내",
+          "source_url": "https://hsde.deu.ac.kr/hsde/sub06_03.do?article.offset=30&articleLimit=10&articleNo=80046&mode=view",
+          "source_type": "department",
+          "score": 0.5263453369728106,
+          "lexical_score": 0.8058252481120235,
+          "vector_score": 0.6377755593590608,
+          "content_length": 883
+        },
+        {
+          "rank": 5,
+          "doc_id": "deu_department_80109",
+          "chunk_id": "deu_department_80109_v001_chunk_015",
+          "title": "2026학년도 1학기 전과 일정 통보",
+          "source_url": "https://swcc.deu.ac.kr/se/sub06_03.do?article.offset=40&articleLimit=10&articleNo=80109&mode=view",
+          "source_type": "department",
+          "score": 0.5262933242916555,
+          "lexical_score": 0.809523811253831,
+          "vector_score": 0.6280894466665226,
+          "content_length": 853
+        }
+      ],
+      "selected_chunks": [
+        {
+          "rank": 1,
+          "doc_id": "deu_academic_notice_79965",
+          "chunk_id": "deu_academic_notice_79965_v001_chunk_005",
+          "title": "2026학년도 1학기 전과 신청기간 공지",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=30&articleLimit=10&articleNo=79965&mode=view",
+          "source_type": "academic_notice",
+          "score": 9.830158,
+          "rerank_score": 9.830158,
+          "content_preview": "[TITLE]\n2026학년도 1학기 전과 신청기간 공지\n\n[ATTACHMENT]\n1. DAP시스템 전과 신청 방법.hwp\n\n<표>\n\n▣ 신청 자격\n• 1학기 이상 이수한 재학생 및 해당 학기 복학 예정자\n- 편입생 및 체육특기자, 한의과대학 소속 학생은 전과를 신청할 수 없음.\n- 모집중지학과 및 한의과대학, 의료보건계열(의료경영학과 제외), 유아교육과, "
+        },
+        {
+          "rank": 2,
+          "doc_id": "deu_department_80046",
+          "chunk_id": "deu_department_80046_v001_chunk_009",
+          "title": "2026학년도 1학기 전과 신청 안내",
+          "source_url": "https://hsde.deu.ac.kr/hsde/sub06_03.do?article.offset=30&articleLimit=10&articleNo=80046&mode=view",
+          "source_type": "department",
+          "score": 9.129389,
+          "rerank_score": 9.129389,
+          "content_preview": "[TITLE]\n2026학년도 1학기 전과 신청 안내\n\n[ATTACHMENT]\n2. DAP시스템 전과 신청 방법 (3).hwp\n\n<표>\n\n▣ 신청 자격\n• 1학기 이상 이수한 재학생 및 해당 학기 복학 예정자\n- 편입생 및 체육특기자, 한의과대학 소속 학생은 전과를 신청할 수 없음.\n- 모집중지학과 및 한의과대학, 의료보건계열(의료경영학과 제외), 유아교육과"
+        },
+        {
+          "rank": 3,
+          "doc_id": "deu_department_80129",
+          "chunk_id": "deu_department_80129_v001_chunk_007",
+          "title": "[안내] 2026학년도 1학기 전과 일정 통보",
+          "source_url": "https://swcc.deu.ac.kr/computer/sub06_03.do?article.offset=40&articleLimit=10&articleNo=80129&mode=view",
+          "source_type": "department",
+          "score": 8.767288,
+          "rerank_score": 8.767288,
+          "content_preview": "[TITLE]\n[안내] 2026학년도 1학기 전과 일정 통보\n\n[ATTACHMENT]\n2. DAP시스템 전과 신청 방법 (3).hwp\n\n<표>\n\n▣ 신청 자격\n• 1학기 이상 이수한 재학생 및 해당 학기 복학 예정자\n- 편입생 및 체육특기자, 한의과대학 소속 학생은 전과를 신청할 수 없음.\n- 모집중지학과 및 한의과대학, 의료보건계열(의료경영학과 제외), "
+        }
+      ],
+      "answer_preview": "전과 신청 방법은 다음과 같습니다:\n\n1. 신청 자격: 1학기 이상 이수한 재학생 및 해당 학기 복학 예정자만 신청 가능. 편입생, 체육특기자, 한의과대학 소속 학생은 신청할 수 없습니다.\n\n2. 신청 방법: 대학 학생경력관리포털에 접속하여, 학생정보시스템에서 기타신청 메뉴의 일반전과신청을 클릭합니다.\n\n3. 신청 절차:\n   - 희망 학과 선택 후 저장\n   - 전과신청서 선택 및 내용 확인 후 출력\n   - 학생 및 보호자 서명 후 파일 업로드 (한글 파일 불가, 이미지 파일 또는 PDF 형식)\n\n4. 접수 완료: 학사지원팀에서",
+      "failure_stage": "answer_generation_issue",
+      "quality_info": {
+        "ok": true,
+        "blocking": false,
+        "reason": "",
+        "diagnostic_ok": true,
+        "diagnostic_reason": "",
+        "top1_score": 0.528739197855516,
+        "avg_topk_score": 0.5250963198179921,
+        "context_chars": 9833,
+        "duplicate_doc_ratio": 0.4545454545454546,
+        "top_noise_score": 0.0,
+        "top_strong_term_match": 0.0,
+        "exact_or_title_match_count": 5,
+        "required_entity": "",
+        "required_entity_match_count": 0,
+        "top1_required_entity_match": false,
+        "temporal_signals": {
+          "years": [],
+          "semesters": [],
+          "relative_dates": [],
+          "recency_intent": false,
+          "has_explicit_temporal": false
+        },
+        "temporal_validation": {
+          "valid": true,
+          "needs_validation": false,
+          "matched": true,
+          "reason": "",
+          "missing": [],
+          "temporal_signals": {
+            "years": [],
+            "semesters": [],
+            "relative_dates": [],
+            "recency_intent": false,
+            "has_explicit_temporal": false
+          },
+          "doc_results": [
+            {
+              "rank": 1,
+              "doc_id": "deu_academic_notice_79965",
+              "chunk_id": "deu_academic_notice_79965_v001_chunk_005",
+              "title": "2026학년도 1학기 전과 신청기간 공지",
+              "years": [
+                "2026"
+              ],
+              "semesters": [
+                "1학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            },
+            {
+              "rank": 2,
+              "doc_id": "deu_department_80046",
+              "chunk_id": "deu_department_80046_v001_chunk_009",
+              "title": "2026학년도 1학기 전과 신청 안내",
+              "years": [
+                "2026"
+              ],
+              "semesters": [
+                "1학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            },
+            {
+              "rank": 3,
+              "doc_id": "deu_department_80129",
+              "chunk_id": "deu_department_80129_v001_chunk_007",
+              "title": "[안내] 2026학년도 1학기 전과 일정 통보",
+              "years": [
+                "2026"
+              ],
+              "semesters": [
+                "1학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            }
+          ]
+        },
+        "selection_quality": {
+          "selected_context_contamination": false,
+          "attachment_ratio": 1.0,
+          "noise_ratio": 0.0,
+          "top_heading_query_match": true,
+          "single_selected_heading_mismatch": false,
+          "doc_signals": [
+            {
+              "rank": 1,
+              "doc_id": "deu_academic_notice_79965",
+              "chunk_id": "deu_academic_notice_79965_v001_chunk_005",
+              "title": "2026학년도 1학기 전과 신청기간 공지",
+              "section_title": "1. DAP시스템 전과 신청 방법.hwp",
+              "source_type": "academic_notice",
+              "is_attachment": true,
+              "noise_score": 0.0,
+              "heading_query_match": true,
+              "rerank_score": 9.830158,
+              "rerank_signals": {
+                "base_score": 1.199075,
+                "title_match": 0.72,
+                "section_title_match": 1.44,
+                "content_match": 0.64,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.9,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 2.16,
+                "canonical_source_priority": 0.0,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.7,
+                "recency": 0.271083,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.0
+              }
+            },
+            {
+              "rank": 2,
+              "doc_id": "deu_department_80046",
+              "chunk_id": "deu_department_80046_v001_chunk_009",
+              "title": "2026학년도 1학기 전과 신청 안내",
+              "section_title": "2. DAP시스템 전과 신청 방법 (3).hwp",
+              "source_type": "department",
+              "is_attachment": true,
+              "noise_score": 0.0,
+              "heading_query_match": true,
+              "rerank_score": 9.129389,
+              "rerank_signals": {
+                "base_score": 1.194567,
+                "title_match": 0.72,
+                "section_title_match": 1.44,
+                "content_match": 0.64,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.9,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 2.16,
+                "canonical_source_priority": 0.0,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.0,
+                "recency": 0.274822,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.0
+              }
+            },
+            {
+              "rank": 3,
+              "doc_id": "deu_department_80129",
+              "chunk_id": "deu_department_80129_v001_chunk_007",
+              "title": "[안내] 2026학년도 1학기 전과 일정 통보",
+              "section_title": "2. DAP시스템 전과 신청 방법 (3).hwp",
+              "source_type": "department",
+              "is_attachment": true,
+              "noise_score": 0.0,
+              "heading_query_match": true,
+              "rerank_score": 8.767288,
+              "rerank_signals": {
+                "base_score": 1.191712,
+                "title_match": 0.36,
+                "section_title_match": 1.44,
+                "content_match": 0.64,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.9,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 2.16,
+                "canonical_source_priority": 0.0,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.0,
+                "recency": 0.275576,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.0
+              }
+            }
+          ],
+          "temporal_validation": {
+            "valid": true,
+            "needs_validation": false,
+            "matched": true,
+            "reason": "",
+            "missing": [],
+            "temporal_signals": {
+              "years": [],
+              "semesters": [],
+              "relative_dates": [],
+              "recency_intent": false,
+              "has_explicit_temporal": false
+            },
+            "doc_results": [
+              {
+                "rank": 1,
+                "doc_id": "deu_academic_notice_79965",
+                "chunk_id": "deu_academic_notice_79965_v001_chunk_005",
+                "title": "2026학년도 1학기 전과 신청기간 공지",
+                "years": [
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              },
+              {
+                "rank": 2,
+                "doc_id": "deu_department_80046",
+                "chunk_id": "deu_department_80046_v001_chunk_009",
+                "title": "2026학년도 1학기 전과 신청 안내",
+                "years": [
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              },
+              {
+                "rank": 3,
+                "doc_id": "deu_department_80129",
+                "chunk_id": "deu_department_80129_v001_chunk_007",
+                "title": "[안내] 2026학년도 1학기 전과 일정 통보",
+                "years": [
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              }
+            ]
+          }
+        }
+      },
+      "query_understanding": {
+        "normalized_query": "전과 신청 방법 알려줘",
+        "original_query": "전과 신청 방법 알려줘",
+        "lexical_query": "전과 신청 방법 알려줘",
+        "expanded_query": "전과 신청 방법 알려줘 academic 신청 전과",
+        "embedding_query": "전과 신청 방법 알려줘",
+        "query_bundle": {
+          "original": "전과 신청 방법 알려줘",
+          "semantic_query": "전과 신청 방법 알려줘",
+          "keyword_query": "전과 신청 방법 알려줘",
+          "entity_query": "",
+          "intent": "방법",
+          "entities": [],
+          "rewrite_entities": [],
+          "filters": {}
+        },
+        "keywords": [
+          "academic",
+          "신청",
+          "전과"
+        ],
+        "extracted_entities": {
+          "category": [
+            "academic"
+          ],
+          "target": [],
+          "time": [],
+          "department": [],
+          "action": [
+            "신청"
+          ],
+          "domain": [
+            "academic"
+          ]
+        },
+        "rewrite_entities": [],
+        "rewrite_quality": {
+          "protected_terms": [
+            "전과"
+          ],
+          "missing_protected_terms": [
+            "전과"
+          ],
+          "original_len": 12,
+          "rewrite_len": 8,
+          "rewrite_preserved": false
+        },
+        "query_features": {
+          "family": "academic_admin",
+          "domain": "academic",
+          "category": "academic",
+          "protected_terms": [
+            "전과"
+          ],
+          "strong_terms": [
+            "전과",
+            "academic"
+          ],
+          "required_terms": [
+            "전과"
+          ],
+          "source_boosts": [
+            "academic_support",
+            "academic_notice",
+            "notice",
+            "institution"
+          ],
+          "rule_hit_names": [
+            "domain:academic:전과"
+          ]
+        },
+        "entities": {
+          "category": [
+            "academic"
+          ],
+          "target": [],
+          "time": [],
+          "department": [],
+          "action": [
+            "신청"
+          ],
+          "domain": [
+            "academic"
+          ]
+        },
+        "filters": {
+          "category": [
+            "academic"
+          ]
+        },
+        "dropped_filters": [],
+        "primary_category": "academic",
+        "detected_domain": "academic",
+        "detected_category": "academic",
+        "rule_hit_names": [
+          "domain:academic:전과"
+        ],
+        "applied_boosts": [
+          "academic_support",
+          "academic_notice",
+          "notice",
+          "institution"
+        ],
+        "rewritten_queries": [
+          "전과 신청 방법 알려줘",
+          "신청 방법 절차 전과",
+          "신청 방법 절차",
+          "신청"
+        ],
+        "hybrid_keyword_extraction": {
+          "mode": "auto",
+          "kiwi_enabled": true,
+          "kiwi_called": true,
+          "kiwi_cache_hit": false,
+          "aho_keyword_count": 3
+        }
+      },
+      "elapsed_ms": 23559
+    }
+  ],
+  "stage_descriptions": {
+    "query_preprocessing_issue": "질문 전처리 문제: normalized_query 또는 rewritten_query가 이상하거나 키워드 추출이 실패함. preprocessor.py, domain_knowledge.py, query_features.py를 점검하라.",
+    "db_data_quality_issue": "DB 데이터 품질 문제: 정답 문서/본문/첨부 텍스트가 DB에 없음. 크롤러 재실행 또는 해당 URL 직접 재파싱이 필요함.",
+    "lexical_search_issue": "Lexical 검색 문제: BM25/full-text search로 정답을 찾지 못함. retriever.py의 토큰화, stopwords, 쿼리 확장을 점검하라.",
+    "vector_search_issue": "Vector 검색 문제: 임베딩 검색으로 정답을 찾지 못함. 임베딩 모델, 쿼리 전처리, DB 벡터 품질을 점검하라.",
+    "hybrid_merge_issue": "Hybrid 병합 문제: lexical/vector 개별 결과에는 있지만 병합 후 순위에서 밀림. RRF 가중치, HYBRID_SCORE_MODE 설정을 점검하라.",
+    "rerank_issue": "Reranking 문제: retrieved에는 있지만 rerank 후 순위가 내려감. reranker.py의 감점/가점 규칙, 노이즈 패널티를 점검하라.",
+    "topk_selector_issue": "TopK 선택 문제: reranked 상위에 있지만 selected에서 제외됨. topk_selector.py의 중복 제거, 오염 감지 규칙을 점검하라.",
+    "answer_generation_issue": "답변 생성 문제: selected context에 근거가 있지만 답변이 틀리거나 모른다고 답변함. prompt_builder.py, answer_generator.py를 점검하라.",
+    "pipeline_error": "파이프라인 실행 오류: 예외가 발생하여 평가 자체가 불가능함."
+  },
+  "recommended_changes": {
+    "query_preprocessing_issue": [
+      "rag/pipeline/preprocessor.py: 정규화 규칙 확인",
+      "rag/preprocess/domain_knowledge.py: 동의어/별칭 등록 확인",
+      "rag/preprocess/query_features.py: 키워드 추출 로직 확인"
+    ],
+    "db_data_quality_issue": [
+      "크롤러: 해당 URL 재크롤링 필요",
+      "crawler/crawler/run/run_retry_failed_documents.py: 실패 문서 재처리",
+      "DB 점검: SELECT * FROM chunks WHERE source_url LIKE '%<url>%'"
+    ],
+    "lexical_search_issue": [
+      "rag/retrieval/retriever.py: _DB_SEARCH_STOPWORDS 조정",
+      "rag/retrieval/retriever.py: _FAMILY_SEARCH_EXPANSIONS 키워드 추가",
+      "rag/pipeline/preprocessor.py: 키워드 확장 강화"
+    ],
+    "vector_search_issue": [
+      "rag/embedding/koe5_embedder.py: 임베딩 쿼리 텍스트 확인",
+      "rag/pipeline/chat_pipeline.py: _embed_query에서 사용하는 query_text 확인",
+      "DB: 해당 chunk의 embedding이 NULL인지 확인"
+    ],
+    "hybrid_merge_issue": [
+      "rag/retrieval/retriever.py: _HYBRID_* 가중치 조정",
+      ".env: HYBRID_SCORE_MODE, HYBRID_LEXICAL_WEIGHT 튜닝",
+      "rag/retrieval/retriever.py: RRF k 파라미터 조정"
+    ],
+    "rerank_issue": [
+      "rag/selection/reranker.py: 감점 규칙 완화 또는 가점 규칙 강화",
+      "rag/selection/reranker.py: query_family_boost 점수 조정",
+      "rag/selection/reranker.py: 노이즈 패널티 임계값 조정"
+    ],
+    "topk_selector_issue": [
+      "rag/selection/topk_selector.py: context_contamination 임계값 조정",
+      "rag/selection/topk_selector.py: source_type_diversity 규칙 완화",
+      "rag/selection/topk_selector.py: max_chunks_per_doc 값 확인"
+    ],
+    "answer_generation_issue": [
+      "rag/prompt/prompt_builder.py: 프롬프트 지시사항 보강",
+      "rag/generation/answer_postprocessor.py: negative repair 조건 점검",
+      "rag/llm/answer_generator.py: system_prompt 근거 강조 문구 추가"
+    ]
+  }
+}

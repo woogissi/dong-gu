@@ -1,0 +1,542 @@
+# 동의대학교 RAG 실제 질문 데이터셋 (2026-05-29 추가)
+# 실제 학생 질문 기반, 정답 URL과 기대 답변 포함
+# expected_answer_contains: 답변에 반드시 포함되어야 할 텍스트
+
+queries:
+
+  # === 학사일정 (scheduleList.do) ===
+
+  - id: r001
+    query: "보강일정 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "scheduleList.do"
+    expected_keywords:
+      - 보강
+    expected_answer_contains:
+      - "보강"
+      - "6월"
+    category: academic_schedule
+    department: null
+    notes: "2026년 1학기 지정보강일은 6월 9일~12일"
+
+  - id: r002
+    query: "1학기 개강일 언제야?"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "scheduleList.do"
+    expected_keywords:
+      - 개강
+      - 1학기
+    expected_answer_contains:
+      - "개강"
+      - "3월"
+    category: academic_schedule
+    department: null
+    notes: "2026년 1학기 개강일 3월 2일"
+
+  - id: r003
+    query: "2학기 개강일 언제야?"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "scheduleList.do"
+    expected_keywords:
+      - 개강
+      - 2학기
+    expected_answer_contains:
+      - "개강"
+      - "2학기"
+    category: academic_schedule
+    department: null
+    notes: "2026년 2학기 개강일"
+
+  - id: r004
+    query: "1학기 종강일 언제야?"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "scheduleList.do"
+    expected_keywords:
+      - 종강
+      - 1학기
+    expected_answer_contains:
+      - "종강"
+      - "6월"
+    category: academic_schedule
+    department: null
+    notes: "2026년 1학기 종강일(하계방학 시작일) 6월 23일"
+
+  - id: r005
+    query: "1학기 중간고사 기간 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "scheduleList.do"
+    expected_keywords:
+      - 중간고사
+      - 중간시험
+    expected_answer_contains:
+      - "중간"
+      - "4월"
+    category: academic_schedule
+    department: null
+    notes: "2026년 1학기 중간시험 4월 21일~"
+
+  - id: r006
+    query: "1학기 기말고사 기간 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "scheduleList.do"
+    expected_keywords:
+      - 기말고사
+      - 기말시험
+    expected_answer_contains:
+      - "기말"
+      - "6월"
+    category: academic_schedule
+    department: null
+    notes: "2026년 1학기 기말시험 6월 중"
+
+  - id: r007
+    query: "여름계절학기 기간 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "scheduleList.do"
+    expected_keywords:
+      - 계절학기
+      - 하계
+    expected_answer_contains:
+      - "계절"
+      - "6월"
+    category: academic_schedule
+    department: null
+    notes: "여름계절학기 6월 말부터"
+
+  - id: r008
+    query: "수강신청 기간 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "scheduleList.do"
+      - "gra-notice.do"
+    expected_keywords:
+      - 수강신청
+      - 기간
+    expected_answer_contains:
+      - "수강신청"
+    category: course_registration
+    department: null
+    notes: "2학기 수강신청 8월 중"
+
+  - id: r009
+    query: "수강정정 기간 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "scheduleList.do"
+      - "gra-notice.do"
+    expected_keywords:
+      - 수강정정
+    expected_answer_contains:
+      - "수강정정"
+    category: course_registration
+    department: null
+    notes: "수강정정 개강 직후"
+
+  - id: r010
+    query: "등록금 납부기간 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu-notice.do"
+    expected_keywords:
+      - 등록금
+      - 납부
+    expected_answer_contains:
+      - "등록금"
+      - "납부"
+    category: tuition
+    department: null
+    notes: "등록금 납부 2월 19일~2월 24일"
+
+  - id: r011
+    query: "졸업식 언제야?"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "scheduleList.do"
+    expected_keywords:
+      - 졸업식
+    expected_answer_contains:
+      - "졸업식"
+      - "2월"
+    category: academic_schedule
+    department: null
+    notes: "학위 수여식 27년 2월 12일"
+
+  # === 장학금 ===
+
+  - id: r012
+    query: "26년 2학기 국가장학금 신청기간 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu-scholarship.do"
+    expected_keywords:
+      - 국가장학금
+      - 신청
+    expected_answer_contains:
+      - "국가장학금"
+    category: scholarship
+    department: null
+    notes: "5/22~6/22"
+
+  - id: r013
+    query: "교내장학금 종류 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu-scholarship.do"
+    expected_keywords:
+      - 교내장학금
+      - 종류
+    expected_answer_contains:
+      - "장학금"
+    category: scholarship
+    department: null
+    notes: "성적장학금, 복지장학금 등"
+
+  - id: r014
+    query: "국가장학금 신청 어디서 해?"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "kosaf.go.kr"
+    expected_keywords:
+      - 국가장학금
+      - 신청
+    expected_answer_contains:
+      - "한국장학재단"
+    category: scholarship
+    department: null
+    notes: "한국장학재단 kosaf.go.kr"
+
+  # === 시스템/포털 ===
+
+  - id: r015
+    query: "등록금 고지서 어디서 봐?"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "dap.deu.ac.kr"
+    expected_keywords:
+      - 등록금
+      - 고지서
+    expected_answer_contains:
+      - "DAP"
+    category: tuition
+    department: null
+    notes: "DAP 시스템"
+
+  - id: r016
+    query: "성적 확인 어디서 해?"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "dap.deu.ac.kr"
+    expected_keywords:
+      - 성적
+      - 확인
+    expected_answer_contains:
+      - "DAP"
+    category: grade
+    department: null
+    notes: "DAP 시스템"
+
+  - id: r017
+    query: "학적 조회 어디서 해?"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "dap.deu.ac.kr"
+    expected_keywords:
+      - 학적
+      - 조회
+    expected_answer_contains:
+      - "DAP"
+    category: academic_admin
+    department: null
+    notes: "DAP 시스템"
+
+  # === 학과별 정보 ===
+
+  - id: r018
+    query: "컴퓨터공학과 졸업학점 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu-curriculum.do?mode=view&articleNo=80836"
+      - "computer/sub06_01.do"
+    expected_keywords:
+      - 컴퓨터공학
+      - 졸업
+      - 학점
+    expected_answer_contains:
+      - "컴퓨터공학"
+      - "130"
+    category: graduation
+    department: "컴퓨터공학과"
+    notes: "컴퓨터공학과 졸업학점 130학점"
+
+  - id: r019
+    query: "컴퓨터공학과 홈페이지 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "computer/index.do"
+      - "deuhome.deu.ac.kr/computer"
+    expected_keywords:
+      - 컴퓨터공학과
+      - 홈페이지
+    expected_answer_contains:
+      - "컴퓨터공학"
+    category: department_curriculum
+    department: "컴퓨터공학과"
+    notes: "컴퓨터공학과 공식 홈페이지"
+
+  - id: r020
+    query: "시각디자인과 2학년 1학기 전공필수 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu-curriculum.do?mode=view&articleNo=80836"
+    expected_keywords:
+      - 시각디자인
+      - 전공필수
+    expected_answer_contains:
+      - "시각"
+      - "디자인"
+    category: department_curriculum
+    department: "시각디자인과"
+    notes: "시각정보디자인1, 타이포그라피1"
+
+  - id: r021
+    query: "간호학과 2학년 1학기 전공필수 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu-curriculum.do?mode=view&articleNo=80836"
+      - "nursing.deu.ac.kr"
+    expected_keywords:
+      - 간호학과
+      - 전공필수
+    expected_answer_contains:
+      - "간호"
+    category: department_curriculum
+    department: "간호학과"
+    notes: "건강사정, 기본간호학 등"
+
+  - id: r022
+    query: "경찰행정학과 3학년 2학기 전공선택 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu-curriculum.do?mode=view&articleNo=80836"
+      - "police2001.deu.ac.kr"
+    expected_keywords:
+      - 경찰행정학과
+      - 전공선택
+    expected_answer_contains:
+      - "경찰"
+    category: department_curriculum
+    department: "경찰행정학과"
+    notes: "경찰조직론, 범죄예방론 등"
+
+  - id: r023
+    query: "게임공학과 2학년 2학기 전공선택 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu-curriculum.do?mode=view&articleNo=80836"
+      - "game"
+    expected_keywords:
+      - 게임공학과
+      - 전공선택
+    expected_answer_contains:
+      - "게임"
+    category: department_curriculum
+    department: "게임공학과"
+    notes: "게임네트워크프로그래밍및실습 등"
+
+  - id: r024
+    query: "인공지능학과 4학년 1학기 전공선택 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu-curriculum.do?mode=view&articleNo=80836"
+      - "ai.deu.ac.kr"
+    expected_keywords:
+      - 인공지능학과
+      - 전공선택
+    expected_answer_contains:
+      - "인공지능"
+    category: department_curriculum
+    department: "인공지능학과"
+    notes: "데이터시각화, 강화학습, 클라우드 등"
+
+  - id: r025
+    query: "경영학과 1학년 2학기 전공필수 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu-curriculum.do?mode=view&articleNo=80836"
+      - "business"
+    expected_keywords:
+      - 경영학과
+      - 전공필수
+    expected_answer_contains:
+      - "경영"
+    category: department_curriculum
+    department: "경영학과"
+    notes: "회계원리, 경영조직론"
+
+  # === 시설/위치 ===
+
+  - id: r026
+    query: "중앙도서관 콜라보라운지 운영시간 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "lib.deu.ac.kr"
+      - "deu-today.do"
+    expected_keywords:
+      - 콜라보라운지
+      - 운영시간
+    expected_answer_contains:
+      - "콜라보라운지"
+    category: welfare_facility
+    department: null
+    notes: "9시~20시 운영"
+
+  - id: r027
+    query: "기숙사 신청 어디서 해?"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "dorm.deu.ac.kr"
+    expected_keywords:
+      - 기숙사
+      - 신청
+    expected_answer_contains:
+      - "기숙사"
+      - "신청"
+    category: dormitory
+    department: null
+    notes: "학생생활관 홈페이지 dorm.deu.ac.kr"
+
+  - id: r028
+    query: "재학증명서 발급 방법 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu.ac.kr/www/sub.php?menu=205"
+    expected_keywords:
+      - 재학증명서
+      - 발급
+    expected_answer_contains:
+      - "재학증명서"
+      - "발급"
+    category: certificate
+    department: null
+    notes: "증명서 발급 시스템"
+
+  - id: r029
+    query: "취업지원 프로그램 어디서 봐?"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "pluscenter"
+    expected_keywords:
+      - 취업지원
+      - 프로그램
+    expected_answer_contains:
+      - "취업"
+    category: career
+    department: null
+    notes: "대학일자리플러스센터"
+
+  - id: r030
+    query: "와이파이 사용 방법 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu-wifi.do"
+    expected_keywords:
+      - 와이파이
+    expected_answer_contains:
+      - "Wi-Fi"
+      - "와이파이"
+    category: academic_admin
+    department: null
+    notes: "교내 Wi-Fi 학교 계정 로그인"
+
+  - id: r031
+    query: "정보관 학생식당 운영시간 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu-dining-hall.do"
+    expected_keywords:
+      - 학생식당
+      - 운영시간
+    expected_answer_contains:
+      - "식당"
+    category: welfare_facility
+    department: null
+    notes: "11~15시"
+
+  - id: r032
+    query: "학사공지 어디서 봐?"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu-notice.do"
+    expected_keywords:
+      - 학사공지
+    expected_answer_contains:
+      - "공지"
+    category: academic_admin
+    department: null
+    notes: "학교 홈페이지 공지사항"
+
+  - id: r033
+    query: "정보관 편의점 어디있어"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu-culture.do"
+    expected_keywords:
+      - 정보관
+      - 편의점
+    expected_answer_contains:
+      - "편의점"
+    category: building_location
+    department: null
+    notes: "정보관 2층"
+
+  - id: r034
+    query: "기숙사 비용 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "deu-dormitory.do"
+    expected_keywords:
+      - 기숙사
+      - 비용
+    expected_answer_contains:
+      - "기숙사"
+    category: dormitory
+    department: null
+    notes: "1인실 1,200,900 보증금 50,000"
+
+  - id: r035
+    query: "장시웅 교수님 전화번호 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "computer/sub02.do"
+      - "deuhome.deu.ac.kr/computer"
+    expected_keywords:
+      - 장시웅
+      - 교수
+    expected_answer_contains:
+      - "장시웅"
+      - "890"
+    category: person_title
+    department: "컴퓨터공학과"
+    notes: "051-890-1708"
+
+  - id: r036
+    query: "예비군 날짜 알려줘"
+    expected_doc_ids: []
+    expected_source_urls:
+      - "exchange.deu.ac.kr"
+      - "deu-notice.do"
+    expected_keywords:
+      - 예비군
+    expected_answer_contains:
+      - "예비군"
+      - "6월"
+    category: academic_admin
+    department: null
+    notes: "6월 23일~7월 2일"

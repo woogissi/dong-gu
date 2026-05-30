@@ -1,0 +1,2793 @@
+{
+  "summary": {
+    "total": 5,
+    "top1_hit_rate": 0.2,
+    "top3_hit_rate": 0.2,
+    "top5_hit_rate": 0.4,
+    "selected_context_hit_rate": 0.8,
+    "irrelevant_included_rate": 0.0,
+    "answer_grounded_rate": 1.0,
+    "fallback_used_rate": 0.0,
+    "failure_stage_counts": {
+      "db_data_quality_issue": 1
+    }
+  },
+  "results": [
+    {
+      "query_id": "q001",
+      "query": "수강신청 기간 알려줘",
+      "category": "course_registration",
+      "department": null,
+      "original_query": "수강신청 기간 알려줘",
+      "normalized_query": "수강신청 기간 알려줘",
+      "rewritten_query": "수강신청 학사공지 기간 일정 마감일 수업",
+      "intent": "INFO",
+      "keywords": [
+        "course",
+        "수강신청",
+        "강의신청",
+        "수업신청",
+        "학사",
+        "수강",
+        "기간",
+        "수강신청기간",
+        "신청수업신청",
+        "신청기간",
+        "신청수업",
+        "신청"
+      ],
+      "filters": {
+        "category": [
+          "학사",
+          "수강",
+          "course"
+        ],
+        "time": [
+          "기간"
+        ]
+      },
+      "retrieval_strategy": "vector",
+      "fallback_used": false,
+      "retrieved_count": 20,
+      "reranked_count": 20,
+      "selected_count": 2,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "selected_context_hit": true,
+      "irrelevant_document_included": false,
+      "answer_grounded_in_selected_context": true,
+      "top5_retrieved": [
+        {
+          "rank": 1,
+          "doc_id": "deu_academic_notice_80877",
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_006",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=20&articleLimit=10&articleNo=80877&mode=view",
+          "source_type": "academic_notice",
+          "score": 1.15,
+          "lexical_score": null,
+          "vector_score": null,
+          "content_length": 966
+        },
+        {
+          "rank": 2,
+          "doc_id": "deu_academic_notice_80877",
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=20&articleLimit=10&articleNo=80877&mode=view",
+          "source_type": "academic_notice",
+          "score": 1.14,
+          "lexical_score": null,
+          "vector_score": null,
+          "content_length": 966
+        },
+        {
+          "rank": 3,
+          "doc_id": "deu_department_81676",
+          "chunk_id": "deu_department_81676_v001_chunk_002",
+          "title": "AX마이크로디그리 K-MOOC 수강 및 학점인정 관련 사항 안내",
+          "source_url": "https://pite.deu.ac.kr/pite/sub06_03.do?article.offset=10&articleLimit=10&articleNo=81676&mode=view",
+          "source_type": "department",
+          "score": 0.7390260648437165,
+          "lexical_score": null,
+          "vector_score": 0.7390260648437165,
+          "content_length": 345
+        },
+        {
+          "rank": 4,
+          "doc_id": "deu_department_81638",
+          "chunk_id": "deu_department_81638_v001_chunk_002",
+          "title": "AX마이크로디그리 K-MOOC 수강 및 학점인정 관련 사항 안내",
+          "source_url": "https://deuhome.deu.ac.kr/fre/sub06_03.do?article.offset=10&articleLimit=10&articleNo=81638&mode=view",
+          "source_type": "department",
+          "score": 0.737757320337216,
+          "lexical_score": null,
+          "vector_score": 0.737757320337216,
+          "content_length": 345
+        },
+        {
+          "rank": 5,
+          "doc_id": "deu_advising_81553",
+          "chunk_id": "deu_advising_81553_v001_chunk_002",
+          "title": "🧿AX마이크로디그리 K-MOOC 수강 및 학점인정 관련 사항 안내🧿",
+          "source_url": "https://advising.deu.ac.kr/advising/sub04_01.do?article.offset=0&articleLimit=10&articleNo=81553&mode=view",
+          "source_type": "advising",
+          "score": 0.6331891824844749,
+          "lexical_score": null,
+          "vector_score": 0.6331891824844749,
+          "content_length": 347
+        }
+      ],
+      "selected_chunks": [
+        {
+          "rank": 1,
+          "doc_id": "deu_academic_notice_80877",
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_006",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=20&articleLimit=10&articleNo=80877&mode=view",
+          "source_type": "academic_notice",
+          "score": 10.872548,
+          "rerank_score": 10.872548,
+          "content_preview": "[TITLE]\n2026학년도 1학기 수강신청 안내\n\n[ATTACHMENT]\n1. 2026-1학기 수강신청편람.pdf\n\n- 1 -\n반드시 다음 사항을 확인한 후 수강신청 하시기 바랍니다.1. 수강신청 및 수강정정 일정 ▪ 수강신청 및 정정은 이수구분, 교과목번호, 분반번호, 학점, 교과목명 등을 확인하여 다음 일정에 따라 신청합니다. ▪ 수강신청 일자: 20"
+        },
+        {
+          "rank": 2,
+          "doc_id": "deu_academic_notice_80877",
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=20&articleLimit=10&articleNo=80877&mode=view",
+          "source_type": "academic_notice",
+          "score": 10.587113,
+          "rerank_score": 10.587113,
+          "content_preview": "[TITLE]\n2026학년도 1학기 수강신청 안내\n\n[ATTACHMENT]\n1. 2026-1학기 수강신청편람.pdf\n\n[PDF TABLE page=3 table=1 format=markdown]\n| 구분 | | 수강신청시작일자 | 수강신청 과목 |\n| - | - | - | - |\n| 수강 신청 기간 | 1학년 신입생 | 03.01.(일) 10:00 ~ 17"
+        }
+      ],
+      "answer_preview": "2026학년도 1학기 수강신청 기간은 다음과 같습니다:\n\n1. 1학년 신입생: 03.01.(일) 10:00 ~ 17:00, 03.02.(월) 13:00 ~ 17:00\n2. 1학년 복학생: 03.01.(일) 10:00 ~ 17:00, 03.02.(월) 13:00 ~ 17:00\n3. 2학년: 02.19.(목) ~ 02.24.(화) 10:00 ~ 17:00\n4. 3학년: 02.20.(금) ~ 02.24.(화) 10:00 ~ 17:00\n5. 4∼5학년: 02.23.(월) ~ 02.24.(화) 10:00 ~ 17:00\n6. 2∼5학년: 02",
+      "failure_stage": null,
+      "quality_info": {
+        "ok": true,
+        "blocking": false,
+        "reason": "",
+        "diagnostic_ok": false,
+        "diagnostic_reason": "no_exact_or_strong_keyword_match",
+        "top1_score": 1.15,
+        "avg_topk_score": 0.7165173911858018,
+        "context_chars": 16296,
+        "duplicate_doc_ratio": 0.4,
+        "top_noise_score": 0.0,
+        "top_strong_term_match": 0.0,
+        "exact_or_title_match_count": 0,
+        "required_entity": "",
+        "required_entity_match_count": 0,
+        "top1_required_entity_match": false,
+        "temporal_signals": {
+          "years": [],
+          "semesters": [],
+          "relative_dates": [],
+          "recency_intent": false,
+          "has_explicit_temporal": false
+        },
+        "temporal_validation": {
+          "valid": true,
+          "needs_validation": false,
+          "matched": true,
+          "reason": "",
+          "missing": [],
+          "temporal_signals": {
+            "years": [],
+            "semesters": [],
+            "relative_dates": [],
+            "recency_intent": false,
+            "has_explicit_temporal": false
+          },
+          "doc_results": [
+            {
+              "rank": 1,
+              "doc_id": "deu_academic_notice_80877",
+              "chunk_id": "deu_academic_notice_80877_v001_chunk_006",
+              "title": "2026학년도 1학기 수강신청 안내",
+              "years": [
+                "2025",
+                "2026"
+              ],
+              "semesters": [
+                "1학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            },
+            {
+              "rank": 2,
+              "doc_id": "deu_academic_notice_80877",
+              "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+              "title": "2026학년도 1학기 수강신청 안내",
+              "years": [
+                "2025",
+                "2026"
+              ],
+              "semesters": [
+                "1학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            }
+          ]
+        },
+        "selection_quality": {
+          "selected_context_contamination": false,
+          "attachment_ratio": 1.0,
+          "noise_ratio": 0.0,
+          "top_heading_query_match": true,
+          "single_selected_heading_mismatch": false,
+          "doc_signals": [
+            {
+              "rank": 1,
+              "doc_id": "deu_academic_notice_80877",
+              "chunk_id": "deu_academic_notice_80877_v001_chunk_006",
+              "title": "2026학년도 1학기 수강신청 안내",
+              "section_title": "1. 2026-1학기 수강신청편람.pdf",
+              "source_type": "academic_notice",
+              "is_attachment": true,
+              "noise_score": 0.8,
+              "heading_query_match": true,
+              "rerank_score": 10.872548,
+              "rerank_signals": {
+                "base_score": 1.2,
+                "title_match": 0.45,
+                "section_title_match": 0.45,
+                "content_match": 0.55,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.525,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": -0.8,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 1.2,
+                "canonical_source_priority": 3.0,
+                "verified_title_boost": 1.5,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.7,
+                "recency": 0.297548,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.8
+              }
+            },
+            {
+              "rank": 2,
+              "doc_id": "deu_academic_notice_80877",
+              "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+              "title": "2026학년도 1학기 수강신청 안내",
+              "section_title": "1. 2026-1학기 수강신청편람.pdf",
+              "source_type": "academic_notice",
+              "is_attachment": true,
+              "noise_score": 0.8,
+              "heading_query_match": true,
+              "rerank_score": 10.587113,
+              "rerank_signals": {
+                "base_score": 1.189565,
+                "title_match": 0.45,
+                "section_title_match": 0.45,
+                "content_match": 0.5,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.3,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": -0.8,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 1.2,
+                "canonical_source_priority": 3.0,
+                "verified_title_boost": 1.5,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.7,
+                "recency": 0.297548,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.8
+              }
+            }
+          ],
+          "temporal_validation": {
+            "valid": true,
+            "needs_validation": false,
+            "matched": true,
+            "reason": "",
+            "missing": [],
+            "temporal_signals": {
+              "years": [],
+              "semesters": [],
+              "relative_dates": [],
+              "recency_intent": false,
+              "has_explicit_temporal": false
+            },
+            "doc_results": [
+              {
+                "rank": 1,
+                "doc_id": "deu_academic_notice_80877",
+                "chunk_id": "deu_academic_notice_80877_v001_chunk_006",
+                "title": "2026학년도 1학기 수강신청 안내",
+                "years": [
+                  "2025",
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              },
+              {
+                "rank": 2,
+                "doc_id": "deu_academic_notice_80877",
+                "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+                "title": "2026학년도 1학기 수강신청 안내",
+                "years": [
+                  "2025",
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              }
+            ]
+          }
+        }
+      },
+      "query_understanding": {
+        "normalized_query": "수강신청 기간 알려줘",
+        "original_query": "수강신청 기간 알려줘",
+        "lexical_query": "수강신청 기간 알려줘 강의신청 수업신청",
+        "expanded_query": "수강신청 기간 알려줘 course 수강신청 강의신청 수업신청 학사 수강 기간 수강신청기간 신청수업신청 신청기간 신청수업 신청",
+        "embedding_query": "수강신청 기간 알려줘",
+        "query_bundle": {
+          "original": "수강신청 기간 알려줘",
+          "semantic_query": "수강신청 기간 알려줘",
+          "keyword_query": "수강신청 학사공지 기간 일정 마감일 수업",
+          "entity_query": "수강신청 강의신청 학사공지",
+          "intent": "기간",
+          "entities": [
+            "수강신청",
+            "학사공지"
+          ],
+          "rewrite_entities": [
+            "수강신청",
+            "학사공지"
+          ],
+          "filters": {
+            "category": [
+              "수강",
+              "학사"
+            ],
+            "time": [
+              "기간"
+            ]
+          }
+        },
+        "keywords": [
+          "course",
+          "수강신청",
+          "강의신청",
+          "수업신청",
+          "학사",
+          "수강",
+          "기간",
+          "수강신청기간",
+          "신청수업신청",
+          "신청기간",
+          "신청수업",
+          "신청"
+        ],
+        "extracted_entities": {
+          "category": [
+            "학사",
+            "수강",
+            "course"
+          ],
+          "target": [],
+          "time": [
+            "기간"
+          ],
+          "department": [],
+          "action": [
+            "신청"
+          ],
+          "domain": [
+            "course"
+          ]
+        },
+        "rewrite_entities": [
+          "수강신청",
+          "학사공지"
+        ],
+        "rewrite_quality": {
+          "protected_terms": [
+            "수강신청",
+            "수강"
+          ],
+          "missing_protected_terms": [],
+          "original_len": 11,
+          "rewrite_len": 22,
+          "rewrite_preserved": true
+        },
+        "query_features": {
+          "family": "course_registration",
+          "domain": "course",
+          "category": "course",
+          "protected_terms": [
+            "수강신청",
+            "수강"
+          ],
+          "strong_terms": [
+            "수강신청",
+            "수강",
+            "course",
+            "강의신청",
+            "수업신청",
+            "학사",
+            "수강신청기간",
+            "신청수업신청",
+            "신청기간",
+            "신청수업"
+          ],
+          "required_terms": [
+            "수강신청"
+          ],
+          "source_boosts": [
+            "academic_notice",
+            "academic_support",
+            "department",
+            "institution"
+          ],
+          "rule_hit_names": [
+            "domain:course:수강",
+            "domain:course:수강신청",
+            "domain:course:수업",
+            "domain:course:강의",
+            "domain:course:강의신청",
+            "domain:course:수업신청"
+          ]
+        },
+        "entities": {
+          "category": [
+            "학사",
+            "수강",
+            "course"
+          ],
+          "target": [],
+          "time": [
+            "기간"
+          ],
+          "department": [],
+          "action": [
+            "신청"
+          ],
+          "domain": [
+            "course"
+          ]
+        },
+        "filters": {
+          "category": [
+            "학사",
+            "수강",
+            "course"
+          ],
+          "time": [
+            "기간"
+          ]
+        },
+        "dropped_filters": [],
+        "primary_category": "course",
+        "detected_domain": "course",
+        "detected_category": "course",
+        "rule_hit_names": [
+          "domain:course:수강",
+          "domain:course:수강신청",
+          "domain:course:수업",
+          "domain:course:강의",
+          "domain:course:강의신청",
+          "domain:course:수업신청"
+        ],
+        "applied_boosts": [
+          "academic_notice",
+          "academic_support",
+          "department",
+          "institution"
+        ],
+        "rewritten_queries": [
+          "수강신청 학사공지 기간 일정 마감일 수업",
+          "수강신청 기간 알려줘 강의신청 수업신청",
+          "수강신청 강의신청 학사공지",
+          "수강신청 기간 알려줘",
+          "수강 신청 기간 수업"
+        ],
+        "hybrid_keyword_extraction": {
+          "mode": "auto",
+          "kiwi_enabled": true,
+          "kiwi_called": true,
+          "kiwi_cache_hit": false,
+          "aho_keyword_count": 7
+        }
+      },
+      "elapsed_ms": 33164
+    },
+    {
+      "query_id": "q002",
+      "query": "수강정정 기간이 언제야",
+      "category": "course_registration",
+      "department": null,
+      "original_query": "수강정정 기간이 언제야",
+      "normalized_query": "수강정정 기간이 언제야",
+      "rewritten_query": "수강신청 학사공지 기간 수강정정 일정 마감일",
+      "intent": "INFO",
+      "keywords": [
+        "course",
+        "수강신청",
+        "강의신청",
+        "수업신청",
+        "학사",
+        "수강",
+        "정정",
+        "기간",
+        "언제",
+        "시점",
+        "수강정정",
+        "수강정정기간",
+        "기간이",
+        "언제야"
+      ],
+      "filters": {
+        "category": [
+          "학사",
+          "수강",
+          "course"
+        ],
+        "time": [
+          "기간"
+        ]
+      },
+      "retrieval_strategy": "vector",
+      "fallback_used": false,
+      "retrieved_count": 20,
+      "reranked_count": 20,
+      "selected_count": 3,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "selected_context_hit": false,
+      "irrelevant_document_included": false,
+      "answer_grounded_in_selected_context": true,
+      "top5_retrieved": [
+        {
+          "rank": 1,
+          "doc_id": "deu_academic_notice_80877",
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_006",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=20&articleLimit=10&articleNo=80877&mode=view",
+          "source_type": "academic_notice",
+          "score": 1.15,
+          "lexical_score": null,
+          "vector_score": null,
+          "content_length": 966
+        },
+        {
+          "rank": 2,
+          "doc_id": "deu_academic_notice_80877",
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=20&articleLimit=10&articleNo=80877&mode=view",
+          "source_type": "academic_notice",
+          "score": 1.14,
+          "lexical_score": null,
+          "vector_score": null,
+          "content_length": 966
+        },
+        {
+          "rank": 3,
+          "doc_id": "deu_academic_notice_80309",
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_003",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=0&articleLimit=10&articleNo=80309&mode=view",
+          "source_type": "academic_notice",
+          "score": 0.7284629924021379,
+          "lexical_score": null,
+          "vector_score": 0.7284629924021379,
+          "content_length": 982
+        },
+        {
+          "rank": 4,
+          "doc_id": "deu_advising_80352",
+          "chunk_id": "deu_advising_80352_v001_chunk_003",
+          "title": "📢학사정보 종합안내 가이드(2026)📢",
+          "source_url": "https://advising.deu.ac.kr/advising/sub04_02.do?article.offset=0&articleLimit=10&articleNo=80352&mode=view",
+          "source_type": "advising",
+          "score": 0.6231921539788166,
+          "lexical_score": null,
+          "vector_score": 0.6231921539788166,
+          "content_length": 984
+        },
+        {
+          "rank": 5,
+          "doc_id": "deu_department_80349",
+          "chunk_id": "deu_department_80349_v001_chunk_003",
+          "title": "2026학년도 학사정보 종합안내 및 다전공 안내 가이드 배포",
+          "source_url": "https://swcc.deu.ac.kr/swcc/sub01_04.do?article.offset=20&articleLimit=10&articleNo=80349&mode=view",
+          "source_type": "department",
+          "score": 0.7126747131347656,
+          "lexical_score": null,
+          "vector_score": 0.7126747131347656,
+          "content_length": 981
+        }
+      ],
+      "selected_chunks": [
+        {
+          "rank": 1,
+          "doc_id": "deu_academic_notice_80877",
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_006",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=20&articleLimit=10&articleNo=80877&mode=view",
+          "source_type": "academic_notice",
+          "score": 10.295195,
+          "rerank_score": 10.295195,
+          "content_preview": "[TITLE]\n2026학년도 1학기 수강신청 안내\n\n[ATTACHMENT]\n1. 2026-1학기 수강신청편람.pdf\n\n- 1 -\n반드시 다음 사항을 확인한 후 수강신청 하시기 바랍니다.1. 수강신청 및 수강정정 일정 ▪ 수강신청 및 정정은 이수구분, 교과목번호, 분반번호, 학점, 교과목명 등을 확인하여 다음 일정에 따라 신청합니다. ▪ 수강신청 일자: 20"
+        },
+        {
+          "rank": 2,
+          "doc_id": "deu_academic_notice_80877",
+          "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+          "title": "2026학년도 1학기 수강신청 안내",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=20&articleLimit=10&articleNo=80877&mode=view",
+          "source_type": "academic_notice",
+          "score": 10.20476,
+          "rerank_score": 10.20476,
+          "content_preview": "[TITLE]\n2026학년도 1학기 수강신청 안내\n\n[ATTACHMENT]\n1. 2026-1학기 수강신청편람.pdf\n\n[PDF TABLE page=3 table=1 format=markdown]\n| 구분 | | 수강신청시작일자 | 수강신청 과목 |\n| - | - | - | - |\n| 수강 신청 기간 | 1학년 신입생 | 03.01.(일) 10:00 ~ 17"
+        },
+        {
+          "rank": 3,
+          "doc_id": "deu_notice_80708",
+          "chunk_id": "deu_notice_80708_v001_chunk_006",
+          "title": "2026학년도 1학기 재입학 합격 안내",
+          "source_url": "https://www.deu.ac.kr/www/deu-notice.do?article.offset=40&articleLimit=10&articleNo=80708&mode=view",
+          "source_type": "notice",
+          "score": 6.031742,
+          "rerank_score": 6.031742,
+          "content_preview": "[TITLE]\n2026학년도 1학기 재입학 합격 안내\n\n[ATTACHMENT]\n수강신청 관련001.jpg\n\n은 수강신청 불가\n10,00\n17.00\n12 ~5학년\n02.24 (화) 10.00\n17.00\n자유선택[타과 전공선택(실습포함과록 캠스튼디자인 산학연제학 등 제외)]\n교양과정_전공필수전공선택\n폐강과목 확인\n02,27 (금)\n02.28.(토)\n폐강과목 확"
+        }
+      ],
+      "answer_preview": "수강정정 기간은 2026년 3월 5일(목)부터 3월 6일(금), 그리고 3월 9일(월)까지입니다. 정정 가능 시간은 10:00부터 17:00까지입니다. 이 기간 동안 수강인원이 초과되지 않은 교과목에 한해 정정이 가능합니다.",
+      "failure_stage": "db_data_quality_issue",
+      "quality_info": {
+        "ok": true,
+        "blocking": false,
+        "reason": "",
+        "diagnostic_ok": false,
+        "diagnostic_reason": "no_exact_or_strong_keyword_match",
+        "top1_score": 1.15,
+        "avg_topk_score": 0.6948584163705518,
+        "context_chars": 16320,
+        "duplicate_doc_ratio": 0.30000000000000004,
+        "top_noise_score": 0.0,
+        "top_strong_term_match": 0.0,
+        "exact_or_title_match_count": 0,
+        "required_entity": "",
+        "required_entity_match_count": 0,
+        "top1_required_entity_match": false,
+        "temporal_signals": {
+          "years": [],
+          "semesters": [],
+          "relative_dates": [],
+          "recency_intent": false,
+          "has_explicit_temporal": false
+        },
+        "temporal_validation": {
+          "valid": true,
+          "needs_validation": false,
+          "matched": true,
+          "reason": "",
+          "missing": [],
+          "temporal_signals": {
+            "years": [],
+            "semesters": [],
+            "relative_dates": [],
+            "recency_intent": false,
+            "has_explicit_temporal": false
+          },
+          "doc_results": [
+            {
+              "rank": 1,
+              "doc_id": "deu_academic_notice_80877",
+              "chunk_id": "deu_academic_notice_80877_v001_chunk_006",
+              "title": "2026학년도 1학기 수강신청 안내",
+              "years": [
+                "2025",
+                "2026"
+              ],
+              "semesters": [
+                "1학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            },
+            {
+              "rank": 2,
+              "doc_id": "deu_academic_notice_80877",
+              "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+              "title": "2026학년도 1학기 수강신청 안내",
+              "years": [
+                "2025",
+                "2026"
+              ],
+              "semesters": [
+                "1학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            },
+            {
+              "rank": 3,
+              "doc_id": "deu_notice_80708",
+              "chunk_id": "deu_notice_80708_v001_chunk_006",
+              "title": "2026학년도 1학기 재입학 합격 안내",
+              "years": [
+                "2026"
+              ],
+              "semesters": [
+                "1학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            }
+          ]
+        },
+        "selection_quality": {
+          "selected_context_contamination": false,
+          "attachment_ratio": 1.0,
+          "noise_ratio": 0.0,
+          "top_heading_query_match": true,
+          "single_selected_heading_mismatch": false,
+          "doc_signals": [
+            {
+              "rank": 1,
+              "doc_id": "deu_academic_notice_80877",
+              "chunk_id": "deu_academic_notice_80877_v001_chunk_006",
+              "title": "2026학년도 1학기 수강신청 안내",
+              "section_title": "1. 2026-1학기 수강신청편람.pdf",
+              "source_type": "academic_notice",
+              "is_attachment": true,
+              "noise_score": 0.8,
+              "heading_query_match": true,
+              "rerank_score": 10.295195,
+              "rerank_signals": {
+                "base_score": 1.2,
+                "title_match": 0.211765,
+                "section_title_match": 0.282353,
+                "content_match": 0.423529,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.48,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": -0.8,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 1.2,
+                "canonical_source_priority": 3.0,
+                "verified_title_boost": 1.5,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.7,
+                "recency": 0.297548,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.8
+              }
+            },
+            {
+              "rank": 2,
+              "doc_id": "deu_academic_notice_80877",
+              "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+              "title": "2026학년도 1학기 수강신청 안내",
+              "section_title": "1. 2026-1학기 수강신청편람.pdf",
+              "source_type": "academic_notice",
+              "is_attachment": true,
+              "noise_score": 0.8,
+              "heading_query_match": true,
+              "rerank_score": 10.20476,
+              "rerank_signals": {
+                "base_score": 1.189565,
+                "title_match": 0.211765,
+                "section_title_match": 0.282353,
+                "content_match": 0.423529,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.4,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": -0.8,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 1.2,
+                "canonical_source_priority": 3.0,
+                "verified_title_boost": 1.5,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.7,
+                "recency": 0.297548,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.8
+              }
+            },
+            {
+              "rank": 3,
+              "doc_id": "deu_notice_80708",
+              "chunk_id": "deu_notice_80708_v001_chunk_006",
+              "title": "2026학년도 1학기 재입학 합격 안내",
+              "section_title": "수강신청 관련001.jpg",
+              "source_type": "notice",
+              "is_attachment": true,
+              "noise_score": 0.8,
+              "heading_query_match": true,
+              "rerank_score": 6.031742,
+              "rerank_signals": {
+                "base_score": 0.626105,
+                "title_match": 0.0,
+                "section_title_match": 0.282353,
+                "content_match": 0.470588,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.56,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": -0.8,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 1.2,
+                "canonical_source_priority": 1.6,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.0,
+                "recency": 0.292696,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.8
+              }
+            }
+          ],
+          "temporal_validation": {
+            "valid": true,
+            "needs_validation": false,
+            "matched": true,
+            "reason": "",
+            "missing": [],
+            "temporal_signals": {
+              "years": [],
+              "semesters": [],
+              "relative_dates": [],
+              "recency_intent": false,
+              "has_explicit_temporal": false
+            },
+            "doc_results": [
+              {
+                "rank": 1,
+                "doc_id": "deu_academic_notice_80877",
+                "chunk_id": "deu_academic_notice_80877_v001_chunk_006",
+                "title": "2026학년도 1학기 수강신청 안내",
+                "years": [
+                  "2025",
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              },
+              {
+                "rank": 2,
+                "doc_id": "deu_academic_notice_80877",
+                "chunk_id": "deu_academic_notice_80877_v001_chunk_009",
+                "title": "2026학년도 1학기 수강신청 안내",
+                "years": [
+                  "2025",
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              },
+              {
+                "rank": 3,
+                "doc_id": "deu_notice_80708",
+                "chunk_id": "deu_notice_80708_v001_chunk_006",
+                "title": "2026학년도 1학기 재입학 합격 안내",
+                "years": [
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              }
+            ]
+          }
+        }
+      },
+      "query_understanding": {
+        "normalized_query": "수강정정 기간이 언제야",
+        "original_query": "수강정정 기간이 언제야",
+        "lexical_query": "수강정정 기간이 언제야 수강신청",
+        "expanded_query": "수강정정 기간이 언제야 course 수강신청 강의신청 수업신청 학사 수강 정정 기간 언제 시점 수강정정 수강정정기간 기간이 언제야",
+        "embedding_query": "수강정정 기간이 언제야",
+        "query_bundle": {
+          "original": "수강정정 기간이 언제야",
+          "semantic_query": "수강정정 기간이 언제야 수강신청 학사공지",
+          "keyword_query": "수강신청 학사공지 기간 수강정정 일정 마감일",
+          "entity_query": "수강신청 강의신청 학사공지",
+          "intent": "기간",
+          "entities": [
+            "수강신청",
+            "학사공지"
+          ],
+          "rewrite_entities": [
+            "수강신청",
+            "학사공지"
+          ],
+          "filters": {
+            "category": [
+              "수강",
+              "학사"
+            ],
+            "time": [
+              "기간"
+            ]
+          }
+        },
+        "keywords": [
+          "course",
+          "수강신청",
+          "강의신청",
+          "수업신청",
+          "학사",
+          "수강",
+          "정정",
+          "기간",
+          "언제",
+          "시점",
+          "수강정정",
+          "수강정정기간",
+          "기간이",
+          "언제야"
+        ],
+        "extracted_entities": {
+          "category": [
+            "학사",
+            "수강",
+            "course"
+          ],
+          "target": [],
+          "time": [
+            "기간"
+          ],
+          "department": [],
+          "action": [
+            "신청"
+          ],
+          "domain": [
+            "course"
+          ]
+        },
+        "rewrite_entities": [
+          "수강신청",
+          "학사공지"
+        ],
+        "rewrite_quality": {
+          "protected_terms": [
+            "수강신청",
+            "수강"
+          ],
+          "missing_protected_terms": [],
+          "original_len": 12,
+          "rewrite_len": 24,
+          "rewrite_preserved": true
+        },
+        "query_features": {
+          "family": "course_registration",
+          "domain": "course",
+          "category": "course",
+          "protected_terms": [
+            "수강신청",
+            "수강"
+          ],
+          "strong_terms": [
+            "수강신청",
+            "수강",
+            "수강정정",
+            "기간이",
+            "언제야",
+            "course",
+            "강의신청",
+            "수업신청",
+            "학사",
+            "정정",
+            "언제",
+            "시점",
+            "수강정정기간"
+          ],
+          "required_terms": [
+            "수강신청"
+          ],
+          "source_boosts": [
+            "academic_notice",
+            "academic_support",
+            "department",
+            "institution"
+          ],
+          "rule_hit_names": [
+            "domain:course:수강",
+            "domain:course:수강신청",
+            "domain:course:수업",
+            "domain:course:강의",
+            "domain:course:정정",
+            "domain:course:강의신청",
+            "domain:course:수업신청"
+          ]
+        },
+        "entities": {
+          "category": [
+            "학사",
+            "수강",
+            "course"
+          ],
+          "target": [],
+          "time": [
+            "기간"
+          ],
+          "department": [],
+          "action": [
+            "신청"
+          ],
+          "domain": [
+            "course"
+          ]
+        },
+        "filters": {
+          "category": [
+            "학사",
+            "수강",
+            "course"
+          ],
+          "time": [
+            "기간"
+          ]
+        },
+        "dropped_filters": [],
+        "primary_category": "course",
+        "detected_domain": "course",
+        "detected_category": "course",
+        "rule_hit_names": [
+          "domain:course:수강",
+          "domain:course:수강신청",
+          "domain:course:수업",
+          "domain:course:강의",
+          "domain:course:정정",
+          "domain:course:강의신청",
+          "domain:course:수업신청"
+        ],
+        "applied_boosts": [
+          "academic_notice",
+          "academic_support",
+          "department",
+          "institution"
+        ],
+        "rewritten_queries": [
+          "수강신청 학사공지 기간 수강정정 일정 마감일",
+          "수강정정 기간이 언제야 수강신청",
+          "수강신청 강의신청 학사공지",
+          "수강정정 기간이 언제야 수강신청 학사공지",
+          "수강 정정 기간 신청",
+          "수강정정 기간이 언제야"
+        ],
+        "hybrid_keyword_extraction": {
+          "mode": "auto",
+          "kiwi_enabled": true,
+          "kiwi_called": true,
+          "kiwi_cache_hit": false,
+          "aho_keyword_count": 10
+        }
+      },
+      "elapsed_ms": 21424
+    },
+    {
+      "query_id": "q003",
+      "query": "휴학 신청 방법 알려줘",
+      "category": "academic_admin",
+      "department": null,
+      "original_query": "휴학 신청 방법 알려줘",
+      "normalized_query": "휴학 신청 방법 알려줘",
+      "rewritten_query": "휴학 신청 방법 절차 제출처 필요서류",
+      "intent": "INFO",
+      "keywords": [
+        "academic",
+        "휴학",
+        "신청",
+        "휴학신청"
+      ],
+      "filters": {
+        "category": [
+          "휴학",
+          "academic"
+        ]
+      },
+      "retrieval_strategy": "hybrid",
+      "fallback_used": false,
+      "retrieved_count": 20,
+      "reranked_count": 20,
+      "selected_count": 3,
+      "top1_hit": true,
+      "top3_hit": true,
+      "top5_hit": true,
+      "selected_context_hit": true,
+      "irrelevant_document_included": false,
+      "answer_grounded_in_selected_context": true,
+      "top5_retrieved": [
+        {
+          "rank": 1,
+          "doc_id": "static_cfbf02a7d5d3a72f",
+          "chunk_id": "static_cfbf02a7d5d3a72f_v001_chunk_001",
+          "title": "휴학",
+          "source_url": "https://dess.deu.ac.kr/?mid=Page1",
+          "source_type": "academic_support",
+          "score": 0.5287410253253021,
+          "lexical_score": 0.6969697002536994,
+          "vector_score": 0.8094789320541077,
+          "content_length": 920
+        },
+        {
+          "rank": 2,
+          "doc_id": "static_cfbf02a7d5d3a72f",
+          "chunk_id": "static_cfbf02a7d5d3a72f_v001_chunk_002",
+          "title": "휴학",
+          "source_url": "https://dess.deu.ac.kr/?mid=Page1",
+          "source_type": "academic_support",
+          "score": 0.5286000422184371,
+          "lexical_score": 0.6875000011641532,
+          "vector_score": 0.8180345058441162,
+          "content_length": 920
+        },
+        {
+          "rank": 3,
+          "doc_id": "deu_department_81415",
+          "chunk_id": "deu_department_81415_v001_chunk_001",
+          "title": "2026-1학기 휴학 신청 일정 및 유의사항 안내",
+          "source_url": "https://swcc.deu.ac.kr/swcc/sub01_04.do?article.offset=20&articleLimit=10&articleNo=81415&mode=view",
+          "source_type": "department",
+          "score": 0.5281773144616477,
+          "lexical_score": 0.7938144390711508,
+          "vector_score": 0.7000797986984253,
+          "content_length": 579
+        },
+        {
+          "rank": 4,
+          "doc_id": "deu_department_78831",
+          "chunk_id": "deu_department_78831_v001_chunk_001",
+          "title": "[안내] 2026학년도 1학기 휴·복학 일정 및 내용 안내",
+          "source_url": "https://swcc.deu.ac.kr/computer/sub06_03.do?article.offset=50&articleLimit=10&articleNo=78831&mode=view",
+          "source_type": "department",
+          "score": 0.5239878610464537,
+          "lexical_score": 0.7014925351889635,
+          "vector_score": 0.6039286255836487,
+          "content_length": 950
+        },
+        {
+          "rank": 5,
+          "doc_id": "static_11d21f96a0840f09",
+          "chunk_id": "static_11d21f96a0840f09_v001_chunk_001",
+          "title": "휴학변경",
+          "source_url": "https://dess.deu.ac.kr/?mid=Page5",
+          "source_type": "department",
+          "score": 0.5233721623847231,
+          "lexical_score": 0.6226415077364288,
+          "vector_score": 0.6895375436820076,
+          "content_length": 813
+        }
+      ],
+      "selected_chunks": [
+        {
+          "rank": 1,
+          "doc_id": "static_cfbf02a7d5d3a72f",
+          "chunk_id": "static_cfbf02a7d5d3a72f_v001_chunk_001",
+          "title": "휴학",
+          "source_url": "https://dess.deu.ac.kr/?mid=Page1",
+          "source_type": "academic_support",
+          "score": 9.4,
+          "rerank_score": 9.4,
+          "content_preview": "[TITLE]\n휴학\n\n[BODY]\n\n2026학년도 1학기 휴학 종류별 안내\n미등록휴학(종료)\n신청일시\n2025. 12. 26(금) 10시부터 2026. 02. 27(금) 17시까지: 02월 27일 17시 이후 신청 불가. 등록금 납부 후 휴학신청, 처리 가능\n신청대상자\n2026-1학기 등록금을 납부하지 않고 휴학하고자 하는 재학생(\n미등록 휴학 시 모든 장"
+        },
+        {
+          "rank": 2,
+          "doc_id": "deu_academic_notice_81144",
+          "chunk_id": "deu_academic_notice_81144_v001_chunk_001",
+          "title": "군입대 휴학중 취득학점 인정절차 안내",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=20&articleLimit=10&articleNo=81144&mode=view",
+          "source_type": "academic_notice",
+          "score": 7.646849,
+          "rerank_score": 7.646849,
+          "content_preview": "[TITLE]\n군입대 휴학중 취득학점 인정절차 안내\n\n[BODY]\n\n군입대 휴학중 취득학점 인정절차 안내\n \n[3-2-49]군입대휴학중취득학점인정규정.pdf\n2026학년도 1학기 GeLC 군복무중 학점인정 원격수업 안내문.pdf\n군입대 휴학중 취득학점 인정절차 안내\n* 반드시 군 입대 휴학자에 한하여 수강이 가능하며, 2026-1학기 수강신청 일정은 내용을"
+        },
+        {
+          "rank": 3,
+          "doc_id": "deu_department_81415",
+          "chunk_id": "deu_department_81415_v001_chunk_001",
+          "title": "2026-1학기 휴학 신청 일정 및 유의사항 안내",
+          "source_url": "https://swcc.deu.ac.kr/swcc/sub01_04.do?article.offset=20&articleLimit=10&articleNo=81415&mode=view",
+          "source_type": "department",
+          "score": 7.272057,
+          "rerank_score": 7.272057,
+          "content_preview": "[TITLE]\n2026-1학기 휴학 신청 일정 및 유의사항 안내\n\n[BODY]\n\n2026-1학기 휴학 신청 일정 및 유의사항 안내\n📌 1. 휴학 신청 기한\n등록 휴학(등록금 납부 후 휴학): 2026. 2. 24.(화) 16:00까지\n미등록 휴학(등록금 미납 상태 휴학): 2026. 2. 27.(금) 17:00까지\n※ 기한 이후에는 신청이 불가하오니 반드시"
+        }
+      ],
+      "answer_preview": "휴학 신청 방법은 다음과 같습니다:\n\n1. 신청 기한: \n   - 등록 휴학: 2026년 2월 24일(화) 16:00까지\n   - 미등록 휴학: 2026년 2월 27일(금) 17:00까지\n\n2. 신청 방법: \n   - 학생경력관리포털에 접속하여 [학생정보시스템] → [개인정보] → [휴학신청]을 이용합니다.\n\n3. 유의사항: \n   - 군 입대 예정자는 먼저 '가사 휴학'으로 신청 후, 입영통지서가 발급되면 '군 휴학'으로 변경 신청해야 합니다.\n   - 미등록 휴학 시 장학금이 취소될 수 있으니 사전에 확인해야 합니다.",
+      "failure_stage": null,
+      "quality_info": {
+        "ok": true,
+        "blocking": false,
+        "reason": "",
+        "diagnostic_ok": true,
+        "diagnostic_reason": "",
+        "top1_score": 0.5287410253253021,
+        "avg_topk_score": 0.5180522296986927,
+        "context_chars": 16952,
+        "duplicate_doc_ratio": 0.35,
+        "top_noise_score": 0.0,
+        "top_strong_term_match": 0.0,
+        "exact_or_title_match_count": 5,
+        "required_entity": "",
+        "required_entity_match_count": 0,
+        "top1_required_entity_match": false,
+        "temporal_signals": {
+          "years": [],
+          "semesters": [],
+          "relative_dates": [],
+          "recency_intent": false,
+          "has_explicit_temporal": false
+        },
+        "temporal_validation": {
+          "valid": true,
+          "needs_validation": false,
+          "matched": true,
+          "reason": "",
+          "missing": [],
+          "temporal_signals": {
+            "years": [],
+            "semesters": [],
+            "relative_dates": [],
+            "recency_intent": false,
+            "has_explicit_temporal": false
+          },
+          "doc_results": [
+            {
+              "rank": 1,
+              "doc_id": "static_cfbf02a7d5d3a72f",
+              "chunk_id": "static_cfbf02a7d5d3a72f_v001_chunk_001",
+              "title": "휴학",
+              "years": [
+                "2025",
+                "2026"
+              ],
+              "semesters": [
+                "1학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            },
+            {
+              "rank": 2,
+              "doc_id": "deu_academic_notice_81144",
+              "chunk_id": "deu_academic_notice_81144_v001_chunk_001",
+              "title": "군입대 휴학중 취득학점 인정절차 안내",
+              "years": [
+                "2026"
+              ],
+              "semesters": [
+                "1학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            },
+            {
+              "rank": 3,
+              "doc_id": "deu_department_81415",
+              "chunk_id": "deu_department_81415_v001_chunk_001",
+              "title": "2026-1학기 휴학 신청 일정 및 유의사항 안내",
+              "years": [
+                "2026"
+              ],
+              "semesters": [
+                "1학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            }
+          ]
+        },
+        "selection_quality": {
+          "selected_context_contamination": false,
+          "attachment_ratio": 0.0,
+          "noise_ratio": 0.0,
+          "top_heading_query_match": true,
+          "single_selected_heading_mismatch": false,
+          "doc_signals": [
+            {
+              "rank": 1,
+              "doc_id": "static_cfbf02a7d5d3a72f",
+              "chunk_id": "static_cfbf02a7d5d3a72f_v001_chunk_001",
+              "title": "휴학",
+              "section_title": "body",
+              "source_type": "academic_support",
+              "is_attachment": false,
+              "noise_score": 0.0,
+              "heading_query_match": true,
+              "rerank_score": 9.4,
+              "rerank_signals": {
+                "base_score": 1.2,
+                "title_match": 0.45,
+                "section_title_match": 0.0,
+                "content_match": 0.5,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.75,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 4.0,
+                "canonical_source_priority": 0.0,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.7,
+                "recency": 0.0,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.0
+              }
+            },
+            {
+              "rank": 2,
+              "doc_id": "deu_academic_notice_81144",
+              "chunk_id": "deu_academic_notice_81144_v001_chunk_001",
+              "title": "군입대 휴학중 취득학점 인정절차 안내",
+              "section_title": "body",
+              "source_type": "academic_notice",
+              "is_attachment": false,
+              "noise_score": 0.0,
+              "heading_query_match": true,
+              "rerank_score": 7.646849,
+              "rerank_signals": {
+                "base_score": 1.161873,
+                "title_match": 0.45,
+                "section_title_match": 0.0,
+                "content_match": 0.5,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.45,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 2.28,
+                "canonical_source_priority": 0.0,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.7,
+                "recency": 0.304976,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.0
+              }
+            },
+            {
+              "rank": 3,
+              "doc_id": "deu_department_81415",
+              "chunk_id": "deu_department_81415_v001_chunk_001",
+              "title": "2026-1학기 휴학 신청 일정 및 유의사항 안내",
+              "section_title": "body",
+              "source_type": "department",
+              "is_attachment": false,
+              "noise_score": 0.0,
+              "heading_query_match": true,
+              "rerank_score": 7.272057,
+              "rerank_signals": {
+                "base_score": 1.198721,
+                "title_match": 0.675,
+                "section_title_match": 0.0,
+                "content_match": 0.5,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.75,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 2.04,
+                "canonical_source_priority": 0.0,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.0,
+                "recency": 0.308336,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.0
+              }
+            }
+          ],
+          "temporal_validation": {
+            "valid": true,
+            "needs_validation": false,
+            "matched": true,
+            "reason": "",
+            "missing": [],
+            "temporal_signals": {
+              "years": [],
+              "semesters": [],
+              "relative_dates": [],
+              "recency_intent": false,
+              "has_explicit_temporal": false
+            },
+            "doc_results": [
+              {
+                "rank": 1,
+                "doc_id": "static_cfbf02a7d5d3a72f",
+                "chunk_id": "static_cfbf02a7d5d3a72f_v001_chunk_001",
+                "title": "휴학",
+                "years": [
+                  "2025",
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              },
+              {
+                "rank": 2,
+                "doc_id": "deu_academic_notice_81144",
+                "chunk_id": "deu_academic_notice_81144_v001_chunk_001",
+                "title": "군입대 휴학중 취득학점 인정절차 안내",
+                "years": [
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              },
+              {
+                "rank": 3,
+                "doc_id": "deu_department_81415",
+                "chunk_id": "deu_department_81415_v001_chunk_001",
+                "title": "2026-1학기 휴학 신청 일정 및 유의사항 안내",
+                "years": [
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              }
+            ]
+          }
+        }
+      },
+      "query_understanding": {
+        "normalized_query": "휴학 신청 방법 알려줘",
+        "original_query": "휴학 신청 방법 알려줘",
+        "lexical_query": "휴학 신청 방법 알려줘",
+        "expanded_query": "휴학 신청 방법 알려줘 academic 휴학 신청 휴학신청",
+        "embedding_query": "휴학 신청 방법 알려줘",
+        "query_bundle": {
+          "original": "휴학 신청 방법 알려줘",
+          "semantic_query": "휴학 신청 방법 알려줘",
+          "keyword_query": "휴학 신청 방법 절차 제출처 필요서류",
+          "entity_query": "휴학 휴학신청",
+          "intent": "방법",
+          "entities": [
+            "휴학"
+          ],
+          "rewrite_entities": [
+            "휴학"
+          ],
+          "filters": {
+            "category": [
+              "휴학"
+            ]
+          }
+        },
+        "keywords": [
+          "academic",
+          "휴학",
+          "신청",
+          "휴학신청"
+        ],
+        "extracted_entities": {
+          "category": [
+            "휴학",
+            "academic"
+          ],
+          "target": [],
+          "time": [],
+          "department": [],
+          "action": [
+            "신청"
+          ],
+          "domain": [
+            "academic"
+          ]
+        },
+        "rewrite_entities": [
+          "휴학"
+        ],
+        "rewrite_quality": {
+          "protected_terms": [
+            "휴학"
+          ],
+          "missing_protected_terms": [],
+          "original_len": 12,
+          "rewrite_len": 20,
+          "rewrite_preserved": true
+        },
+        "query_features": {
+          "family": "academic_admin",
+          "domain": "academic",
+          "category": "academic",
+          "protected_terms": [
+            "휴학"
+          ],
+          "strong_terms": [
+            "휴학",
+            "academic",
+            "휴학신청"
+          ],
+          "required_terms": [
+            "휴학"
+          ],
+          "source_boosts": [
+            "academic_support",
+            "academic_notice",
+            "notice",
+            "institution"
+          ],
+          "rule_hit_names": [
+            "domain:academic:휴학",
+            "domain:academic:휴학신청"
+          ]
+        },
+        "entities": {
+          "category": [
+            "휴학",
+            "academic"
+          ],
+          "target": [],
+          "time": [],
+          "department": [],
+          "action": [
+            "신청"
+          ],
+          "domain": [
+            "academic"
+          ]
+        },
+        "filters": {
+          "category": [
+            "휴학",
+            "academic"
+          ]
+        },
+        "dropped_filters": [],
+        "primary_category": "academic",
+        "detected_domain": "academic",
+        "detected_category": "academic",
+        "rule_hit_names": [
+          "domain:academic:휴학",
+          "domain:academic:휴학신청"
+        ],
+        "applied_boosts": [
+          "academic_support",
+          "academic_notice",
+          "notice",
+          "institution"
+        ],
+        "rewritten_queries": [
+          "휴학 신청 방법 절차 제출처 필요서류",
+          "휴학 휴학신청",
+          "휴학 신청 방법 알려줘",
+          "휴학 신청"
+        ],
+        "hybrid_keyword_extraction": {
+          "mode": "auto",
+          "kiwi_enabled": true,
+          "kiwi_called": true,
+          "kiwi_cache_hit": false,
+          "aho_keyword_count": 3
+        }
+      },
+      "elapsed_ms": 20078
+    },
+    {
+      "query_id": "q004",
+      "query": "복학 신청 기간 언제야",
+      "category": "academic_admin",
+      "department": null,
+      "original_query": "복학 신청 기간 언제야",
+      "normalized_query": "복학 신청 기간 언제야",
+      "rewritten_query": "복학 신청 기간 일정 마감일",
+      "intent": "INFO",
+      "keywords": [
+        "academic",
+        "복학",
+        "신청",
+        "기간",
+        "언제",
+        "시점",
+        "복학신청기간",
+        "복학신청",
+        "신청기간",
+        "언제야"
+      ],
+      "filters": {
+        "category": [
+          "복학",
+          "academic"
+        ],
+        "time": [
+          "기간"
+        ]
+      },
+      "retrieval_strategy": "hybrid",
+      "fallback_used": false,
+      "retrieved_count": 20,
+      "reranked_count": 20,
+      "selected_count": 3,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": true,
+      "selected_context_hit": true,
+      "irrelevant_document_included": false,
+      "answer_grounded_in_selected_context": true,
+      "top5_retrieved": [
+        {
+          "rank": 1,
+          "doc_id": "deu_department_80120",
+          "chunk_id": "deu_department_80120_v001_chunk_001",
+          "title": "[안내] 2026학년도 1학기 복학 일정 안내",
+          "source_url": "https://swcc.deu.ac.kr/computer/sub06_03.do?article.offset=40&articleLimit=10&articleNo=80120&mode=view",
+          "source_type": "department",
+          "score": 0.523389368441219,
+          "lexical_score": 0.7260274008394607,
+          "vector_score": 0.7081872224807739,
+          "content_length": 372
+        },
+        {
+          "rank": 2,
+          "doc_id": "deu_department_80129",
+          "chunk_id": "deu_department_80129_v001_chunk_001",
+          "title": "[안내] 2026학년도 1학기 전과 일정 통보",
+          "source_url": "https://swcc.deu.ac.kr/computer/sub06_03.do?article.offset=40&articleLimit=10&articleNo=80129&mode=view",
+          "source_type": "department",
+          "score": 0.5222007132961957,
+          "lexical_score": 0.8039215704607349,
+          "vector_score": 0.5474878549575806,
+          "content_length": 943
+        },
+        {
+          "rank": 3,
+          "doc_id": "deu_department_78831",
+          "chunk_id": "deu_department_78831_v001_chunk_001",
+          "title": "[안내] 2026학년도 1학기 휴·복학 일정 및 내용 안내",
+          "source_url": "https://swcc.deu.ac.kr/computer/sub06_03.do?article.offset=50&articleLimit=10&articleNo=78831&mode=view",
+          "source_type": "department",
+          "score": 0.521415197983228,
+          "lexical_score": 0.7647058797130123,
+          "vector_score": 0.5855405330657959,
+          "content_length": 950
+        },
+        {
+          "rank": 4,
+          "doc_id": "deu_department_78831",
+          "chunk_id": "deu_department_78831_v001_chunk_003",
+          "title": "[안내] 2026학년도 1학기 휴·복학 일정 및 내용 안내",
+          "source_url": "https://swcc.deu.ac.kr/computer/sub06_03.do?article.offset=50&articleLimit=10&articleNo=78831&mode=view",
+          "source_type": "department",
+          "score": 0.5202446191991783,
+          "lexical_score": 0.7260274008394607,
+          "vector_score": 0.5881810679219922,
+          "content_length": 951
+        },
+        {
+          "rank": 5,
+          "doc_id": "static_9b43b9e5827717ca",
+          "chunk_id": "static_9b43b9e5827717ca_v001_chunk_001",
+          "title": "복학",
+          "source_url": "https://dess.deu.ac.kr/?mid=Page3",
+          "source_type": "academic_support",
+          "score": 0.5158456588383883,
+          "lexical_score": null,
+          "vector_score": 0.8356371002629928,
+          "content_length": 919
+        }
+      ],
+      "selected_chunks": [
+        {
+          "rank": 1,
+          "doc_id": "static_9b43b9e5827717ca",
+          "chunk_id": "static_9b43b9e5827717ca_v001_chunk_001",
+          "title": "복학",
+          "source_url": "https://dess.deu.ac.kr/?mid=Page3",
+          "source_type": "academic_support",
+          "score": 9.132704,
+          "rerank_score": 9.132704,
+          "content_preview": "[TITLE]\n복학\n\n[BODY]\n\n복학신청안내(종료)\nDAP시스템 신청\n신청기간\n2026. 01. 20.(화) 10시부터 03.26.(목) 17시까지\n신청대상자\n① 복학예정자 :\n2026학년도 1학기 일반휴학자, 입대휴학 복학예정자\n② 조기복학자 :\n- 2026-2학기 이전 2, 3, 4, 5학년 복학예정자\n- 입대휴학자 中 2026년 03월 03일(화)"
+        },
+        {
+          "rank": 2,
+          "doc_id": "deu_academic_notice_79965",
+          "chunk_id": "deu_academic_notice_79965_v001_chunk_002",
+          "title": "2026학년도 1학기 전과 신청기간 공지",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=30&articleLimit=10&articleNo=79965&mode=view",
+          "source_type": "academic_notice",
+          "score": 7.828652,
+          "rerank_score": 7.828652,
+          "content_preview": "[TITLE]\n2026학년도 1학기 전과 신청기간 공지\n\n[BODY]\n\n\n- 편입생 및 체육특기자, 한의학계열 학생은 전과를 신청할 수 없음.\n- 모집중지학과, 한의과대학, 의료보건계열(의료경영학과 제외), 유아교육과, 조기취업형계약학과, 미래융합대학, 경기지도학과(체육진흥단 소속 운동부 학생만 가능)으로 전과 신청은 불가함.\n- 미래융합대학은 소속 전공 "
+        },
+        {
+          "rank": 3,
+          "doc_id": "deu_department_80046",
+          "chunk_id": "deu_department_80046_v001_chunk_001",
+          "title": "2026학년도 1학기 전과 신청 안내",
+          "source_url": "https://hsde.deu.ac.kr/hsde/sub06_03.do?article.offset=30&articleLimit=10&articleNo=80046&mode=view",
+          "source_type": "department",
+          "score": 7.132008,
+          "rerank_score": 7.132008,
+          "content_preview": "[TITLE]\n2026학년도 1학기 전과 신청 안내\n\n[BODY]\n\n2026학년도 1학기 전과 신청 안내\n \n3. 2026학년도 일반 및 특별전과생 학점 이수방법.hwp\n2. DAP시스템 전과 신청 방법 (3).hwp\n1. 신청기간:\n2026. 1. 26.(\n) ~ 2026. 2. 6.(\n전과\n전공\n여석은\n2026\n19\n) 13:00\n예정\n부터\n홈페이지 학"
+        }
+      ],
+      "answer_preview": "복학 신청 기간은 2026년 1월 20일(화) 10시부터 3월 26일(목) 17시까지입니다. \n\n신청 대상자는 2026학년도 1학기 일반휴학자와 입대휴학 복학예정자입니다. 조기복학자는 2026-2학기 이전의 2, 3, 4, 5학년 복학예정자와 2026년 3월 3일(화)부터 3월 26일(목)까지 전역하는 입대휴학자입니다. \n\n신청은 학교 홈페이지의 학생경력관리포털을 통해 가능합니다.",
+      "failure_stage": null,
+      "quality_info": {
+        "ok": true,
+        "blocking": false,
+        "reason": "",
+        "diagnostic_ok": true,
+        "diagnostic_reason": "",
+        "top1_score": 0.523389368441219,
+        "avg_topk_score": 0.5036427475195846,
+        "context_chars": 15833,
+        "duplicate_doc_ratio": 0.30000000000000004,
+        "top_noise_score": 0.0,
+        "top_strong_term_match": 0.0,
+        "exact_or_title_match_count": 4,
+        "required_entity": "",
+        "required_entity_match_count": 0,
+        "top1_required_entity_match": false,
+        "temporal_signals": {
+          "years": [],
+          "semesters": [],
+          "relative_dates": [],
+          "recency_intent": false,
+          "has_explicit_temporal": false
+        },
+        "temporal_validation": {
+          "valid": true,
+          "needs_validation": false,
+          "matched": true,
+          "reason": "",
+          "missing": [],
+          "temporal_signals": {
+            "years": [],
+            "semesters": [],
+            "relative_dates": [],
+            "recency_intent": false,
+            "has_explicit_temporal": false
+          },
+          "doc_results": [
+            {
+              "rank": 1,
+              "doc_id": "static_9b43b9e5827717ca",
+              "chunk_id": "static_9b43b9e5827717ca_v001_chunk_001",
+              "title": "복학",
+              "years": [
+                "2026"
+              ],
+              "semesters": [
+                "1학기",
+                "2학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            },
+            {
+              "rank": 2,
+              "doc_id": "deu_academic_notice_79965",
+              "chunk_id": "deu_academic_notice_79965_v001_chunk_002",
+              "title": "2026학년도 1학기 전과 신청기간 공지",
+              "years": [
+                "2026"
+              ],
+              "semesters": [
+                "1학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            },
+            {
+              "rank": 3,
+              "doc_id": "deu_department_80046",
+              "chunk_id": "deu_department_80046_v001_chunk_001",
+              "title": "2026학년도 1학기 전과 신청 안내",
+              "years": [
+                "2026"
+              ],
+              "semesters": [
+                "1학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            }
+          ]
+        },
+        "selection_quality": {
+          "selected_context_contamination": false,
+          "attachment_ratio": 0.0,
+          "noise_ratio": 0.0,
+          "top_heading_query_match": true,
+          "single_selected_heading_mismatch": false,
+          "doc_signals": [
+            {
+              "rank": 1,
+              "doc_id": "static_9b43b9e5827717ca",
+              "chunk_id": "static_9b43b9e5827717ca_v001_chunk_001",
+              "title": "복학",
+              "section_title": "body",
+              "source_type": "academic_support",
+              "is_attachment": false,
+              "noise_score": 0.0,
+              "heading_query_match": true,
+              "rerank_score": 9.132704,
+              "rerank_signals": {
+                "base_score": 1.182704,
+                "title_match": 0.45,
+                "section_title_match": 0.0,
+                "content_match": 0.4,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.6,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 4.0,
+                "canonical_source_priority": 0.0,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.7,
+                "recency": 0.0,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.0
+              }
+            },
+            {
+              "rank": 2,
+              "doc_id": "deu_academic_notice_79965",
+              "chunk_id": "deu_academic_notice_79965_v001_chunk_002",
+              "title": "2026학년도 1학기 전과 신청기간 공지",
+              "section_title": "body",
+              "source_type": "academic_notice",
+              "is_attachment": false,
+              "noise_score": 0.0,
+              "heading_query_match": true,
+              "rerank_score": 7.828652,
+              "rerank_signals": {
+                "base_score": 1.177569,
+                "title_match": 0.6,
+                "section_title_match": 0.0,
+                "content_match": 0.4,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.6,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 2.28,
+                "canonical_source_priority": 0.0,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.7,
+                "recency": 0.271083,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.0
+              }
+            },
+            {
+              "rank": 3,
+              "doc_id": "deu_department_80046",
+              "chunk_id": "deu_department_80046_v001_chunk_001",
+              "title": "2026학년도 1학기 전과 신청 안내",
+              "section_title": "body",
+              "source_type": "department",
+              "is_attachment": false,
+              "noise_score": 0.0,
+              "heading_query_match": true,
+              "rerank_score": 7.132008,
+              "rerank_signals": {
+                "base_score": 1.177186,
+                "title_match": 0.6,
+                "section_title_match": 0.0,
+                "content_match": 0.4,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.6,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 2.28,
+                "canonical_source_priority": 0.0,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.8,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.0,
+                "recency": 0.274822,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.0
+              }
+            }
+          ],
+          "temporal_validation": {
+            "valid": true,
+            "needs_validation": false,
+            "matched": true,
+            "reason": "",
+            "missing": [],
+            "temporal_signals": {
+              "years": [],
+              "semesters": [],
+              "relative_dates": [],
+              "recency_intent": false,
+              "has_explicit_temporal": false
+            },
+            "doc_results": [
+              {
+                "rank": 1,
+                "doc_id": "static_9b43b9e5827717ca",
+                "chunk_id": "static_9b43b9e5827717ca_v001_chunk_001",
+                "title": "복학",
+                "years": [
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기",
+                  "2학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              },
+              {
+                "rank": 2,
+                "doc_id": "deu_academic_notice_79965",
+                "chunk_id": "deu_academic_notice_79965_v001_chunk_002",
+                "title": "2026학년도 1학기 전과 신청기간 공지",
+                "years": [
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              },
+              {
+                "rank": 3,
+                "doc_id": "deu_department_80046",
+                "chunk_id": "deu_department_80046_v001_chunk_001",
+                "title": "2026학년도 1학기 전과 신청 안내",
+                "years": [
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              }
+            ]
+          }
+        }
+      },
+      "query_understanding": {
+        "normalized_query": "복학 신청 기간 언제야",
+        "original_query": "복학 신청 기간 언제야",
+        "lexical_query": "복학 신청 기간 언제야",
+        "expanded_query": "복학 신청 기간 언제야 academic 복학 신청 기간 언제 시점 복학신청기간 복학신청 신청기간 언제야",
+        "embedding_query": "복학 신청 기간 언제야",
+        "query_bundle": {
+          "original": "복학 신청 기간 언제야",
+          "semantic_query": "복학 신청 기간 언제야",
+          "keyword_query": "복학 신청 기간 일정 마감일",
+          "entity_query": "복학 복학신청",
+          "intent": "기간",
+          "entities": [
+            "복학"
+          ],
+          "rewrite_entities": [
+            "복학"
+          ],
+          "filters": {
+            "category": [
+              "복학"
+            ],
+            "time": [
+              "기간"
+            ]
+          }
+        },
+        "keywords": [
+          "academic",
+          "복학",
+          "신청",
+          "기간",
+          "언제",
+          "시점",
+          "복학신청기간",
+          "복학신청",
+          "신청기간",
+          "언제야"
+        ],
+        "extracted_entities": {
+          "category": [
+            "복학",
+            "academic"
+          ],
+          "target": [],
+          "time": [
+            "기간"
+          ],
+          "department": [],
+          "action": [
+            "신청"
+          ],
+          "domain": [
+            "academic"
+          ]
+        },
+        "rewrite_entities": [
+          "복학"
+        ],
+        "rewrite_quality": {
+          "protected_terms": [],
+          "missing_protected_terms": [],
+          "original_len": 12,
+          "rewrite_len": 15,
+          "rewrite_preserved": true
+        },
+        "query_features": {
+          "family": "academic_admin",
+          "domain": "academic",
+          "category": "academic",
+          "protected_terms": [],
+          "strong_terms": [
+            "복학",
+            "언제야",
+            "academic",
+            "언제",
+            "시점",
+            "복학신청기간",
+            "복학신청",
+            "신청기간"
+          ],
+          "required_terms": [
+            "복학"
+          ],
+          "source_boosts": [
+            "academic_support",
+            "academic_notice",
+            "notice",
+            "institution"
+          ],
+          "rule_hit_names": [
+            "domain:academic:복학",
+            "domain:academic:복학신청"
+          ]
+        },
+        "entities": {
+          "category": [
+            "복학",
+            "academic"
+          ],
+          "target": [],
+          "time": [
+            "기간"
+          ],
+          "department": [],
+          "action": [
+            "신청"
+          ],
+          "domain": [
+            "academic"
+          ]
+        },
+        "filters": {
+          "category": [
+            "복학",
+            "academic"
+          ],
+          "time": [
+            "기간"
+          ]
+        },
+        "dropped_filters": [],
+        "primary_category": "academic",
+        "detected_domain": "academic",
+        "detected_category": "academic",
+        "rule_hit_names": [
+          "domain:academic:복학",
+          "domain:academic:복학신청"
+        ],
+        "applied_boosts": [
+          "academic_support",
+          "academic_notice",
+          "notice",
+          "institution"
+        ],
+        "rewritten_queries": [
+          "복학 신청 기간 일정 마감일",
+          "복학 복학신청",
+          "복학 신청 기간 언제야",
+          "복학 신청 기간"
+        ],
+        "hybrid_keyword_extraction": {
+          "mode": "auto",
+          "kiwi_enabled": true,
+          "kiwi_called": true,
+          "kiwi_cache_hit": false,
+          "aho_keyword_count": 6
+        }
+      },
+      "elapsed_ms": 38084
+    },
+    {
+      "query_id": "q005",
+      "query": "졸업요건 알려줘",
+      "category": "graduation",
+      "department": null,
+      "original_query": "졸업요건 알려줘",
+      "normalized_query": "졸업요건 알려줘",
+      "rewritten_query": "졸업요건 자격 대상",
+      "intent": "INFO",
+      "keywords": [
+        "graduation",
+        "졸업요건",
+        "졸업",
+        "요건"
+      ],
+      "filters": {
+        "category": [
+          "졸업",
+          "graduation"
+        ]
+      },
+      "retrieval_strategy": "hybrid",
+      "fallback_used": false,
+      "retrieved_count": 20,
+      "reranked_count": 20,
+      "selected_count": 3,
+      "top1_hit": false,
+      "top3_hit": false,
+      "top5_hit": false,
+      "selected_context_hit": true,
+      "irrelevant_document_included": false,
+      "answer_grounded_in_selected_context": true,
+      "top5_retrieved": [
+        {
+          "rank": 1,
+          "doc_id": "deu_academic_notice_80309",
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_003",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=0&articleLimit=10&articleNo=80309&mode=view",
+          "source_type": "academic_notice",
+          "score": 1.18,
+          "lexical_score": null,
+          "vector_score": null,
+          "content_length": 982
+        },
+        {
+          "rank": 2,
+          "doc_id": "deu_department_86196",
+          "chunk_id": "deu_department_86196_v001_chunk_002",
+          "title": "[안내] 2026학년도 2학기 학·석사 연계과정 신청",
+          "source_url": "https://swcc.deu.ac.kr/computer/sub06_03.do?article.offset=0&articleLimit=10&articleNo=86196&mode=view",
+          "source_type": "department",
+          "score": 0.5085433496814415,
+          "lexical_score": null,
+          "vector_score": 0.7052255810864445,
+          "content_length": 451
+        },
+        {
+          "rank": 3,
+          "doc_id": "deu_department_85953",
+          "chunk_id": "deu_department_85953_v001_chunk_002",
+          "title": "2026학년도 2학기 학·석사 연계과정 신청 안내",
+          "source_url": "https://urban.deu.ac.kr/urban/sub06_03.do?article.offset=0&articleLimit=10&articleNo=85953&mode=view",
+          "source_type": "department",
+          "score": 0.5084218827736561,
+          "lexical_score": null,
+          "vector_score": 0.7014142574144239,
+          "content_length": 515
+        },
+        {
+          "rank": 4,
+          "doc_id": "deu_department_85988",
+          "chunk_id": "deu_department_85988_v001_chunk_002",
+          "title": "2026학년도 2학기 학·석사 연계과정 신청 안내",
+          "source_url": "https://mse.deu.ac.kr/mse/sub06_03.do?article.offset=0&articleLimit=10&articleNo=85988&mode=view",
+          "source_type": "department",
+          "score": 0.507872024325718,
+          "lexical_score": null,
+          "vector_score": 0.6845159466420399,
+          "content_length": 574
+        },
+        {
+          "rank": 5,
+          "doc_id": "deu_department_85956",
+          "chunk_id": "deu_department_85956_v001_chunk_002",
+          "title": "2026학년도 2학기 학·석사 연계과정 신청 안내",
+          "source_url": "https://deuhome.deu.ac.kr/fre/sub06_03.do?article.offset=0&articleLimit=10&articleNo=85956&mode=view",
+          "source_type": "department",
+          "score": 0.5078633625371171,
+          "lexical_score": null,
+          "vector_score": 0.6842521364764018,
+          "content_length": 601
+        }
+      ],
+      "selected_chunks": [
+        {
+          "rank": 1,
+          "doc_id": "deu_academic_notice_80309",
+          "chunk_id": "deu_academic_notice_80309_v001_chunk_046",
+          "title": "학사정보 종합안내 가이드(2026)",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=0&articleLimit=10&articleNo=80309&mode=view",
+          "source_type": "academic_notice",
+          "score": 7.927023,
+          "rerank_score": 7.927023,
+          "content_preview": "[TITLE]\n학사정보 종합안내 가이드(2026)\n\n[ATTACHMENT]\n0000-학사정보 종합안내 가이드(2026)－최종-260121.pdf\n\n[PDF TABLE page=32 table=1 format=markdown]\n| 학·석사연계과정 | | | |\n\n- 31 -\n10. 학사과정 졸업 및 특례 ▶ 학사과정 졸업학점 요건을 충족하되, 졸업학기의 전체"
+        },
+        {
+          "rank": 2,
+          "doc_id": "deu_advising_80352",
+          "chunk_id": "deu_advising_80352_v001_chunk_046",
+          "title": "📢학사정보 종합안내 가이드(2026)📢",
+          "source_url": "https://advising.deu.ac.kr/advising/sub04_02.do?article.offset=0&articleLimit=10&articleNo=80352&mode=view",
+          "source_type": "advising",
+          "score": 7.227651,
+          "rerank_score": 7.227651,
+          "content_preview": "[TITLE]\n📢학사정보 종합안내 가이드(2026)📢\n\n[ATTACHMENT]\n0000-학사정보_종합안내_가이드(2026)－최종-260121.pdf\n\n[PDF TABLE page=32 table=1 format=markdown]\n| 학·석사연계과정 | | | |\n\n- 31 -\n10. 학사과정 졸업 및 특례 ▶ 학사과정 졸업학점 요건을 충족하되, 졸업학기의 "
+        },
+        {
+          "rank": 3,
+          "doc_id": "deu_academic_notice_85762",
+          "chunk_id": "deu_academic_notice_85762_v001_chunk_002",
+          "title": "2026학년도 2학기 학석사 연계과정 신청 안내",
+          "source_url": "https://www.deu.ac.kr/www/gra-notice.do?article.offset=0&articleLimit=10&articleNo=85762&mode=view",
+          "source_type": "academic_notice",
+          "score": 4.288423,
+          "rerank_score": 4.288423,
+          "content_preview": "[TITLE]\n2026학년도 2학기 학석사 연계과정 신청 안내\n\n[BODY]\n\n한 실적 심사 면제\n자격상실\n학사과정 중 중도포기를 신청한 자\n별도서식\n학사과정의 졸업요건을 충족하지 못한 자\n해당 대학원의 교과목 중에서\n학점을 이수하지 못한 자\n학사과정 재학 중 이수한 석사과정 교과목의 성적등급 평균이\n3.0\n미만인 자\n대학원 입학허가를 받지 못한 경우\n석사"
+        }
+      ],
+      "answer_preview": "학사과정 졸업 요건은 다음과 같습니다:\n\n1. 졸업학점 요건을 충족해야 하며, 졸업학기의 전체 평점평균이 3.0 이상이어야 합니다.\n2. 졸업논문 등은 면제됩니다.\n3. 졸업 요건을 충족하지 못한 경우, 자격이 상실될 수 있습니다.\n\n자세한 내용은 학사정보 종합안내 가이드를 참고하시기 바랍니다.",
+      "failure_stage": null,
+      "quality_info": {
+        "ok": true,
+        "blocking": false,
+        "reason": "",
+        "diagnostic_ok": false,
+        "diagnostic_reason": "no_exact_or_strong_keyword_match",
+        "top1_score": 1.18,
+        "avg_topk_score": 0.49068347742951185,
+        "context_chars": 11880,
+        "duplicate_doc_ratio": 0.30000000000000004,
+        "top_noise_score": 0.0,
+        "top_strong_term_match": 0.0,
+        "exact_or_title_match_count": 0,
+        "required_entity": "",
+        "required_entity_match_count": 0,
+        "top1_required_entity_match": false,
+        "temporal_signals": {
+          "years": [],
+          "semesters": [],
+          "relative_dates": [],
+          "recency_intent": false,
+          "has_explicit_temporal": false
+        },
+        "temporal_validation": {
+          "valid": true,
+          "needs_validation": false,
+          "matched": true,
+          "reason": "",
+          "missing": [],
+          "temporal_signals": {
+            "years": [],
+            "semesters": [],
+            "relative_dates": [],
+            "recency_intent": false,
+            "has_explicit_temporal": false
+          },
+          "doc_results": [
+            {
+              "rank": 1,
+              "doc_id": "deu_academic_notice_80309",
+              "chunk_id": "deu_academic_notice_80309_v001_chunk_046",
+              "title": "학사정보 종합안내 가이드(2026)",
+              "years": [
+                "2026"
+              ],
+              "semesters": [
+                "1학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            },
+            {
+              "rank": 2,
+              "doc_id": "deu_advising_80352",
+              "chunk_id": "deu_advising_80352_v001_chunk_046",
+              "title": "📢학사정보 종합안내 가이드(2026)📢",
+              "years": [
+                "2026"
+              ],
+              "semesters": [
+                "1학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            },
+            {
+              "rank": 3,
+              "doc_id": "deu_academic_notice_85762",
+              "chunk_id": "deu_academic_notice_85762_v001_chunk_002",
+              "title": "2026학년도 2학기 학석사 연계과정 신청 안내",
+              "years": [
+                "2000",
+                "2026"
+              ],
+              "semesters": [
+                "1학기",
+                "2학기"
+              ],
+              "year_match": true,
+              "semester_match": true,
+              "matches": true
+            }
+          ]
+        },
+        "selection_quality": {
+          "selected_context_contamination": false,
+          "attachment_ratio": 0.6666666666666666,
+          "noise_ratio": 0.0,
+          "top_heading_query_match": false,
+          "single_selected_heading_mismatch": false,
+          "doc_signals": [
+            {
+              "rank": 1,
+              "doc_id": "deu_academic_notice_80309",
+              "chunk_id": "deu_academic_notice_80309_v001_chunk_046",
+              "title": "학사정보 종합안내 가이드(2026)",
+              "section_title": "0000-학사정보 종합안내 가이드(2026)－최종-260121.pdf",
+              "source_type": "academic_notice",
+              "is_attachment": true,
+              "noise_score": 0.8,
+              "heading_query_match": false,
+              "rerank_score": 7.927023,
+              "rerank_signals": {
+                "base_score": 0.412008,
+                "title_match": 0.0,
+                "section_title_match": 0.0,
+                "content_match": 0.533333,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.8,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": -0.8,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 5.0,
+                "canonical_source_priority": 0.0,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.0,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.7,
+                "recency": 0.281682,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.8
+              }
+            },
+            {
+              "rank": 2,
+              "doc_id": "deu_advising_80352",
+              "chunk_id": "deu_advising_80352_v001_chunk_046",
+              "title": "📢학사정보 종합안내 가이드(2026)📢",
+              "section_title": "0000-학사정보_종합안내_가이드(2026)－최종-260121.pdf",
+              "source_type": "advising",
+              "is_attachment": true,
+              "noise_score": 0.8,
+              "heading_query_match": false,
+              "rerank_score": 7.227651,
+              "rerank_signals": {
+                "base_score": 0.408751,
+                "title_match": 0.0,
+                "section_title_match": 0.0,
+                "content_match": 0.533333,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.8,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": -0.8,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 5.0,
+                "canonical_source_priority": 0.0,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.0,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": 0.0,
+                "category_match": 0.0,
+                "recency": 0.285567,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.8
+              }
+            },
+            {
+              "rank": 3,
+              "doc_id": "deu_academic_notice_85762",
+              "chunk_id": "deu_academic_notice_85762_v001_chunk_002",
+              "title": "2026학년도 2학기 학석사 연계과정 신청 안내",
+              "section_title": "body",
+              "source_type": "academic_notice",
+              "is_attachment": false,
+              "noise_score": 0.7,
+              "heading_query_match": false,
+              "rerank_score": 4.288423,
+              "rerank_signals": {
+                "base_score": 0.514832,
+                "title_match": 0.0,
+                "section_title_match": 0.0,
+                "content_match": 0.533333,
+                "exact_query_match": 0.0,
+                "strong_term_match": 0.8,
+                "missing_strong_terms": 0.0,
+                "attachment_noise": 0.0,
+                "exif_noise": 0.0,
+                "ui_static_noise": 0.0,
+                "source_type_noise": 0.0,
+                "query_family_boost": 1.05,
+                "canonical_source_priority": 0.0,
+                "verified_title_boost": 0.0,
+                "required_heading_match": 0.0,
+                "required_entity_match": 1.0,
+                "faculty_entity_match": 0.0,
+                "faculty_entity_penalty": 0.0,
+                "query_family_penalty": -0.7,
+                "category_match": 0.7,
+                "recency": 0.390258,
+                "temporal_score": 0.0,
+                "temporal_match": 0.0,
+                "temporal_mismatch": 0.0,
+                "temporal_recency": 0.0,
+                "noise_score": 0.7
+              }
+            }
+          ],
+          "temporal_validation": {
+            "valid": true,
+            "needs_validation": false,
+            "matched": true,
+            "reason": "",
+            "missing": [],
+            "temporal_signals": {
+              "years": [],
+              "semesters": [],
+              "relative_dates": [],
+              "recency_intent": false,
+              "has_explicit_temporal": false
+            },
+            "doc_results": [
+              {
+                "rank": 1,
+                "doc_id": "deu_academic_notice_80309",
+                "chunk_id": "deu_academic_notice_80309_v001_chunk_046",
+                "title": "학사정보 종합안내 가이드(2026)",
+                "years": [
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              },
+              {
+                "rank": 2,
+                "doc_id": "deu_advising_80352",
+                "chunk_id": "deu_advising_80352_v001_chunk_046",
+                "title": "📢학사정보 종합안내 가이드(2026)📢",
+                "years": [
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              },
+              {
+                "rank": 3,
+                "doc_id": "deu_academic_notice_85762",
+                "chunk_id": "deu_academic_notice_85762_v001_chunk_002",
+                "title": "2026학년도 2학기 학석사 연계과정 신청 안내",
+                "years": [
+                  "2000",
+                  "2026"
+                ],
+                "semesters": [
+                  "1학기",
+                  "2학기"
+                ],
+                "year_match": true,
+                "semester_match": true,
+                "matches": true
+              }
+            ]
+          }
+        }
+      },
+      "query_understanding": {
+        "normalized_query": "졸업요건 알려줘",
+        "original_query": "졸업요건 알려줘",
+        "lexical_query": "졸업요건 알려줘",
+        "expanded_query": "졸업요건 알려줘 graduation 졸업요건 졸업 요건",
+        "embedding_query": "졸업요건 알려줘",
+        "query_bundle": {
+          "original": "졸업요건 알려줘",
+          "semantic_query": "졸업요건 알려줘 자격",
+          "keyword_query": "졸업요건 자격 대상",
+          "entity_query": "졸업 졸업요건 졸업학점 졸업기준 졸업인증제도 학사정보 종합안내",
+          "intent": "자격",
+          "entities": [
+            "졸업"
+          ],
+          "rewrite_entities": [
+            "졸업"
+          ],
+          "filters": {
+            "category": [
+              "졸업"
+            ]
+          }
+        },
+        "keywords": [
+          "graduation",
+          "졸업요건",
+          "졸업",
+          "요건"
+        ],
+        "extracted_entities": {
+          "category": [
+            "졸업",
+            "graduation"
+          ],
+          "target": [],
+          "time": [],
+          "department": [],
+          "action": [],
+          "domain": [
+            "graduation"
+          ]
+        },
+        "rewrite_entities": [
+          "졸업"
+        ],
+        "rewrite_quality": {
+          "protected_terms": [],
+          "missing_protected_terms": [],
+          "original_len": 8,
+          "rewrite_len": 10,
+          "rewrite_preserved": true
+        },
+        "query_features": {
+          "family": "graduation",
+          "domain": "graduation",
+          "category": "graduation",
+          "protected_terms": [],
+          "strong_terms": [
+            "졸업요건",
+            "graduation",
+            "졸업",
+            "요건"
+          ],
+          "required_terms": [
+            "졸업요건",
+            "졸업",
+            "요건"
+          ],
+          "source_boosts": [
+            "academic_notice",
+            "academic_support",
+            "institution"
+          ],
+          "rule_hit_names": [
+            "domain:graduation:졸업",
+            "domain:graduation:졸업요건"
+          ]
+        },
+        "entities": {
+          "category": [
+            "졸업",
+            "graduation"
+          ],
+          "target": [],
+          "time": [],
+          "department": [],
+          "action": [],
+          "domain": [
+            "graduation"
+          ]
+        },
+        "filters": {
+          "category": [
+            "졸업",
+            "graduation"
+          ]
+        },
+        "dropped_filters": [],
+        "primary_category": "graduation",
+        "detected_domain": "graduation",
+        "detected_category": "graduation",
+        "rule_hit_names": [
+          "domain:graduation:졸업",
+          "domain:graduation:졸업요건"
+        ],
+        "applied_boosts": [
+          "academic_notice",
+          "academic_support",
+          "institution"
+        ],
+        "rewritten_queries": [
+          "졸업요건 자격 대상",
+          "졸업 졸업요건 졸업학점 졸업기준 졸업인증제도 학사정보 종합안내",
+          "졸업요건 알려줘 자격",
+          "졸업 요건",
+          "졸업요건 알려줘"
+        ],
+        "hybrid_keyword_extraction": {
+          "mode": "auto",
+          "kiwi_enabled": true,
+          "kiwi_called": true,
+          "kiwi_cache_hit": false,
+          "aho_keyword_count": 3
+        }
+      },
+      "elapsed_ms": 36230
+    }
+  ],
+  "generated_at": "20260529_074057"
+}

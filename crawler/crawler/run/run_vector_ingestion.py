@@ -37,13 +37,15 @@ def log_error(message: str) -> None:
         file.write(message + "\n")
 
 
-def collect_chunk_files() -> list[Path]:
+def collect_chunk_files(source_type: str | None = None) -> list[Path]:
     paths = []
     if not CHUNK_DIR.exists():
         return paths
 
     for source_type_dir in CHUNK_DIR.iterdir():
         if not source_type_dir.is_dir():
+            continue
+        if source_type and source_type_dir.name != source_type:
             continue
         paths.extend(source_type_dir.glob("*.json"))
 
@@ -60,9 +62,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=32,
-        help="sentence-transformers에 전달할 임베딩 batch size입니다.",
+        default=64,
+        help="크로스-도큐먼트 임베딩 배치 크기입니다. 클수록 CPU 병렬 연산 효율이 높아집니다.",
     )
+    parser.add_argument("--limit", type=int, default=None, help="처리할 최대 문서(chunk 파일) 수.")
+    parser.add_argument("--source-type", type=str, default=None, help="특정 source_type만 처리합니다.")
     return parser.parse_args()
 
 
@@ -238,7 +242,9 @@ def ingestion_item_quality_report(item: dict) -> dict[str, object]:
 
 def main() -> None:
     args = parse_args()
-    chunk_files = collect_chunk_files()
+    chunk_files = collect_chunk_files(source_type=args.source_type)
+    if args.limit:
+        chunk_files = chunk_files[:args.limit]
     print(f"[INFO] chunk files found: {len(chunk_files)}", flush=True)
 
     embed_worker = EmbeddingWorker()
@@ -250,8 +256,13 @@ def main() -> None:
     embedded_chunk_count = 0
 
     try:
+        # ── Phase 1: 문서 적재 ────────────────────────────────────────────
+        # upsert_document_side를 문서별로 완료하고 임베딩 대상만 수집.
+        # find_reusable_embedding_chunk_ids는 이 단계에서 호출하지 않는다(Phase 1.5에서 일괄 처리).
+        prepared_items: list[dict] = []
+
         for file_index, chunk_file in enumerate(chunk_files, start=1):
-            item = {}
+            item: dict = {}
             try:
                 item = load_ingestion_item(chunk_file)
                 if not item["chunks"]:
@@ -303,105 +314,18 @@ def main() -> None:
                     continue
 
                 print(
-                    "[VECTOR START] "
+                    "[VECTOR PREPARE] "
                     f"file={file_index}/{len(chunk_files)} "
                     f"doc_id={item['doc_id']} chunks={len(item['chunks'])}",
                     flush=True,
                 )
-                reusable_chunk_ids = loader.find_reusable_embedding_chunk_ids(
-                    item["chunks"],
-                    embed_worker.model_name,
-                )
                 upsert_document_side(loader, item)
                 loader.commit()
                 write_vector_manifest(item, "chunks_upserted", embed_worker)
-                print(f"[CHUNKS OK] doc_id={item['doc_id']} chunks={len(item['chunks'])}", flush=True)
-
-                reusable_chunks, chunks_to_embed = split_chunks_by_embedding_reuse(
-                    item["chunks"],
-                    reusable_chunk_ids,
-                )
-                chunks_to_embed, excluded_embedding_chunks = split_chunks_by_embedding_quality(chunks_to_embed)
-                for excluded_chunk in excluded_embedding_chunks:
-                    loader.insert_crawl_job_error(
-                        run_type="vector_ingestion",
-                        stage="embedding_quality_gate",
-                        error=ValueError(excluded_chunk["metadata"].get("embedding_skip_reason")),
-                        source_type=excluded_chunk.get("source_type"),
-                        doc_id=excluded_chunk.get("doc_id"),
-                        url=excluded_chunk.get("source_url"),
-                        context={
-                            "chunk_id": excluded_chunk.get("chunk_id"),
-                            "chunk_index": excluded_chunk.get("chunk_index"),
-                            "quality_status": excluded_chunk["metadata"].get("quality_status"),
-                            "reason": excluded_chunk["metadata"].get("embedding_skip_reason"),
-                            "quality": excluded_chunk["metadata"].get("quality"),
-                        },
-                    )
-                if excluded_embedding_chunks:
-                    loader.commit()
-                    manifest_writer.append_jsonl(
-                        "vector_ingestion.jsonl",
-                        {
-                            "chunk_file": chunk_file.as_posix(),
-                            "source_type": item["source_type"],
-                            "doc_id": item["doc_id"],
-                            "status": "embedding_quality_exclusions",
-                            "excluded_chunk_count": len(excluded_embedding_chunks),
-                            "reasons": [
-                                chunk["metadata"].get("embedding_skip_reason")
-                                for chunk in excluded_embedding_chunks[:20]
-                            ],
-                        },
-                    )
-                if reusable_chunks:
-                    manifest_writer.append_jsonl(
-                        "vector_ingestion.jsonl",
-                        {
-                            "chunk_file": chunk_file.as_posix(),
-                            "source_type": item["source_type"],
-                            "doc_id": item["doc_id"],
-                            "chunk_count": len(item["chunks"]),
-                            "embedding_model": embed_worker.model_name,
-                            "status": "embeddings_reused",
-                            "reused_chunk_count": len(reusable_chunks),
-                            "pending_chunk_count": len(chunks_to_embed),
-                        },
-                    )
-                    print(
-                        "[EMBED SKIP] "
-                        f"doc_id={item['doc_id']} reused={len(reusable_chunks)} "
-                        f"pending={len(chunks_to_embed)} model={embed_worker.model_name}",
-                        flush=True,
-                    )
-
-                for start in range(0, len(chunks_to_embed), args.batch_size):
-                    end = min(start + args.batch_size, len(chunks_to_embed))
-                    batch = chunks_to_embed[start:end]
-                    print(
-                        "[EMBED BATCH] "
-                        f"doc_id={item['doc_id']} "
-                        f"chunks={start + 1}-{end}/{len(chunks_to_embed)} "
-                        f"batch_size={args.batch_size}",
-                        flush=True,
-                    )
-                    embedded_chunks = embed_worker.embed_chunks(batch, batch_size=args.batch_size)
-                    loader.upsert_embeddings(embedded_chunks)
-                    loader.commit()
-                    embedded_chunk_count += len(embedded_chunks)
-
-                record_vector_state(loader, item, "INDEXED")
-                loader.commit()
-                write_vector_manifest(item, "embeddings_upserted", embed_worker)
-                processed_count += 1
-                print(
-                    "[VECTOR OK] "
-                    f"doc_id={item['doc_id']} chunks={len(item['chunks'])} "
-                    f"reused_chunks={len(reusable_chunks)} "
-                    f"newly_embedded_chunks={len(chunks_to_embed)} "
-                    f"processed_docs={processed_count} embedded_chunks={embedded_chunk_count}",
-                    flush=True,
-                )
+                item["_embed_failed"] = False
+                item["_reusable_count"] = 0
+                item["_newly_embedded_count"] = 0
+                prepared_items.append(item)
 
             except Exception as error:
                 failed_count += 1
@@ -439,6 +363,147 @@ def main() -> None:
                         "[VECTOR ERROR LOGGING FAILED] "
                         f"file={chunk_file.as_posix()} error={logging_error}"
                     )
+
+        # ── Phase 1.5: reusable 청크 일괄 조회 ───────────────────────────
+        # 기존 방식: 문서당 1회 SELECT → N 문서 × 1 쿼리 = N 번 DB 왕복
+        # 개선 방식: 전체 청크를 unnest()로 한 번에 조회 → 1번 DB 왕복
+        all_chunks_flat = [c for item in prepared_items for c in item["chunks"]]
+        reusable_ids: set[str] = set()
+        if all_chunks_flat:
+            reusable_ids = loader.find_reusable_embedding_chunk_ids(
+                all_chunks_flat, embed_worker.model_name
+            )
+        print(
+            f"[INFO] bulk reuse check: total_chunks={len(all_chunks_flat)} "
+            f"reusable={len(reusable_ids)} pending≈{len(all_chunks_flat) - len(reusable_ids)}",
+            flush=True,
+        )
+
+        # ── Phase 1.6: 아이템별 필터링 + 크로스-도큐먼트 배치 풀 구성 ──
+        # (item, chunk) 쌍을 문서 경계 없이 단일 리스트에 수집
+        all_pending: list[tuple[dict, dict]] = []
+
+        for item in prepared_items:
+            reusable_chunks, chunks_to_embed = split_chunks_by_embedding_reuse(
+                item["chunks"], reusable_ids
+            )
+            chunks_to_embed, excluded_chunks = split_chunks_by_embedding_quality(chunks_to_embed)
+
+            for exc_chunk in excluded_chunks:
+                loader.insert_crawl_job_error(
+                    run_type="vector_ingestion",
+                    stage="embedding_quality_gate",
+                    error=ValueError(exc_chunk["metadata"].get("embedding_skip_reason")),
+                    source_type=exc_chunk.get("source_type"),
+                    doc_id=exc_chunk.get("doc_id"),
+                    url=exc_chunk.get("source_url"),
+                    context={
+                        "chunk_id": exc_chunk.get("chunk_id"),
+                        "chunk_index": exc_chunk.get("chunk_index"),
+                        "quality_status": exc_chunk["metadata"].get("quality_status"),
+                        "reason": exc_chunk["metadata"].get("embedding_skip_reason"),
+                        "quality": exc_chunk["metadata"].get("quality"),
+                    },
+                )
+            if excluded_chunks:
+                loader.commit()
+                manifest_writer.append_jsonl(
+                    "vector_ingestion.jsonl",
+                    {
+                        "chunk_file": item["chunk_file"].as_posix(),
+                        "source_type": item["source_type"],
+                        "doc_id": item["doc_id"],
+                        "status": "embedding_quality_exclusions",
+                        "excluded_chunk_count": len(excluded_chunks),
+                        "reasons": [
+                            c["metadata"].get("embedding_skip_reason")
+                            for c in excluded_chunks[:20]
+                        ],
+                    },
+                )
+
+            if reusable_chunks:
+                manifest_writer.append_jsonl(
+                    "vector_ingestion.jsonl",
+                    {
+                        "chunk_file": item["chunk_file"].as_posix(),
+                        "source_type": item["source_type"],
+                        "doc_id": item["doc_id"],
+                        "chunk_count": len(item["chunks"]),
+                        "embedding_model": embed_worker.model_name,
+                        "status": "embeddings_reused",
+                        "reused_chunk_count": len(reusable_chunks),
+                        "pending_chunk_count": len(chunks_to_embed),
+                    },
+                )
+
+            item["_reusable_count"] = len(reusable_chunks)
+            for chunk in chunks_to_embed:
+                all_pending.append((item, chunk))
+
+        print(
+            f"[INFO] cross-doc batching: total_pending={len(all_pending)} "
+            f"batch_size={args.batch_size} "
+            f"estimated_batches={-(-len(all_pending) // args.batch_size)}",
+            flush=True,
+        )
+
+        # ── Phase 2: 크로스-도큐먼트 배치 임베딩 ──────────────────────────
+        # 문서 경계를 무시하고 batch_size 단위로 model.encode()를 호출.
+        # CPU에서 배치가 클수록 PyTorch 스레드 병렬화 효율이 높아진다.
+        for start in range(0, len(all_pending), args.batch_size):
+            end = min(start + args.batch_size, len(all_pending))
+            batch_pairs = all_pending[start:end]
+            batch_chunks = [chunk for _, chunk in batch_pairs]
+            batch_items = [item for item, _ in batch_pairs]
+
+            unique_doc_count = len({id(item) for item in batch_items})
+            print(
+                f"[EMBED BATCH] chunks={start + 1}-{end}/{len(all_pending)} "
+                f"docs_in_batch={unique_doc_count}",
+                flush=True,
+            )
+
+            try:
+                embedded = embed_worker.embed_chunks(batch_chunks, batch_size=args.batch_size)
+                loader.upsert_embeddings(embedded)
+                loader.commit()
+                embedded_chunk_count += len(embedded)
+                for item in batch_items:
+                    item["_newly_embedded_count"] += 1
+            except Exception as error:
+                loader.rollback()
+                for item in batch_items:
+                    item["_embed_failed"] = True
+                log_error(
+                    f"[EMBED BATCH ERROR] chunks={start + 1}-{end}/{len(all_pending)} error={error}"
+                )
+                log_error(traceback.format_exc().rstrip())
+
+        # ── Phase 3: 상태 기록 ─────────────────────────────────────────────
+        for item in prepared_items:
+            try:
+                if item.get("_embed_failed"):
+                    record_vector_state(loader, item, "FAILED")
+                    loader.commit()
+                    failed_count += 1
+                else:
+                    record_vector_state(loader, item, "INDEXED")
+                    loader.commit()
+                    write_vector_manifest(item, "embeddings_upserted", embed_worker)
+                    print(
+                        "[VECTOR OK] "
+                        f"doc_id={item['doc_id']} chunks={len(item['chunks'])} "
+                        f"reused={item['_reusable_count']} "
+                        f"newly_embedded={item['_newly_embedded_count']}",
+                        flush=True,
+                    )
+                    processed_count += 1
+            except Exception as state_error:
+                loader.rollback()
+                log_error(
+                    f"[VECTOR STATE ERROR] doc_id={item.get('doc_id')} error={state_error}"
+                )
 
         print(
             "[SUMMARY] "

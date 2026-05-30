@@ -1,7 +1,7 @@
 # crawler/discovery/frontier_manager.py
 
 from collections import deque                   # 큐 사용을 위함
-from urllib.parse import urldefrag, urlparse    # url 사용을 위한 라이브러리, 현재는 fragment제거, url 분리(scheme: https / host(netloc): www.deu.ac.kr / path: /www/index.do)
+from urllib.parse import parse_qsl, urlencode, urldefrag, urlparse, urlunparse    # url 사용을 위한 라이브러리, 현재는 fragment제거, url 분리(scheme: https / host(netloc): www.deu.ac.kr / path: /www/index.do)
 
 
 class FrontierManager:
@@ -12,13 +12,26 @@ class FrontierManager:
         self.visited = set()        # 방문 url 저장 집합(중복검사 용이)
         self.queued = set()
 
+    _DEU_DOMAINS = (".deu.ac.kr",)
+
     def canonicalize_url(self, url: str) -> str:
-        url, _ = urldefrag(url)     # 예를들어 url이 ("https://abc.com/page", "section1") 일 경우 뒤의 fragment는 지우고 앞의 url만 저장
-        url = url.strip()
-        parsed = urlparse(url)
-        if parsed.path == "/" and not parsed.query:
-            return url.rstrip("/")
-        return url
+        canonical, _ = urldefrag(url.strip())     # 예를들어 url이 ("https://abc.com/page", "section1") 일 경우 뒤의 fragment는 지우고 앞의 url만 저장
+        parsed = urlparse(canonical)
+
+        # http → https for DEU domains
+        scheme = parsed.scheme
+        if scheme == "http" and any(parsed.netloc.lower().endswith(d) for d in self._DEU_DOMAINS):
+            scheme = "https"
+
+        # 빈 쿼리 파라미터 제거
+        clean_query = urlencode(parse_qsl(parsed.query, keep_blank_values=False))
+
+        normalized = urlunparse(parsed._replace(scheme=scheme, query=clean_query))
+        # 루트 경로 trailing slash 제거
+        norm_parsed = urlparse(normalized)
+        if norm_parsed.path == "/" and not norm_parsed.query:
+            return normalized.rstrip("/")
+        return normalized
 
     def is_allowed(self, url: str) -> bool:
         host = urlparse(url).netloc.lower()     # 파싱된 url의 host부분만 추출

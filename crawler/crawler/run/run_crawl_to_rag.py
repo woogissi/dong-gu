@@ -61,7 +61,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=32,
+        default=64,
         help="벡터 적재에서 한 번에 처리할 chunk batch 크기입니다.",
     )
     parser.add_argument(
