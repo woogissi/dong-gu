@@ -217,6 +217,43 @@ class RagQualityFixTest(unittest.TestCase):
 
         self.assertEqual(pipeline._effective_retrieval_strategy(Request()), "vector")
 
+    def test_newly_added_vector_only_families(self) -> None:
+        # 평가 결과 기반으로 추가된 패밀리들이 vector 전략을 반환하는지 확인한다.
+        pipeline = ChatPipeline()
+
+        class Request:
+            strategy = "lexical"
+
+            def __init__(self, family: str) -> None:
+                self.log_fields = {"query_family": family}
+
+        new_families = ["scholarship", "grade", "graduation"]
+        for family in new_families:
+            with self.subTest(family=family):
+                self.assertEqual(
+                    pipeline._effective_retrieval_strategy(Request(family)),
+                    "vector",
+                    f"'{family}' 패밀리는 vector 전략을 사용해야 한다",
+                )
+
+    def test_hybrid_still_used_for_unregistered_families(self) -> None:
+        # vector_only_families에 없는 패밀리는 여전히 hybrid를 사용해야 한다.
+        # dormitory: r027에서 hybrid→vector 전환 시 top-3 회귀 확인 → hybrid 유지
+        pipeline = ChatPipeline()
+
+        for family in ["academic_admin", "dormitory"]:
+            with self.subTest(family=family):
+
+                class Request:
+                    strategy = "lexical"
+                    log_fields = {"query_family": family}
+
+                self.assertEqual(
+                    pipeline._effective_retrieval_strategy(Request()),
+                    "hybrid",
+                    f"'{family}' 패밀리는 hybrid를 유지해야 한다",
+                )
+
     def test_topk_rejects_ui_noise_and_missing_required_terms(self) -> None:
         docs = [
             RetrievedDoc(

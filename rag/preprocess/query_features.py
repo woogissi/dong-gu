@@ -212,6 +212,10 @@ ACADEMIC_ADMIN_TERMS = {
     "전과",
     "군휴학",
     "일반휴학",
+    # 수강 관련 행정 — course_registration 패밀리로 오분류 방지
+    "재수강",
+    "수강포기",
+    "학점포기",
 }
 
 CERTIFICATE_TERMS = {

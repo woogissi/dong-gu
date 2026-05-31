@@ -64,9 +64,6 @@ def build_selected_context_answer(selected_docs: list[object], *, query: str | N
             lines.append(f"- {title}: {content}")
         else:
             lines.append(f"- {content}")
-    source_url = _first_source_url(selected_docs)
-    if source_url:
-        lines.append(f"출처/사이트 바로가기: {source_url}")
     return "\n".join(lines)
 
 

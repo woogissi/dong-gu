@@ -62,7 +62,7 @@ CATEGORY_SOURCE_TYPES = {
     "grade": ["academic_support", "academic_notice", "department", "institution"],
     "graduation": ["academic_notice", "academic_support", "department", "institution"],
     "library": ["library", "institution", "academic_support"],
-    "career": ["job", "notice", "department", "institution"],
+    "career": ["advising", "job", "notice", "institution", "department"],
     "cafeteria": ["cafeteria", "welfare", "institution", "static", "facility"],
     "club_activity": ["club_activity", "student_life", "institution", "notice", "department"],
     "facility": ["institution", "department", "static", "facility"],
@@ -76,10 +76,15 @@ FORBIDDEN_SOURCE_TYPES_BY_FAMILY = {
     "tuition": {"scholarship", "job", "bids", "external_notice", "dormitory"},
     "course_registration": {"job", "bids", "external_notice"},
     "seasonal_course_registration": {"job", "bids", "external_notice", "scholarship"},
-    "dormitory": {"scholarship", "job", "bids", "external_notice"},
+    # exchange 문서는 국제교류처 공지로, 일반 기숙사 쿼리에서 rank1~3을 차지하는 노이즈.
+    # 단, 외국인/유학생 기숙사 쿼리는 예외 처리 (retriever._filter_forbidden_source_types 참조).
+    "dormitory": {"scholarship", "job", "bids", "external_notice", "exchange"},
     "campus_address": {"job", "scholarship", "bids", "external_notice"},
     "building_location": {"job", "scholarship", "bids", "external_notice"},
 }
+
+# 외국인/유학생 기숙사 쿼리 감지 — 이 경우 exchange 문서 필터를 해제한다
+DORMITORY_FOREIGN_QUERY_TERMS: frozenset[str] = frozenset({"외국인", "유학생", "행복기숙사"})
 
 
 def normalize_source_type(value: str) -> str:

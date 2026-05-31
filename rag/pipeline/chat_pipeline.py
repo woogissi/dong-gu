@@ -266,6 +266,11 @@ class ChatPipeline:
                 "specific_scholarship",
                 "graduation",
                 "certificate",
+                # 평가 결과 기반 추가: hybrid 전략에서 top-k miss가 발생한 패밀리
+                # dormitory는 r027 hybrid→vector 전환 시 top-3 회귀 확인, 제외
+                "scholarship",
+                "grade",
+                "career",
             ],
         ))
         if query_family in vector_only_families:
@@ -1215,6 +1220,11 @@ class ChatPipeline:
         if not department_name:
             return docs
 
+        # canonical_source_supplement 문서(이수규정 등)는 학과명이 제목에 없어도 항상 포함
+        supplement_docs = [
+            doc for doc in docs
+            if doc.metadata.get("canonical_source_supplement")
+        ]
         exact_docs = [
             doc
             for doc in docs
@@ -1224,9 +1234,12 @@ class ChatPipeline:
             state.metadata["department_curriculum_selection"] = {
                 "department_name": department_name,
                 "filtered_to_exact_department": True,
-                "candidate_count": len(exact_docs),
+                "candidate_count": len(exact_docs) + len(supplement_docs),
             }
-            return exact_docs
+            # 정확 매칭 문서 + supplement 문서 함께 반환 (중복 제거)
+            seen = {d.chunk_id for d in exact_docs}
+            merged = exact_docs + [d for d in supplement_docs if d.chunk_id not in seen]
+            return merged
 
         state.metadata["department_curriculum_selection"] = {
             "department_name": department_name,

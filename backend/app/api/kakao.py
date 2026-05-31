@@ -381,11 +381,12 @@ def build_info_response(result, utterance):
     if "???:" in answer:
         answer = answer.split("???:")[0].strip()
 
-    link = _extract_primary_source_url(result_dict) or _extract_first_url(answer) or get_link_url_by_category(category)
+    # 실제 검색된 문서의 URL만 사용 — 문서 없으면 버튼 없음
+    link = _extract_primary_source_url(result_dict)
     quick = get_quick_replies_by_context(category, utterance)
 
     answer = _normalize_answer_source_links(answer, link)
-    full_answer = _append_source_link(answer, link)
+    full_answer = answer  # URL 텍스트를 답변에 포함하지 않음
     kakao_text = _build_kakao_simple_summary(
         full_answer=full_answer,
         utterance=utterance,

@@ -267,7 +267,8 @@ def _check_answer_grounded(answer_text: str, selected: list[dict], expected_keyw
     if not answer_text:
         return False
     # 답변에 "모릅니다", "찾을 수 없습니다" 등이 포함된 경우 → 실패로 처리
-    not_found_phrases = ["모릅니다", "찾을 수 없", "알 수 없", "없습니다", "제공되지 않"]
+    # 주의: 단어 끝의 "없습니다"가 아닌 문장 수준 부정 표현만 체크
+    not_found_phrases = ["모릅니다", "찾을 수 없", "알 수 없", "정보는 확인할 수 없", "정보는 찾을 수 없", "제공되지 않", "확인되지 않습니다"]
     if any(p in answer_text for p in not_found_phrases):
         # selected가 비어있으면 정상 (모른다고 정직하게 답변)
         if not selected:

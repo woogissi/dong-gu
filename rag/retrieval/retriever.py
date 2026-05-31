@@ -20,7 +20,11 @@ from typing import Any
 
 from rag.schemas.retrieval import RetrievalRequest
 from rag.schemas.retrieved_doc import RetrievedDoc
-from rag.retrieval.source_policy import allowed_source_types_for_values, forbidden_source_types_for_family
+from rag.retrieval.source_policy import (
+    allowed_source_types_for_values,
+    forbidden_source_types_for_family,
+    DORMITORY_FOREIGN_QUERY_TERMS,
+)
 from rag.preprocess.query_features import (
     extract_query_features,
     required_entity_match_score,
@@ -62,7 +66,7 @@ _NOISE_PENALTY_CAP = 1.5
 _DEFAULT_HYBRID_LEXICAL_WEIGHT = 0.55
 _DEFAULT_HYBRID_VECTOR_WEIGHT = 0.45
 _DEFAULT_HYBRID_SRRF_BETA = 10.0
-_DEFAULT_MAX_RESULTS_PER_DOC = 2
+_DEFAULT_MAX_RESULTS_PER_DOC = 1
 _DEFAULT_MAX_RESULTS_PER_SOURCE = 2
 _DEFAULT_VECTOR_CANDIDATE_LIMIT = 1000
 _BM25_K1 = 1.5
@@ -246,6 +250,9 @@ def retrieve_documents(
                 policy_documents = _retrieve_graduation_policy_documents_from_database(request)
                 if policy_documents:
                     documents = _prepend_unique_docs(policy_documents, documents)
+                regulation_documents = _retrieve_curriculum_regulation_documents(request)
+                if regulation_documents:
+                    documents = _prepend_unique_docs(regulation_documents, documents)
                 return _postprocess_retrieved_docs(documents, request)
 
             if retrieval_mode == "hybrid":
@@ -1079,6 +1086,96 @@ def _retrieve_graduation_policy_documents_from_database(request: RetrievalReques
                     "section_index": row["section_index"],
                     "section_type": row["section_type"],
                     "section_title": row["section_title"],
+                    "content_length": row["content_length"],
+                    "content_hash": row["content_hash"],
+                    "version": row["version"],
+                    "document_version_id": row["document_version_id"],
+                },
+            )
+        )
+    return docs
+
+
+def _retrieve_curriculum_regulation_documents(request: RetrievalRequest) -> list[RetrievedDoc]:
+    """department_curriculum + 졸업학점 쿼리 시 교육과정편성및이수규정 문서를 보충 검색."""
+    query_family = ""
+    if isinstance(request.log_fields, dict):
+        query_family = str(request.log_fields.get("query_family") or "")
+    if query_family != "department_curriculum":
+        return []
+    query_text = request.query or ""
+    if not re.search(r"졸업학점|졸업요건|이수학점|졸업기준", query_text):
+        return []
+
+    sql = """
+    SELECT DISTINCT ON (chunks.doc_id)
+        chunks.chunk_id,
+        chunks.doc_id,
+        chunks.chunk_index,
+        chunks.section_index,
+        chunks.section_type,
+        chunks.section_title,
+        chunks.content,
+        chunks.content_length,
+        chunks.content_hash,
+        document_versions.version,
+        chunks.document_version_id,
+        chunks.metadata AS chunk_metadata,
+        documents.title,
+        documents.source_url,
+        documents.source_type,
+        documents.department,
+        documents.published_at,
+        documents.metadata AS document_metadata
+    FROM documents
+    JOIN chunks ON chunks.doc_id = documents.doc_id
+    LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
+    WHERE documents.source_type IN ('academic', 'regulation', 'institution')
+      AND (
+          documents.title ILIKE '%%교육과정 편성 및 이수 규정%%'
+          OR documents.title ILIKE '%%이수규정%%'
+          OR documents.source_url ILIKE '%%regulation%%'
+      )
+      AND chunks.content ILIKE '%%졸업학점%%'
+    ORDER BY
+        chunks.doc_id,
+        CASE WHEN chunks.content ILIKE '%%컴퓨터%%' THEN 0 ELSE 1 END,
+        chunks.chunk_index ASC
+    LIMIT 3
+    """
+    try:
+        with _open_db_connection() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute(sql)
+                rows = cur.fetchall()
+    except psycopg2.Error as exc:
+        logger.warning("curriculum_regulation_supplement_failed query=%r error=%s", request.query, exc)
+        return []
+
+    docs: list[RetrievedDoc] = []
+    for row in rows:
+        document_metadata = _dict_or_empty(row["document_metadata"])
+        chunk_metadata = _dict_or_empty(row["chunk_metadata"])
+        docs.append(
+            RetrievedDoc(
+                doc_id=row["doc_id"],
+                chunk_id=row["chunk_id"],
+                content=row["content"],
+                score=1.15,
+                title=row["title"] or "",
+                source=row["source_url"] or row["source_type"] or "",
+                category=request.category or row["source_type"],
+                metadata={
+                    **document_metadata,
+                    **chunk_metadata,
+                    **request.log_fields,
+                    "search_mode": "curriculum_regulation_supplement",
+                    "canonical_source_supplement": True,
+                    "source_type": row["source_type"],
+                    "department": row["department"],
+                    "published_at": row["published_at"],
+                    "chunk_index": row["chunk_index"],
+                    "section_type": row["section_type"],
                     "content_length": row["content_length"],
                     "content_hash": row["content_hash"],
                     "version": row["version"],
@@ -2448,13 +2545,24 @@ def _dict_or_empty(value: Any) -> dict[str, Any]:
 
 def _postprocess_retrieved_docs(docs: list[RetrievedDoc], request: RetrievalRequest) -> list[RetrievedDoc]:
     docs = _filter_forbidden_source_types(docs, request)
+    docs = _apply_section_priority_for_curriculum(docs, request)
     docs = _dedupe_retrieved_docs(docs) if _result_dedupe_enabled() else docs
     limit = request.top_k or _DEFAULT_TOP_K
     return docs[:limit]
 
 
 def _filter_forbidden_source_types(docs: list[RetrievedDoc], request: RetrievalRequest) -> list[RetrievedDoc]:
-    forbidden = forbidden_source_types_for_family(_request_query_family(request))
+    family = _request_query_family(request)
+    forbidden = set(forbidden_source_types_for_family(family))
+
+    # 외국인/유학생 기숙사 쿼리는 exchange 문서도 필요하므로 필터에서 제외한다.
+    if family == "dormitory" and "exchange" in forbidden:
+        query_text = " ".join(
+            [request.query or ""] + list(request.keywords or [])
+        ).lower()
+        if any(term in query_text for term in DORMITORY_FOREIGN_QUERY_TERMS):
+            forbidden.discard("exchange")
+
     if not forbidden:
         return docs
     filtered = [
@@ -2463,6 +2571,52 @@ def _filter_forbidden_source_types(docs: list[RetrievedDoc], request: RetrievalR
         if str(doc.metadata.get("source_type") or "").strip().lower() not in forbidden
     ]
     return filtered if filtered else docs
+
+
+# 한국 대학 학과 홈페이지의 URL 관례:
+#   sub01 = 학과소개, sub02 = 교수진, sub03 = 교육과정/이수표
+#   sub04 = 학생광장,  sub05 = 취업/진로
+_DEPT_CURRICULUM_URL_PATTERNS = ("sub03",)
+_DEPT_CAREER_URL_PATTERNS     = ("sub05",)
+_DEPT_INTRO_URL_PATTERNS      = ("sub01",)
+_DEPT_ACTIVITY_URL_PATTERNS   = ("sub04",)
+
+_CURRICULUM_SECTION_BOOST    = 0.07
+_CAREER_SECTION_PENALTY      = 0.06
+_INTRO_SECTION_PENALTY       = 0.05
+_ACTIVITY_SECTION_PENALTY    = 0.03
+
+
+def _apply_section_priority_for_curriculum(
+    docs: list[RetrievedDoc], request: RetrievalRequest
+) -> list[RetrievedDoc]:
+    """graduation·department_curriculum 쿼리에서 교육과정(sub03) 섹션 문서를 우선한다.
+
+    raw retrieval 점수에 URL 섹션 패턴 기반 보정을 더해 재정렬한다.
+    doc.score 자체는 수정하지 않으므로 리랭커 계산에 영향이 없다.
+    """
+    family = _request_query_family(request)
+    if family not in {"graduation", "department_curriculum"}:
+        return docs
+    if not docs:
+        return docs
+
+    scored: list[tuple[float, int, RetrievedDoc]] = []
+    for rank, doc in enumerate(docs):
+        source = (doc.source or "").lower()
+        delta = 0.0
+        if any(p in source for p in _DEPT_CURRICULUM_URL_PATTERNS):
+            delta += _CURRICULUM_SECTION_BOOST
+        if any(p in source for p in _DEPT_CAREER_URL_PATTERNS):
+            delta -= _CAREER_SECTION_PENALTY
+        if any(p in source for p in _DEPT_INTRO_URL_PATTERNS):
+            delta -= _INTRO_SECTION_PENALTY
+        if any(p in source for p in _DEPT_ACTIVITY_URL_PATTERNS):
+            delta -= _ACTIVITY_SECTION_PENALTY
+        scored.append((doc.score + delta, rank, doc))
+
+    scored.sort(key=lambda x: (-x[0], x[1]))
+    return [doc for _, _, doc in scored]
 
 
 def _dedupe_retrieved_docs(docs: list[RetrievedDoc]) -> list[RetrievedDoc]:

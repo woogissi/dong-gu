@@ -171,6 +171,7 @@ def _build_ranking_hints(
         "query_family": query_features.get("family"),
         "temporal_signals": extract_temporal_signals(query, keywords=keywords, filters=filters),
         "soft_filters": filters,
+        "department_entity": _first_value(filters.get("department", [])) or "",
     }
 
 

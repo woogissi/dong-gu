@@ -321,6 +321,47 @@ class RerankerTest(unittest.TestCase):
         self.assertEqual(reranked[0].doc_id, "general_dorm")
         self.assertLess(reranked[1].metadata["rerank_signals"]["query_family_penalty"], 0)
 
+    def test_dormitory_query_penalizes_exchange_without_foreign_content(self) -> None:
+        # exchange 출처이지만 외국인/유학생 문맥이 없는 일반 공지가
+        # 일반 기숙사 쿼리에서 페널티를 받아야 한다 (r027 회귀 방지).
+        docs = [
+            RetrievedDoc(
+                doc_id="exchange_general_notice",
+                chunk_id="exchange_general_notice_1",
+                title="국제교류처 공지사항",
+                content="기숙사 관련 일정 안내 및 국제 교류 행사 공지",
+                score=10.0,
+                metadata={"source_type": "exchange"},
+            ),
+            RetrievedDoc(
+                doc_id="dorm_application",
+                chunk_id="dorm_application_1",
+                title="효민생활관 입사신청 안내",
+                content="기숙사 입사 신청방법 신청기간 생활관",
+                score=6.0,
+                metadata={"source_type": "dormitory"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="기숙사 신청 어디서 해?",
+            keywords=["기숙사", "신청"],
+            category="dormitory",
+        )
+
+        exchange_doc = next(d for d in reranked if d.doc_id == "exchange_general_notice")
+        self.assertLess(
+            exchange_doc.metadata["rerank_signals"]["query_family_penalty"],
+            0.0,
+            "외국인 문맥 없는 exchange 문서도 일반 기숙사 쿼리에서 페널티를 받아야 한다",
+        )
+        self.assertEqual(
+            reranked[0].doc_id,
+            "dorm_application",
+            "dorm.deu.ac.kr 정답 문서가 exchange 공지보다 상위여야 한다",
+        )
+
     def test_foreign_dormitory_query_keeps_exchange_notice_available(self) -> None:
         docs = [
             RetrievedDoc(
@@ -661,6 +702,214 @@ class RerankerTest(unittest.TestCase):
 
         self.assertEqual(reranked[0].metadata["rerank_signals"]["faculty_entity_match"], 0)
         self.assertEqual(reranked[0].metadata["rerank_signals"]["faculty_entity_penalty"], 0)
+
+    def test_attachment_penalty_exempt_for_department_curriculum(self) -> None:
+        # department_curriculum 쿼리에서는 첨부파일(HWP/PDF)이 원본 소스이므로
+        # attachment_noise_penalty가 0이어야 한다.
+        docs = [
+            RetrievedDoc(
+                doc_id="curriculum_attachment",
+                chunk_id="curriculum_attachment_1",
+                title="이수표 | 교육과정 | 간호학과",
+                content="간호학과 2학년 1학기 전공필수 인간의 성장 발달 해부학 성인간호학",
+                score=10.0,
+                metadata={"source_type": "department", "section_type": "attachment"},
+            ),
+            RetrievedDoc(
+                doc_id="general_notice",
+                chunk_id="general_notice_1",
+                title="학과 소개 | 간호학과",
+                content="간호학과 학과 소개 및 안내",
+                score=5.0,
+                metadata={"source_type": "department", "section_type": "body"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="간호학과 2학년 1학기 전공필수 알려줘",
+            keywords=["간호학과", "2학년", "1학기", "전공필수"],
+            category="department_curriculum",
+        )
+
+        attachment_doc = next(d for d in reranked if d.doc_id == "curriculum_attachment")
+        self.assertEqual(
+            attachment_doc.metadata["rerank_signals"]["attachment_noise"],
+            0.0,
+            "department_curriculum 쿼리에서 attachment_noise_penalty는 0이어야 한다",
+        )
+        self.assertEqual(reranked[0].doc_id, "curriculum_attachment")
+
+    def test_attachment_penalty_still_applies_outside_exempt_families(self) -> None:
+        # dormitory 쿼리에서는 attachment_noise_penalty가 여전히 적용되어야 한다.
+        docs = [
+            RetrievedDoc(
+                doc_id="dorm_attachment",
+                chunk_id="dorm_attachment_1",
+                title="주거안정장학금 신청 안내",
+                content="기숙사 관련 장학금 첨부 서류",
+                score=10.0,
+                metadata={"source_type": "scholarship", "section_type": "attachment"},
+            ),
+            RetrievedDoc(
+                doc_id="dorm_body",
+                chunk_id="dorm_body_1",
+                title="효민생활관 입사 안내",
+                content="기숙사 입사신청 방법 절차 생활관",
+                score=5.0,
+                metadata={"source_type": "dormitory", "section_type": "body"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="기숙사 신청 방법",
+            keywords=["기숙사", "신청", "생활관"],
+            category="dormitory",
+        )
+
+        attachment_doc = next(d for d in reranked if d.doc_id == "dorm_attachment")
+        self.assertLess(
+            attachment_doc.metadata["rerank_signals"]["attachment_noise"],
+            0.0,
+            "dormitory 쿼리에서 attachment_noise_penalty는 여전히 음수여야 한다",
+        )
+
+    def test_department_entity_match_boosts_correct_department_doc(self) -> None:
+        # ranking_hints에 department_entity가 있을 때,
+        # 해당 학과명이 포함된 문서가 포함되지 않은 문서보다 높게 랭크돼야 한다.
+        docs = [
+            RetrievedDoc(
+                doc_id="wrong_dept",
+                chunk_id="wrong_dept_1",
+                title="이수표 | 교육과정 | 컴퓨터공학과",
+                content="컴퓨터공학과 전공필수 교육과정 이수표",
+                score=10.0,
+                metadata={"source_type": "department", "section_type": "attachment"},
+            ),
+            RetrievedDoc(
+                doc_id="correct_dept",
+                chunk_id="correct_dept_1",
+                title="이수표 | 교육과정 | 간호학과",
+                content="간호학과 전공필수 교육과정 이수표",
+                score=8.0,
+                metadata={"source_type": "department", "section_type": "attachment"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="간호학과 전공필수 알려줘",
+            keywords=["간호학과", "전공필수"],
+            category="department_curriculum",
+            ranking_hints={"department_entity": "간호학과"},
+        )
+
+        correct = next(d for d in reranked if d.doc_id == "correct_dept")
+        wrong = next(d for d in reranked if d.doc_id == "wrong_dept")
+        self.assertEqual(reranked[0].doc_id, "correct_dept", "학과명 일치 문서가 1위여야 한다")
+        self.assertGreater(
+            correct.metadata["rerank_signals"]["department_entity_match"],
+            0.0,
+            "일치 문서의 department_entity_match는 양수여야 한다",
+        )
+        self.assertLess(
+            wrong.metadata["rerank_signals"]["department_entity_match"],
+            0.0,
+            "불일치 문서의 department_entity_match는 음수여야 한다",
+        )
+
+    def test_department_entity_match_inactive_outside_curriculum_families(self) -> None:
+        # department_curriculum·graduation 이외 패밀리에서는 department_entity_match가 0이어야 한다.
+        docs = [
+            RetrievedDoc(
+                doc_id="dorm_notice",
+                chunk_id="dorm_notice_1",
+                title="효민생활관 입사 안내",
+                content="기숙사 입사신청 방법 절차 생활관",
+                score=10.0,
+                metadata={"source_type": "dormitory", "section_type": "body"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="기숙사 신청 방법",
+            keywords=["기숙사", "신청"],
+            category="dormitory",
+            ranking_hints={"department_entity": "간호학과"},
+        )
+
+        self.assertEqual(
+            reranked[0].metadata["rerank_signals"]["department_entity_match"],
+            0.0,
+            "dormitory 쿼리에서 department_entity_match는 0이어야 한다",
+        )
+
+
+    def test_career_query_boosts_advising_source_over_department_notice(self) -> None:
+        # 일반 취업지원 쿼리에서 advising(취업지원센터) 문서가
+        # department(학과 공지) 문서보다 상위여야 한다 (r029 회귀 방지).
+        docs = [
+            RetrievedDoc(
+                doc_id="dept_notice",
+                chunk_id="dept_notice_1",
+                title="도시공학과 공지사항",
+                content="취업지원 프로그램 안내 공지",
+                score=10.0,
+                metadata={"source_type": "department"},
+            ),
+            RetrievedDoc(
+                doc_id="career_center",
+                chunk_id="career_center_1",
+                title="취업/진로 프로그램 | 취업지원센터",
+                content="학생 성장 주기별 취업지원 프로그램 취업지원센터 안내",
+                score=9.9,
+                metadata={"source_type": "advising"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="취업지원 프로그램 어디서 봐?",
+            keywords=["취업지원", "프로그램"],
+            category="career",
+        )
+
+        self.assertEqual(reranked[0].doc_id, "career_center",
+                         "advising 취업지원센터 문서가 학과 공지보다 상위여야 한다")
+        career_doc = next(d for d in reranked if d.doc_id == "career_center")
+        dept_doc   = next(d for d in reranked if d.doc_id == "dept_notice")
+        self.assertGreater(career_doc.metadata["rerank_signals"]["query_family_boost"], 0,
+                           "advising 문서의 query_family_boost는 양수여야 한다")
+        self.assertLess(dept_doc.metadata["rerank_signals"]["query_family_penalty"], 0,
+                        "department 문서의 query_family_penalty는 음수여야 한다")
+
+    def test_career_query_preserves_department_when_dept_specific(self) -> None:
+        # 학과명이 쿼리에 포함된 경우 department 문서에 페널티 없음
+        docs = [
+            RetrievedDoc(
+                doc_id="dept_career_notice",
+                chunk_id="dept_career_notice_1",
+                title="컴퓨터공학과 취업지원 프로그램 안내",
+                content="컴퓨터공학과 전용 취업지원 프로그램",
+                score=10.0,
+                metadata={"source_type": "department"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="컴퓨터공학과 취업지원 프로그램",
+            keywords=["컴퓨터공학과", "취업지원", "프로그램"],
+            category="career",
+        )
+
+        self.assertEqual(
+            reranked[0].metadata["rerank_signals"]["query_family_penalty"],
+            0.0,
+            "학과명이 쿼리에 있으면 department 문서에 페널티 없어야 한다",
+        )
 
 
 if __name__ == "__main__":

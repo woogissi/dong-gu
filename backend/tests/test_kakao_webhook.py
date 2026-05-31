@@ -75,10 +75,12 @@ class KakaoWebhookTest(unittest.TestCase):
 
         output = response["template"]["outputs"][0]["simpleText"]["text"]
         self.assertIn("\uc218\uac15\uc2e0\uccad \uae30\uac04\uc740 \uacf5\uc9c0\uc0ac\ud56d\uc744 \ud655\uc778\ud574\uc8fc\uc138\uc694.", output)
-        self.assertIn("textCard", response["template"]["outputs"][1])
+        # sources \uc5c6\uc73c\uba74 textCard(\ubc84\ud2bc) \ubbf8\ud3ec\ud568
+        self.assertEqual(len(response["template"]["outputs"]), 1)
         self.assertEqual(pipeline.last_query, "\uc218\uac15\uc2e0\uccad \uae30\uac04 \uc54c\ub824\uc918")
 
-    def test_build_info_response_handles_answer_without_url(self) -> None:
+    def test_build_info_response_no_button_when_no_sources(self) -> None:
+        """\ubb38\uc11c \uc5c6\uc74c \ucf00\uc774\uc2a4: \ubc84\ud2bc \ubc0f \ucd9c\ucc98 \ud14d\uc2a4\ud2b8 \ubbf8\ud3ec\ud568"""
         result = {
             "answer": "\uc218\ub355\uc804 \ud559\uc0dd\uc2dd\ub2f9 \uc6b4\uc601\uc2dc\uac04\uc740 \uc77c\ubc18\uc801\uc73c\ub85c \uc810\uc2ec\uc2dc\uac04\uc5d0 \uc6b4\uc601\ub429\ub2c8\ub2e4.",
             "sources": [],
@@ -88,17 +90,17 @@ class KakaoWebhookTest(unittest.TestCase):
         response, final_answer = kakao.build_info_response(result, "\uc218\ub355\uc804 \ud559\uc0dd\uc2dd\ub2f9 \uc6b4\uc601\uc2dc\uac04")
 
         output = response["template"]["outputs"][0]["simpleText"]["text"]
-        card_url = response["template"]["outputs"][1]["textCard"]["buttons"][0]["webLinkUrl"]
-
         self.assertIn("\uc218\ub355\uc804 \ud559\uc0dd\uc2dd\ub2f9", output)
-        self.assertIn("\ucd9c\ucc98/\uc0ac\uc774\ud2b8 \ubc14\ub85c\uac00\uae30", final_answer)
-        self.assertEqual(card_url, "https://www.deu.ac.kr/")
+        # \ubb38\uc11c \uc5c6\uc74c: \ubc84\ud2bc(textCard) \ubbf8\ud3ec\ud568
+        self.assertEqual(len(response["template"]["outputs"]), 1)
+        # \ucd9c\ucc98 \ud14d\uc2a4\ud2b8\ub3c4 \ubbf8\ud3ec\ud568
+        self.assertNotIn("\ucd9c\ucc98/\uc0ac\uc774\ud2b8 \ubc14\ub85c\uac00\uae30", final_answer)
 
-    def test_build_info_response_prefers_rag_source_for_card_and_dedupes_answer_link(self) -> None:
+    def test_build_info_response_uses_rag_source_for_button(self) -> None:
+        """문서 있음 케이스: RAG sources URL로 버튼 생성, 출처 텍스트는 답변에 미포함"""
         rag_url = "https://www.deu.ac.kr/www/source-notice.do"
-        fallback_like_url = "https://www.deu.ac.kr/www/other-page.do"
         result = {
-            "answer": f"답변입니다.\n\n출처/사이트 바로가기: {fallback_like_url}",
+            "answer": "답변입니다.",
             "sources": [{"source": rag_url, "title": "공지"}],
             "retrieval_log": {
                 "selected_docs": [
@@ -111,24 +113,21 @@ class KakaoWebhookTest(unittest.TestCase):
         card_url = response["template"]["outputs"][1]["textCard"]["buttons"][0]["webLinkUrl"]
 
         self.assertEqual(card_url, rag_url)
-        self.assertIn(rag_url, final_answer)
-        self.assertNotIn(fallback_like_url, final_answer)
-        self.assertEqual(final_answer.count(rag_url), 1)
+        # 출처 텍스트는 답변 본문에 미포함
+        self.assertNotIn("출처/사이트 바로가기", final_answer)
 
-    def test_kakao_summary_keeps_source_line_within_limit(self) -> None:
-        source_url = "https://www.deu.ac.kr/www/source-notice.do"
+    def test_kakao_summary_trims_long_answer_within_limit(self) -> None:
+        """긴 답변은 500자 이내로 축약 (출처 줄 없는 경우)"""
         long_answer = "가" * 650
-        full_answer = f"{long_answer}\n\n출처/사이트 바로가기: {source_url}"
 
         summary = kakao._build_kakao_simple_summary(
-            full_answer=full_answer,
+            full_answer=long_answer,
             utterance="등록금 납부 기간 알려줘",
-            link=source_url,
+            link="",
             result_dict={},
         )
 
         self.assertLessEqual(len(summary), 500)
-        self.assertIn(source_url, summary)
 
 if __name__ == "__main__":
     unittest.main()

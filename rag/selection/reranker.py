@@ -300,6 +300,7 @@ def _score_doc(
         title_match=title_match,
         section_title_match=section_title_match,
         query_tokens=keyword_tokens,
+        query_family=query_family,
     )
     exif_noise = _exif_noise_penalty(content)
     ui_static_noise = _ui_static_noise_penalty(doc, full_text)
@@ -327,6 +328,8 @@ def _score_doc(
         title_section_text=title_section_text,
         full_text=full_text,
     )
+    dept_entity = str(ranking_hints.get("department_entity") or "").strip().lower()
+    department_entity_match = _department_entity_match_score(dept_entity, full_text, query_family)
     query_family_penalty = _query_family_penalty(
         doc=doc,
         query_text=query.lower(),
@@ -349,6 +352,7 @@ def _score_doc(
         + min(source_type_noise, 0.0)
         + min(faculty_entity_penalty, 0.0)
         + min(query_family_penalty, 0.0)
+        + min(department_entity_match, 0.0)
     )
 
     return {
@@ -370,6 +374,7 @@ def _score_doc(
         "required_entity_match": round(required_entity_match, 6),
         "faculty_entity_match": round(faculty_entity_match, 6),
         "faculty_entity_penalty": round(faculty_entity_penalty, 6),
+        "department_entity_match": round(department_entity_match, 6),
         "query_family_penalty": round(query_family_penalty, 6),
         "category_match": round(category_match, 6),
         "recency": round(recency, 6),
@@ -505,6 +510,26 @@ def _is_lifelong_faculty_noise(doc: RetrievedDoc, query: str, title_section_text
     )
 
 
+_DEPARTMENT_ENTITY_MATCH_FAMILIES = {
+    "department_curriculum",
+    "graduation",
+}
+
+
+def _department_entity_match_score(dept_entity: str, full_text: str, query_family: str) -> float:
+    """학과명 개체(department_entity)가 문서 본문에 포함되는지에 따라 boost/penalty를 반환한다.
+
+    department_curriculum·graduation 패밀리에서만 활성화된다.
+    - 학과명 일치: +1.5 (해당 학과 문서를 상위로)
+    - 학과명 불일치: -1.0 (타 학과 문서를 하위로)
+    """
+    if not dept_entity or query_family not in _DEPARTMENT_ENTITY_MATCH_FAMILIES:
+        return 0.0
+    if dept_entity in full_text:
+        return 1.5
+    return -1.0
+
+
 def _strong_term_match_score(tokens: list[str], full_text: str) -> float:
     strong_tokens = _strong_tokens(tokens)
     if not strong_tokens:
@@ -520,15 +545,24 @@ def _missing_strong_terms_penalty(tokens: list[str], full_text: str) -> float:
     return 0.0 if any(token in full_text for token in strong_tokens) else -0.8
 
 
+_ATTACHMENT_PENALTY_EXEMPT_FAMILIES = {
+    "department_curriculum",  # 교육과정/이수표는 첨부파일이 원본 소스
+    "graduation",             # 졸업학점 기준도 첨부파일에 존재
+}
+
+
 def _attachment_noise_penalty(
     doc: RetrievedDoc,
     strong_term_match: float,
     title_match: float,
     section_title_match: float,
     query_tokens: list[str],
+    query_family: str = "",
 ) -> float:
     section_type = _normalize_value(doc.metadata.get("section_type"))
     if section_type != "attachment":
+        return 0.0
+    if query_family in _ATTACHMENT_PENALTY_EXEMPT_FAMILIES:
         return 0.0
     if _is_explicit_notice_or_attachment_query(query_tokens):
         return 0.0
@@ -756,6 +790,15 @@ def _query_family_boost(
         return min(title_bonus + body_hits * 0.25 + source_boost, 5.0)
     if query_family == "certificate":
         return 2.2 if any(term in title_section_text for term in ("제증명서", "증명서 발급", "재학증명서", "성적증명서")) else 0.0
+    if query_family == "career":
+        # 취업지원센터(advising)·공식 취업/진로 안내 페이지 우선
+        source_boost = 2.0 if source_type in {"advising", "job"} else 0.0
+        title_bonus = 1.4 if any(
+            term in title_section_text
+            for term in ("취업지원", "진로/취업", "취업/진로", "일자리플러스", "취업센터", "플러스센터", "대학일자리")
+        ) else 0.0
+        body_hits = _term_hits({"취업지원", "취업프로그램", "진로프로그램", "취업/진로", "취업지원센터"}, full_text)
+        return min(source_boost + title_bonus + body_hits * 0.2, 3.6)
     if query_family == "institution_history":
         title_bonus = 2.2 if any(term in title_section_text for term in ("연도별 연혁", "대학현황", "1960년대", "1970년대", "1980년대", "1990년대", "2000년대", "2010년대", "2020년대")) else 0.0
         return min(title_bonus + _term_hits(_DOMAIN_SECTION_TERMS["institution_history"], full_text) * 0.1, 2.6)
@@ -775,6 +818,7 @@ _CANONICAL_PRIORITY_FAMILIES = {
     "specific_scholarship",
     "dormitory",
     "certificate",
+    "career",
 }
 
 _CANONICAL_AUTHORITY_SOURCES = {
@@ -783,6 +827,7 @@ _CANONICAL_AUTHORITY_SOURCES = {
     "academic",
     "campus",
     "scholarship",
+    "advising",
     "dormitory",
     "notice",
 }
@@ -929,6 +974,14 @@ def _query_family_penalty(
         and not _is_foreign_dormitory_query(query_text)
     ):
         return -4.0
+    # exchange 출처 문서는 외국인 기숙사 문맥이 없어도 일반 기숙사 쿼리에서 페널티.
+    # 국제교류처 공지가 "기숙사" 키워드 매칭으로 rank1을 차지하는 문제 방지.
+    if (
+        query_family == "dormitory"
+        and source_type == "exchange"
+        and not _is_foreign_dormitory_query(query_text)
+    ):
+        return -2.4
     if query_family == "dormitory" and _has_dormitory_application_intent(query_text) and _is_dormitory_homepage_like(doc, title_section_text, full_text):
         return -1.2
     if query_family == "club_activity":
@@ -950,6 +1003,13 @@ def _query_family_penalty(
         if source_type == "job" and any(term in title_section_text for term in ("채용공고", "모집공고", "채용", "연구원", "직원")):
             if not any(term in query_text for term in ("채용", "공고", "모집", "취업정보")):
                 return -3.0
+        # 학과 공지 게시판은 일반 취업지원 프로그램 안내 쿼리에서 노이즈
+        # (학과명이 쿼리에 없으면 특정 학과 공지가 아닌 중앙 취업지원 페이지가 우선)
+        is_general_career_query = not any(
+            term in query_text for term in ("학과", "전공", "학부", "대학원", "채용", "공고", "취업정보")
+        )
+        if source_type == "department" and is_general_career_query:
+            return -2.0
     if query_family == "academic_schedule" and "학사일정" not in title_section_text and any(term in title_section_text for term in ("수강신청", "계절수업", "장학", "선발", "졸업인증")):
         return -1.6
     if query_family == "course_registration" and any(term in title_section_text for term in ("계절수업", "타대학", "마이크로디그리")):

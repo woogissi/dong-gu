@@ -62,29 +62,36 @@ def kakao_mixed_response(
     if not quick_replies:
         quick_replies = default_quick_replies()
 
+    outputs = [
+        {
+            "simpleText": {
+                "text": (text or "\ub2f5\ubcc0\uc744 \uc0dd\uc131\ud558\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.")[:500]
+            }
+        }
+    ]
+
+    # \uc2e4\uc81c \uac80\uc0c9\ub41c \ubb38\uc11c URL\uc774 \uc788\uc744 \ub54c\ub9cc \uc0ac\uc774\ud2b8 \ubc14\ub85c\uac00\uae30 \ubc84\ud2bc \ucd94\uac00
+    if link_url:
+        outputs.append(
+            {
+                "textCard": {
+                    "title": (title or "\ub3d9\uc758\ub300\ud559\uad50 \uc548\ub0b4")[:50],
+                    "description": "\uc790\uc138\ud55c \ub0b4\uc6a9\uc740 \uc544\ub798 \ubc84\ud2bc\uc5d0\uc11c \ud655\uc778\ud574 \uc8fc\uc138\uc694.",
+                    "buttons": [
+                        {
+                            "action": "webLink",
+                            "label": "\uc0ac\uc774\ud2b8 \ubc14\ub85c\uac00\uae30",
+                            "webLinkUrl": link_url
+                        }
+                    ]
+                }
+            }
+        )
+
     return {
         "version": "2.0",
         "template": {
-            "outputs": [
-                {
-                    "simpleText": {
-                        "text": (text or "\ub2f5\ubcc0\uc744 \uc0dd\uc131\ud558\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4.")[:500]
-                    }
-                },
-                {
-                    "textCard": {
-                        "title": (title or "\ub3d9\uc758\ub300\ud559\uad50 \uc548\ub0b4")[:50],
-                        "description": "\uc790\uc138\ud55c \ub0b4\uc6a9\uc740 \uc544\ub798 \ubc84\ud2bc\uc5d0\uc11c \ud655\uc778\ud574 \uc8fc\uc138\uc694.",
-                        "buttons": [
-                            {
-                                "action": "webLink",
-                                "label": "\uc0ac\uc774\ud2b8 \ubc14\ub85c\uac00\uae30",
-                                "webLinkUrl": link_url or "https://www.deu.ac.kr/"
-                            }
-                        ]
-                    }
-                }
-            ],
+            "outputs": outputs,
             "quickReplies": quick_replies[:3]
         }
     }
