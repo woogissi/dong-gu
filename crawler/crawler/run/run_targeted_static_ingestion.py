@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
+from pathlib import Path
 from urllib.parse import urlparse
 
 from crawler.paths import CURATED_DOC_DIR, HF_CACHE_DIR
@@ -54,6 +55,8 @@ def source_type_for_url(url: str, seed_source_type: str | None = None) -> str:
 
 def collect_profile_targets(profile: str) -> list[tuple[str, str]]:
     targets: dict[str, str] = {}
+    if profile == "none":
+        return []
     for seed in iter_enabled_seeds():
         url = normalize_url(seed["url"])
         if not url:
@@ -182,11 +185,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--profile",
-        choices=["library", "professors", "library-professors", "curriculum"],
+        choices=["library", "professors", "library-professors", "curriculum", "none"],
         default="library-professors",
-        help="Seed-derived target group to ingest.",
+        help="Seed-derived target group to ingest. 'none' 이면 --url/--url-file 만 처리합니다.",
     )
     parser.add_argument("--url", action="append", default=[], help="Additional URL to ingest.")
+    parser.add_argument(
+        "--url-file",
+        help=(
+            "재크롤할 URL 목록 파일. 한 줄에 하나씩. "
+            "'source_type<TAB>url' 또는 'url' 형식을 모두 허용합니다."
+        ),
+    )
     parser.add_argument("--source-type", help="Source type for --url values. Defaults to URL inference.")
     parser.add_argument("--allow-insecure-ssl", action="store_true", help="Enable lib.deu.ac.kr legacy TLS fallback.")
     parser.add_argument("--skip-vector", action="store_true", help="Only extract and chunk; do not upsert vectors.")
@@ -200,10 +210,22 @@ def main() -> None:
     args = parse_args()
     targets = collect_profile_targets(args.profile)
 
-    for url in args.url:
+    url_entries: list[tuple[str | None, str]] = [(args.source_type, url) for url in args.url]
+    if args.url_file:
+        for line in Path(args.url_file).read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "\t" in line:
+                src, _, url = line.partition("\t")
+                url_entries.append((src.strip() or args.source_type, url.strip()))
+            else:
+                url_entries.append((args.source_type, line))
+
+    for src, url in url_entries:
         normalized = normalize_url(url)
         if normalized:
-            targets.append((normalized, source_type_for_url(normalized, args.source_type)))
+            targets.append((normalized, source_type_for_url(normalized, src)))
 
     deduped = sorted(dict(targets).items())
     selected = deduped[: args.limit or None]

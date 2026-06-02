@@ -1,0 +1,109 @@
+# 학과/학년/학기 이수표 질의 평가셋 (오탐 측정용)
+# 2026-06-01 query_logs 오탐 분석에서 도출. 학과 엔티티 추출 수정 전후 비교용.
+# context_hit = 해당 학과의 이수표(정답 doc)가 selected_docs에 포함되는지.
+goldset:
+
+  - id: "D001"
+    category: "department_curriculum"
+    question: "컴퓨터공학과 졸업학점"
+    gold_documents:
+      - document_id: "static_06b9d3809cb12e19"
+        url: "https://swcc.deu.ac.kr/computer/sub03_01.do"
+
+  - id: "D002"
+    category: "department_curriculum"
+    question: "컴퓨터공학과 3학년 2학기 전공필수 과목"
+    gold_documents:
+      - document_id: "static_06b9d3809cb12e19"
+        url: "https://swcc.deu.ac.kr/computer/sub03_01.do"
+
+  - id: "D003"
+    category: "department_curriculum"
+    question: "동의대 컴퓨터공학과 전공과목 알려줘"
+    gold_documents:
+      - document_id: "static_06b9d3809cb12e19"
+        url: "https://swcc.deu.ac.kr/computer/sub03_01.do"
+
+  - id: "D004"
+    category: "department_curriculum"
+    question: "경찰행정학과 3학년 2학기 전공선택"
+    gold_documents:
+      - document_id: "static_8bf177a16c1c540e"
+        url: "https://police2001.deu.ac.kr/police/sub01_04_01.do"
+
+  - id: "D005"
+    category: "department_curriculum"
+    question: "심리학과 교육과정"
+    gold_documents:
+      - document_id: "static_c5d020f2db1c6cc0"
+        url: "https://psychology.deu.ac.kr/psychology/sub02_02.do"
+
+  - id: "D006"
+    category: "department_curriculum"
+    question: "유아교육과 전공필수 과목"
+    gold_documents:
+      - document_id: "static_798ec000d3f6d69d"
+        url: "https://ece.deu.ac.kr/ece/sub03_01.do"
+
+  - id: "D007"
+    category: "department_curriculum"
+    question: "동의대 유아교육과 전공과목"
+    gold_documents:
+      - document_id: "static_798ec000d3f6d69d"
+        url: "https://ece.deu.ac.kr/ece/sub03_01.do"
+
+  - id: "D008"
+    category: "department_curriculum"
+    question: "간호학과 이수표 정보"
+    gold_documents:
+      - document_id: "static_60915bd1288725c3"
+        url: "https://nursing.deu.ac.kr/nursing/sub03_01.do"
+
+  - id: "D009"
+    category: "department_curriculum"
+    question: "건축공학과 교육과정"
+    gold_documents:
+      - document_id: "static_66a833f5c3132d45"
+        url: "https://archieng.deu.ac.kr/archieng/sub03_01.do"
+
+  - id: "D010"
+    category: "department_curriculum"
+    question: "태권도학과 교육과정"
+    gold_documents:
+      - document_id: "static_2b57b7c50f72615a"
+        url: "https://tkd.deu.ac.kr/tkd/sub03_01.do"
+
+  - id: "D011"
+    category: "department_curriculum"
+    question: "K-뷰티학과 이수표 전공 과목"
+    gold_documents:
+      - document_id: "static_0525c16242f2795a"
+        url: "https://kbeauty.deu.ac.kr/kbeauty/sub03_01.do"
+
+  - id: "D012"
+    category: "department_curriculum"
+    question: "뷰티비즈니스학과 전공선택 과목"
+    gold_documents:
+      - document_id: "static_8bf03c2b343d27a3"
+        url: "https://bb.deu.ac.kr/bb/sub03_01.do"
+
+  - id: "D013"
+    category: "department_curriculum"
+    question: "스마트항만물류학과 이수표"
+    gold_documents:
+      - document_id: "static_1caea7d07150d30c"
+        url: "https://logistics.deu.ac.kr/logistics/sub03_01.do"
+
+  - id: "D014"
+    category: "department_curriculum"
+    question: "화장품공학과 이수표"
+    gold_documents:
+      - document_id: "static_ff34e5476d9d3db6"
+        url: "https://dce.deu.ac.kr/apchem/sub03_01.do"
+
+  - id: "D015"
+    category: "department_curriculum"
+    question: "물리치료학과 학년별 전공 과목"
+    gold_documents:
+      - document_id: "static_68408d38e50fb869"
+        url: "https://pt.deu.ac.kr/pt/sub03_01.do"

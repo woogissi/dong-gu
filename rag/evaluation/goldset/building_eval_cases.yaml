@@ -1,0 +1,76 @@
+# 건물 위치/정보 질의 평가셋 (오탐 측정용)
+# 2026-06-01 query_logs 건물 위치 오탐 분석에서 도출. H2(의문형 정규화)/H1(동의어)/H5(canonical)/H4(학과사무실·교수 구분).
+# context_hit = 해당 건물/시설의 정답 문서가 selected_docs에 포함되는지.
+goldset:
+
+  # --- H2: 의문형 정규화 (위치/어디/어디야/어디 있어) — 동일 개체 일관성 ---
+  - id: "B001"
+    category: "building_location"
+    question: "대학본관 위치"
+    gold_documents: [{document_id: "static_19b132e7ab559d4e", url: "https://www.deu.ac.kr/www/deu-campus-map.do"}]
+  - id: "B002"
+    category: "building_location"
+    question: "대학본관 어디"
+    gold_documents: [{document_id: "static_19b132e7ab559d4e", url: "https://www.deu.ac.kr/www/deu-campus-map.do"}]
+  - id: "B003"
+    category: "building_location"
+    question: "대학본관 어디야"
+    gold_documents: [{document_id: "static_19b132e7ab559d4e", url: "https://www.deu.ac.kr/www/deu-campus-map.do"}]
+
+  # --- H1: 건물 동의어 (본관→대학본관, 인문관→제1인문관, 정보관→정보공학관, 중도→중앙도서관, 외국인기숙사→제2효민) ---
+  - id: "B004"
+    category: "building_location"
+    question: "본관 위치"
+    gold_documents: [{document_id: "static_19b132e7ab559d4e", url: "https://www.deu.ac.kr/www/deu-campus-map.do"}]
+  - id: "B005"
+    category: "building_location"
+    question: "법정관 위치"
+    gold_documents: [{document_id: "static_19b132e7ab559d4e", url: "https://www.deu.ac.kr/www/deu-campus-map.do"}]
+  - id: "B006"
+    category: "building_location"
+    question: "상경관 위치"
+    gold_documents: [{document_id: "static_19b132e7ab559d4e", url: "https://www.deu.ac.kr/www/deu-campus-map.do"}]
+  - id: "B007"
+    category: "building_location"
+    question: "제1인문관 위치"
+    gold_documents: [{document_id: "static_19b132e7ab559d4e", url: "https://www.deu.ac.kr/www/deu-campus-map.do"}]
+  - id: "B008"
+    category: "building_location"
+    question: "인문관 어디야"
+    gold_documents: [{document_id: "static_19b132e7ab559d4e", url: "https://www.deu.ac.kr/www/deu-campus-map.do"}]
+  - id: "B009"
+    category: "building_location"
+    question: "정보공학관 위치"
+    gold_documents: [{document_id: "static_19b132e7ab559d4e", url: "https://www.deu.ac.kr/www/deu-campus-map.do"}]
+  - id: "B010"
+    category: "building_location"
+    question: "정보관 어디 있어"
+    gold_documents: [{document_id: "static_19b132e7ab559d4e", url: "https://www.deu.ac.kr/www/deu-campus-map.do"}]
+
+  # --- 도서관/기숙사 (family + 동의어) ---
+  - id: "B011"
+    category: "library"
+    question: "중도 위치"
+    gold_documents: [{url: "lib.deu.ac.kr"}]
+  - id: "B012"
+    category: "library"
+    question: "도서관 어디야"
+    gold_documents: [{url: "lib.deu.ac.kr"}]
+  - id: "B013"
+    category: "dormitory"
+    question: "효긱 위치"
+    gold_documents: [{url: "dorm.deu.ac.kr"}]
+  - id: "B014"
+    category: "dormitory"
+    question: "외국인기숙사 위치"
+    gold_documents: [{url: "dorm.deu.ac.kr"}]
+
+  # --- H4: 건물 위치 vs 학과사무실/교수연구실 구분 ---
+  - id: "B015"
+    category: "department_office"
+    question: "컴퓨터공학과 학과사무실 위치"
+    gold_documents: [{document_id: "static_01840b5a30b433c1", url: "https://swcc.deu.ac.kr/computer/sub01_05.do"}]
+  - id: "B016"
+    category: "faculty_office"
+    question: "컴공 교수님 연구실 어디야"
+    gold_documents: [{document_id: "static_b961137b5fa98968", url: "https://swcc.deu.ac.kr/computer/sub02.do"}]

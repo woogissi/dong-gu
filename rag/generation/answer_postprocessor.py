@@ -15,6 +15,7 @@ def repair_negative_answer_with_context(
     context: str | None = None,
     selected_docs: list[object] | None = None,
     query: str | None = None,
+    keywords: list[str] | None = None,
 ) -> str:
     if not has_not_found_answer(answer):
         return answer
@@ -24,7 +25,7 @@ def repair_negative_answer_with_context(
             metadata["negative_answer_repair"] = "stripped_negative_sentence"
         return cleaned
     if selected_docs and has_substantive_context(context):
-        repaired = build_selected_context_answer(selected_docs, query=query)
+        repaired = build_selected_context_answer(selected_docs, query=query, keywords=keywords)
         if repaired and not has_not_found_answer(repaired):
             if metadata is not None:
                 metadata["negative_answer_repair"] = "selected_context_extract"
@@ -52,8 +53,13 @@ def has_substantive_context(context: str | None) -> bool:
     return len(normalized) >= 40
 
 
-def build_selected_context_answer(selected_docs: list[object], *, query: str | None = None) -> str:
-    snippets = _ranked_doc_snippets(selected_docs, query=query)
+def build_selected_context_answer(
+    selected_docs: list[object],
+    *,
+    query: str | None = None,
+    keywords: list[str] | None = None,
+) -> str:
+    snippets = _ranked_doc_snippets(selected_docs, query=query, keywords=keywords)
     if not snippets:
         return ""  # 빈 문자열 반환 → 호출자가 원본 부정 답변으로 fallback
     lines = ["선택된 문서 기준으로 확인된 내용입니다."]
@@ -64,14 +70,26 @@ def build_selected_context_answer(selected_docs: list[object], *, query: str | N
             lines.append(f"- {title}: {content}")
         else:
             lines.append(f"- {content}")
+    source_url = _first_source_url(selected_docs)
+    if source_url:
+        lines.append(f"자세한 내용은 다음에서 확인하세요: {source_url}")
     return "\n".join(lines)
 
 
-def _ranked_doc_snippets(selected_docs: list[object], *, query: str | None = None) -> list[dict[str, str]]:
+def _ranked_doc_snippets(
+    selected_docs: list[object],
+    *,
+    query: str | None = None,
+    keywords: list[str] | None = None,
+) -> list[dict[str, str]]:
+    # 쿼리 어휘에 더해 동의어 확장/정규화 키워드까지 매칭 대상에 포함해
+    # 어휘 불일치 질의(예: "심리상담" vs 문서의 "학생상담센터")에서도 정답 문장을 고른다.
     query_terms = set(_tokenize(query or ""))
+    for keyword in keywords or []:
+        query_terms.update(_tokenize(str(keyword)))
     snippets: list[dict[str, str]] = []
     for doc in selected_docs:
-        content = _doc_value(doc, "content")
+        content = _clean_snippet_markup(_doc_value(doc, "content"))
         snippet = _best_content_snippet(content, query_terms)
         if not snippet:
             continue
@@ -83,6 +101,21 @@ def _ranked_doc_snippets(selected_docs: list[object], *, query: str | None = Non
             }
         )
     return sorted(snippets, key=lambda item: int(item["score"]), reverse=True)
+
+
+_STRUCT_MARKER_RE = re.compile(r"\[/?[A-Z][A-Z_]*\]")
+
+
+def _clean_snippet_markup(text: str) -> str:
+    """청크 본문의 구조 마커([TITLE]/[ATTACHMENT] 등)와 다운로드 문구를 제거한다.
+
+    첨부/이수표 청크가 repair 스니펫으로 노출될 때 `[TITLE] ... [ATTACHMENT] 원본파일
+    Download ...` 같은 원본 마크업이 그대로 답변에 새는 것을 막는다(G046).
+    """
+    cleaned = _STRUCT_MARKER_RE.sub(" ", text or "")
+    cleaned = re.sub(r"원본파일\s*Download", " ", cleaned)
+    cleaned = re.sub(r"\bDownload\b", " ", cleaned, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", cleaned).strip()
 
 
 def _best_content_snippet(content: str, query_terms: set[str]) -> str:

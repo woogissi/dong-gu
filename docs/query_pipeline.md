@@ -36,8 +36,8 @@ Week 2에서는 다음 모듈들을 정렬하여:
 
 ## 참고 사항 (Notes)
 
-전처리 로직은 이제 QueryPreprocessor를 통해 실행
+전처리 로직은 QueryPreprocessor를 통해 실행
 전처리 결과는 PipelineState에 직접 기록
-rewrite_queries()는 검색에 바로 사용할 수 있는 여러 변형 쿼리를 반환 예정
-rewrite_query()는 이전 버전과의 호환성을 위해 유지
-엔티티 기반 filters는 이제 검색 이전 단계에서 생성
+`rewrite_queries()`(`rag/preprocess/query_rewriter.py:141`)는 검색에 바로 사용할 수 있는 여러 변형 쿼리를 반환
+`rewrite_query()`(`query_rewriter.py:89`)는 이전 버전과의 호환성을 위해 유지
+엔티티 기반 filters는 검색 이전 단계에서 생성

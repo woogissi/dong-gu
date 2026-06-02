@@ -273,7 +273,7 @@ DORMITORY_TERMS = {
 }
 
 CURRICULUM_TERMS = {
-    "컴퓨터공학과",
+    # 특정 학과명 하드코딩 제거(컴공 비대칭). 일반 교육과정 용어로 라우팅.
     "이수표",
     "전공필수",
     "전공",
@@ -283,6 +283,8 @@ CURRICULUM_TERMS = {
 }
 
 PERSON_TERMS = {"총장", "7대", "역대총장", "역대"}
+# 교수(faculty) 라우팅용 의도 용어. "OO학과 교수 정보/목록" 또는 "OOO 교수 연락처" 류.
+FACULTY_TERMS = {"교수", "교수님", "교직원", "교수진", "전임교수", "전임교원", "연구실"}
 CLUB_PROGRAM_TERMS = {"동아리", "IPP", "ipp", "사업"}
 
 INVALID_DEPARTMENT_FILTER_VALUES = {
@@ -436,6 +438,10 @@ def detect_query_family(query: str, terms: Iterable[str] | None = None) -> str:
         return "building_location"
     if any(term.casefold() in values or term.casefold() in joined for term in SCHEDULE_TERMS):
         return "academic_schedule"
+    # 교수 질의는 CURRICULUM_TERMS(전공/이수표 등)보다 먼저 잡아 이수표로 새는 것을 방지.
+    # 단 '교수 연구실 위치'처럼 위치 의도가 있으면 위에서 building_location으로 이미 분기됨.
+    if _is_faculty_intent_query(values, raw_text):
+        return "faculty"
     if any(term.casefold() in values or term.casefold() in joined for term in CURRICULUM_TERMS):
         return "department_curriculum"
     if any(term.casefold() in values or term.casefold() in joined for term in PERSON_TERMS):
@@ -449,6 +455,25 @@ def _has_department_anchor(values: set[str], raw_text: str) -> bool:
     if _DEPARTMENT_ANCHOR_PATTERN.search(raw_text or ""):
         return True
     return any(value.endswith(("\ud559\uacfc", "\uc804\uacf5", "\ud559\ubd80")) for value in values)
+
+
+# 'OOO \uad50\uc218' \ud615\ud0dc\uc758 \uba85\uc2dc\uc801 \uad50\uc218 \uc778\ubb3c \ud328\ud134 (\uc774\ub984 2~5\uc790 + \uad50\uc218).
+_FACULTY_NAME_PATTERN = re.compile(r"[\uac00-\ud7a3]{2,5}\s*\uad50\uc218")
+
+
+def _is_faculty_intent_query(values: set[str], raw_text: str) -> bool:
+    """\uad50\uc218(faculty) family \ub77c\uc6b0\ud305 \uc5ec\ubd80.
+
+    \uad50\uc218 \uc758\ub3c4 \uc6a9\uc5b4\uac00 \uc788\uace0, (a) \ud559\uacfc anchor\uac00 \uc788\uac70\ub098(\uc608: '\ucef4\ud4e8\ud130\uacf5\ud559\uacfc \uad50\uc218 \uc815\ubcf4')
+    (b) 'OOO \uad50\uc218' \ud615\ud0dc\uc758 \uc778\ubb3c\uba85\uc774 \uc788\uc744 \ub54c\ub9cc faculty\ub85c \ub77c\uc6b0\ud305\ud55c\ub2e4.
+    '\uad50\uc218\ud559\uc2b5\uac1c\ubc1c\uc13c\ud130'\ucc98\ub7fc \uc778\ubb3c\u00b7\ud559\uacfc \ub9e5\ub77d\uc774 \uc5c6\ub294 \uacbd\uc6b0\ub294 \uc81c\uc678\ud55c\ub2e4.
+    """
+    text = raw_text or ""
+    if not any(term in text for term in FACULTY_TERMS):
+        return False
+    if _has_department_anchor(values, text):
+        return True
+    return bool(_FACULTY_NAME_PATTERN.search(text))
 
 
 def _domain_priority(domain: str) -> int:
@@ -622,7 +647,7 @@ def _required_terms_for_family(family: str, strong_terms: list[str], protected_t
     if family == "institution_history":
         return [term for term in source if term in HISTORY_TERMS or "연혁" in term][:4]
     if family == "department_curriculum":
-        return [term for term in source if term in CURRICULUM_TERMS or "컴퓨터공학" in term][:4]
+        return [term for term in source if term in CURRICULUM_TERMS][:4]
     if family == "person_title":
         return [term for term in source if term in PERSON_TERMS or term.endswith("총장")][:3]
     if family == "club_program":

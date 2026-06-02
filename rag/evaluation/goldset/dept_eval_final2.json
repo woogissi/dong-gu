@@ -1,0 +1,207 @@
+{
+  "summary": {
+    "tag": "final2",
+    "n": 15,
+    "dept_filter_rate": 1.0,
+    "context_hit_rate": 0.8,
+    "top1_match_rate": 0.8,
+    "top5_hit_rate": 0.8
+  },
+  "rows": [
+    {
+      "id": "D001",
+      "question": "컴퓨터공학과 졸업학점",
+      "dept_filter": [
+        "컴퓨터공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_06b9d3809cb12e19",
+      "top1_title": "이수표 | 교육과정 | 컴퓨터공학과"
+    },
+    {
+      "id": "D002",
+      "question": "컴퓨터공학과 3학년 2학기 전공필수 과목",
+      "dept_filter": [
+        "컴퓨터공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_06b9d3809cb12e19",
+      "top1_title": "이수표 | 교육과정 | 컴퓨터공학과"
+    },
+    {
+      "id": "D003",
+      "question": "동의대 컴퓨터공학과 전공과목 알려줘",
+      "dept_filter": [
+        "컴퓨터공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_06b9d3809cb12e19",
+      "top1_title": "이수표 | 교육과정 | 컴퓨터공학과"
+    },
+    {
+      "id": "D004",
+      "question": "경찰행정학과 3학년 2학기 전공선택",
+      "dept_filter": [
+        "경찰행정학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_8bf177a16c1c540e",
+      "top1_title": "필수 교과과정 | 교과과정 | 학과 소개 | 경찰행정학"
+    },
+    {
+      "id": "D005",
+      "question": "심리학과 교육과정",
+      "dept_filter": [
+        "심리학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "deu_department_71664",
+      "top1_title": "2025학년도 심리학과 교육과정"
+    },
+    {
+      "id": "D006",
+      "question": "유아교육과 전공필수 과목",
+      "dept_filter": [
+        "유아교육과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_798ec000d3f6d69d",
+      "top1_title": "이수표 | 교육과정 | 유아교육과"
+    },
+    {
+      "id": "D007",
+      "question": "동의대 유아교육과 전공과목",
+      "dept_filter": [
+        "유아교육과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_798ec000d3f6d69d",
+      "top1_title": "이수표 | 교육과정 | 유아교육과"
+    },
+    {
+      "id": "D008",
+      "question": "간호학과 이수표 정보",
+      "dept_filter": [
+        "간호학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_60915bd1288725c3",
+      "top1_title": "이수표 | 교육과정 | 간호학과"
+    },
+    {
+      "id": "D009",
+      "question": "건축공학과 교육과정",
+      "dept_filter": [
+        "건축공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_66a833f5c3132d45",
+      "top1_title": "이수표 | 교육과정 | 건축공학과"
+    },
+    {
+      "id": "D010",
+      "question": "태권도학과 교육과정",
+      "dept_filter": [
+        "태권도학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_2b57b7c50f72615a",
+      "top1_title": "교육과정편성표 | 교육과정 | 태권도학과"
+    },
+    {
+      "id": "D011",
+      "question": "K-뷰티학과 이수표 전공 과목",
+      "dept_filter": [
+        "뷰티학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_0525c16242f2795a",
+      "top1_title": "이수표 | 교육과정 | K-뷰티학과"
+    },
+    {
+      "id": "D012",
+      "question": "뷰티비즈니스학과 전공선택 과목",
+      "dept_filter": [
+        "뷰티비즈니스학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_8bf03c2b343d27a3",
+      "top1_title": "이수표 | 교육과정 | 뷰티비즈니스학과"
+    },
+    {
+      "id": "D013",
+      "question": "스마트항만물류학과 이수표",
+      "dept_filter": [
+        "스마트항만물류학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": false,
+      "top1_match": false,
+      "top5_hit": false,
+      "top1_doc": "-",
+      "top1_title": "-"
+    },
+    {
+      "id": "D014",
+      "question": "화장품공학과 이수표",
+      "dept_filter": [
+        "화장품공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": false,
+      "top1_match": false,
+      "top5_hit": false,
+      "top1_doc": "-",
+      "top1_title": "-"
+    },
+    {
+      "id": "D015",
+      "question": "물리치료학과 학년별 전공 과목",
+      "dept_filter": [
+        "물리치료학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": false,
+      "top1_match": false,
+      "top5_hit": false,
+      "top1_doc": "-",
+      "top1_title": "-"
+    }
+  ]
+}

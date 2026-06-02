@@ -320,6 +320,7 @@ def _score_doc(
     verified_title_boost = _verified_title_boost(query_family, title_section_text)
     required_heading_match = _required_heading_match_score(query_family, title_section_text)
     required_entity_match = required_entity_match_score(required_terms, full_text)
+    content_required_match = _content_required_match_score(required_terms, content.lower())
     faculty_entity_match = _faculty_entity_match_score(faculty_entity, full_text)
     faculty_entity_penalty = _faculty_entity_penalty(
         faculty_entity=faculty_entity,
@@ -330,6 +331,11 @@ def _score_doc(
     )
     dept_entity = str(ranking_hints.get("department_entity") or "").strip().lower()
     department_entity_match = _department_entity_match_score(dept_entity, full_text, query_family)
+    department_board_noise = _department_board_noise_penalty(
+        doc=doc,
+        query_family=query_family,
+        query_text=query.lower(),
+    )
     query_family_penalty = _query_family_penalty(
         doc=doc,
         query_text=query.lower(),
@@ -353,6 +359,7 @@ def _score_doc(
         + min(faculty_entity_penalty, 0.0)
         + min(query_family_penalty, 0.0)
         + min(department_entity_match, 0.0)
+        + min(department_board_noise, 0.0)
     )
 
     return {
@@ -372,9 +379,11 @@ def _score_doc(
         "verified_title_boost": round(verified_title_boost, 6),
         "required_heading_match": round(required_heading_match, 6),
         "required_entity_match": round(required_entity_match, 6),
+        "content_required_match": round(content_required_match, 6),
         "faculty_entity_match": round(faculty_entity_match, 6),
         "faculty_entity_penalty": round(faculty_entity_penalty, 6),
         "department_entity_match": round(department_entity_match, 6),
+        "department_board_noise": round(department_board_noise, 6),
         "query_family_penalty": round(query_family_penalty, 6),
         "category_match": round(category_match, 6),
         "recency": round(recency, 6),
@@ -513,21 +522,133 @@ def _is_lifelong_faculty_noise(doc: RetrievedDoc, query: str, title_section_text
 _DEPARTMENT_ENTITY_MATCH_FAMILIES = {
     "department_curriculum",
     "graduation",
+    "faculty",
 }
+
+
+_DEPARTMENT_ENTITY_SUFFIX_RE = re.compile(r"(?:학과|학부|전공)$")
 
 
 def _department_entity_match_score(dept_entity: str, full_text: str, query_family: str) -> float:
     """학과명 개체(department_entity)가 문서 본문에 포함되는지에 따라 boost/penalty를 반환한다.
 
-    department_curriculum·graduation 패밀리에서만 활성화된다.
+    department_curriculum·graduation·faculty 패밀리에서만 활성화된다.
     - 학과명 일치: +1.5 (해당 학과 문서를 상위로)
     - 학과명 불일치: -1.0 (타 학과 문서를 하위로)
+
+    질의 학과명과 문서 제목의 접미사가 달라도(예: '응용소프트웨어공학과' vs
+    '응용소프트웨어공학전공') 같은 학과로 인정하기 위해 stem(접미사 제거) 매칭을 폴백으로 둔다.
     """
     if not dept_entity or query_family not in _DEPARTMENT_ENTITY_MATCH_FAMILIES:
         return 0.0
-    if dept_entity in full_text:
+    # 경계 매칭: '경영'이 '창업투자경영학과'에 substring으로 매칭되어 타 학과 이수표까지
+    # +1.5를 받던 문제(G049)를 막는다. 학과명 앞 글자가 한글이면 더 긴 합성 학과명의
+    # 일부이므로 일치로 보지 않는다.
+    if _dept_token_in_text(dept_entity, full_text):
+        return 1.5
+    # stem 폴백은 '응용소프트웨어공학'(9자)처럼 충분히 변별적인 긴 학과명에만 적용한다.
+    # '심리'(2자)·'간호'(2자)처럼 짧은 stem은 타 학과 본문에 흔히 등장해 오매칭하므로 제외.
+    stem = _DEPARTMENT_ENTITY_SUFFIX_RE.sub("", dept_entity)
+    if len(stem) >= 4 and stem != dept_entity and _dept_token_in_text(stem, full_text):
         return 1.5
     return -1.0
+
+
+def _dept_token_in_text(token: str, text: str) -> bool:
+    """token이 text에 '경계 단위'로 등장하는지 판정.
+
+    앞 글자가 한글(가~힣)이면 더 긴 합성 학과명의 일부로 보아 불일치 처리한다.
+    예: '경영'은 '경영학과'에는 매칭되지만 '창업투자경영학과'에는 매칭되지 않는다.
+    """
+    if not token:
+        return False
+    start = text.find(token)
+    while start != -1:
+        prev = text[start - 1] if start > 0 else ""
+        if not ("가" <= prev <= "힣"):
+            return True
+        start = text.find(token, start + 1)
+    return False
+
+
+# 학과 게시판 복제 공지 페널티에서 면제할 패밀리.
+# 학과 교육과정/졸업 쿼리는 학과 게시판 글이 정답일 수 있으므로 제외한다.
+_DEPARTMENT_BOARD_NOISE_EXEMPT_FAMILIES = {
+    "department_curriculum",
+    "graduation",
+}
+
+# 교육과정/졸업 질의에서 게시판 공지를 면제할 때, 그 공지가 실제로 교육과정 관련
+# 내용을 담고 있는지 판단하는 용어 집합. 'AX마이크로디그리' 같은 무관 홍보 공지는
+# 이 용어가 없어 면제되지 않고 페널티 대상이 된다(G060).
+_CURRICULUM_NOTICE_EXEMPT_TERMS = {
+    "교육과정", "이수표", "이수체계", "이수학점", "전공필수", "전공선택",
+    "교양필수", "졸업학점", "졸업기준", "졸업요건", "커리큘럼", "편성표",
+}
+
+
+_SUBPAGE_BOARD_URL_PATTERN = re.compile(r"/sub\d+(?:_\d+)*\.do\?")
+
+
+def _is_department_board_notice(doc: RetrievedDoc) -> bool:
+    """학과·부서 서브페이지 게시판의 개별 공지(여러 게시판에 복제된 글)인지 판정한다.
+
+    식별 기준: URL이 서브페이지 게시판 패턴(`/subN_NN.do?`)이면서 게시판 글
+    식별자(articleNo)를 포함하는 경우. 학과/부서 서브도메인뿐 아니라
+    advising·freemajor·counsel 등 본청 산하 게시판도 포함한다.
+
+    제외 대상:
+    - 이수표·학과소개 같은 정적 안내 페이지(articleNo 없는 깔끔한 sub URL)
+    - 본청 공지(gra-notice.do·deu-scholarship.do·deu-notice.do 등) — sub 패턴이 아니며
+      정답 공지인 경우가 많아 페널티 대상에서 자연히 빠진다.
+    """
+    source = _normalize_value(doc.source)
+    if "articleno=" not in source:
+        return False
+    return bool(_SUBPAGE_BOARD_URL_PATTERN.search(source))
+
+
+def _department_board_noise_penalty(
+    *,
+    doc: RetrievedDoc,
+    query_family: str,
+    query_text: str,
+) -> float:
+    """비학과 정보 쿼리에서 학과 게시판 복제 공지를 억제한다.
+
+    동일 공지가 모든 학과 게시판(sub06_03.do 등)에 복제 게시되어
+    상담센터·도서관 등 공식 안내 페이지를 밀어내는 문제를 방지한다.
+    쿼리에 학과명이 명시되면(해당 학과 글이 정답일 수 있으므로) 적용하지 않는다.
+    """
+    if not _is_department_board_notice(doc):
+        return 0.0
+    if query_family in _DEPARTMENT_BOARD_NOISE_EXEMPT_FAMILIES:
+        # (1) 사용자가 공지/공고를 명시적으로 찾으면 게시판 글이 정답이므로 면제.
+        if any(term in query_text for term in ("공지", "공고", "게시판")):
+            return 0.0
+        # (2) 교육과정/졸업 질의: 게시판 글이라도 교육과정 관련 내용이면 정답 가능성 → 면제.
+        #     무관 홍보 공지(예: 'AX마이크로디그리')는 정답 정적 교육과정 페이지를
+        #     밀어내므로 페널티를 적용한다(G060).
+        notice_text = f"{doc.title or ''}\n{doc.content or ''}".lower()
+        if _term_hits(_CURRICULUM_NOTICE_EXEMPT_TERMS, notice_text) > 0:
+            return 0.0
+        return -2.0
+    if _has_department_anchor(query_text):
+        return 0.0
+    return -2.5
+
+
+def _content_required_match_score(required_terms: list[str], content_text: str) -> float:
+    """쿼리 required_terms가 청크 본문(content)에 직접 매칭되는 비율 기반 boost.
+
+    required_entity_match는 제목 포함 full_text 기반이라 같은 문서의 여러 청크(제목 동일)를
+    구별하지 못한다. 이 신호는 content 전용 매칭으로, 정답 정보가 실제 담긴 청크
+    (예: 학사일정 문서에서 '보강'이 든 6월 청크)를 같은 문서의 다른 청크보다 상위로 끌어올린다.
+    """
+    if not required_terms or not content_text:
+        return 0.0
+    matched = sum(1 for term in required_terms if term and term in content_text)
+    return (matched / len(required_terms)) * 1.2
 
 
 def _strong_term_match_score(tokens: list[str], full_text: str) -> float:
@@ -675,6 +796,21 @@ def _reranker_family_name(feature_family: str) -> str:
     return feature_family
 
 
+_GRADE_QUERY_PATTERN = re.compile(r"([1-4])\s*학년")
+
+
+def _grade_section_match(query_text: str, full_text: str) -> float:
+    """질문에 학년(N학년)이 있고 문서 본문에 해당 학년이 있으면 소폭 가점.
+
+    이수표가 학년별 청크로 분할된 경우 해당 학년 섹션을 우선시키기 위함.
+    전체 학년을 담은 단일 청크는 항상 포함하므로 무해하다.
+    """
+    grades = set(_GRADE_QUERY_PATTERN.findall(query_text or ""))
+    if not grades:
+        return 0.0
+    return 0.4 if any(f"{g}학년" in full_text for g in grades) else 0.0
+
+
 def _query_family_boost(
     *,
     doc: RetrievedDoc,
@@ -717,6 +853,10 @@ def _query_family_boost(
         central_bonus = 1.8 if general_club_query and any(term in full_text for term in ("중앙동아리", "동아리 종류", "동아리 가입", "동아리 신청", "학생동아리", "총동아리", "학생활동")) else 0.0
         return min(title_hits * 0.7 + body_hits * 0.2 + source_boost + central_bonus, 3.4)
     if query_family == "facility":
+        # 위치 보충검색이 의도(건물→캠퍼스맵 / 학과사무실 / 교수소개)에 맞게 고른 canonical
+        # 문서를 최우선. 건물명이 타 학과사무실 페이지에 소재지로 등장해 밀리는 문제를 해소.
+        if _normalize_value(doc.metadata.get("search_mode")) == "location_supplement":
+            return 3.0
         section_hits = _term_hits(_FACILITY_SECTION_TERMS, title_section_text)
         source_boost = 0.5 if any(term in source_type for term in ("campus", "facility", "institution")) else 0.0
         title_bonus = 0.0
@@ -728,6 +868,13 @@ def _query_family_boost(
         source_boost = 0.7 if any(term in source_type for term in _INSTITUTION_SOURCE_TERMS) else 0.0
         president_bonus = 1.6 if any(term in title_section_text for term in ("역대총장", "총장", "former president", "president")) else 0.0
         return min(section_hits * 0.65 + source_boost + president_bonus, 2.8)
+    if query_family == "faculty":
+        # 교수소개 보충검색이 고른 해당 학과 교수소개 페이지를 최우선.
+        if _normalize_value(doc.metadata.get("search_mode")) == "faculty_supplement":
+            return 3.0
+        title_bonus = 1.8 if any(term in title_section_text for term in ("교수소개", "교수진", "전임교수", "교수 소개")) else 0.0
+        source_boost = 0.6 if source_type in {"department", "institution"} else 0.0
+        return min(title_bonus + source_boost, 2.8)
     if query_family == "academic_schedule":
         title_bonus = 2.0 if "학사일정" in title_section_text else 0.0
         body_hits = _term_hits(_DOMAIN_SECTION_TERMS["academic_schedule"], full_text)
@@ -757,7 +904,9 @@ def _query_family_boost(
         body_hits = _term_hits(_DEPARTMENT_CURRICULUM_POSITIVE_TERMS, positive_text)
         credit_bonus = 1.4 if _is_department_graduation_credit_query(query_text) and body_hits > 0 else 0.0
         source_boost = 0.4 if source_type == "department" else 0.0
-        return min(title_hits * 0.75 + body_hits * 0.3 + credit_bonus + source_boost, 4.2)
+        # 질문 학년이 본문에 있으면 해당 학년 섹션 소폭 우선
+        grade_bonus = _grade_section_match(query_text, full_text)
+        return min(title_hits * 0.75 + body_hits * 0.3 + credit_bonus + source_boost + grade_bonus, 4.6)
     if query_family == "graduation":
         title_bonus = 0.0
         graduation_title_terms = (
@@ -890,6 +1039,7 @@ def _verified_title_boost(query_family: str, title_section_text: str) -> float:
         "facility": ("캠퍼스맵",),
         "welfare_facility": ("복지문화시설",),
         "department_curriculum": ("이수표",),
+        "faculty": ("교수소개", "교수진"),
         "scholarship": ("국가장학금", "scholarship"),
         "specific_scholarship": ("성적우수장학금", "성적우수장학생", "성적우수"),
         "institution": ("역대총장",),
@@ -923,6 +1073,21 @@ def _query_family_penalty(
             penalty -= 1.2
         if section_type == "attachment" and _term_hits(_FACILITY_SECTION_TERMS, title_section_text) == 0:
             penalty -= 0.8
+        # H4: 순수 건물 위치 질의(학과/교수 anchor 없음)에서 학과사무실·연락처·교수소개 페이지는
+        # 건물명이 '사무실 소재지'로 등장할 뿐 정답이 아니므로 감점 (건물명→학과사무실 혼동 차단).
+        # 학과/교수 anchor가 있으면(예: '컴퓨터공학과 학과사무실 위치') 면제.
+        if not _has_department_anchor(query_text):
+            if source_type == "department" and any(
+                term in title_section_text for term in ("학과사무실", "연락처", "교수소개", "교수진")
+            ):
+                penalty -= 3.0
+            if source_type in {"notice", "academic_notice"}:
+                penalty -= 1.5
+        # H4: 교수/연구실 의도면 학과사무실(행정) 페이지보다 교수소개 페이지를 우선
+        if any(term in query_text for term in ("교수", "연구실", "교수실")) and (
+            "학과사무실" in title_section_text and "교수" not in title_section_text
+        ):
+            penalty -= 2.0
         return penalty
     if query_family == "campus_address":
         penalty = 0.0
@@ -1027,12 +1192,40 @@ def _query_family_penalty(
             return -8.0
         if any(term in seasonal_heading for term in ("폐강", "수강정정", "마이크로디그리")):
             return -4.0
+    if query_family == "faculty":
+        penalty = 0.0
+        # 이수표/편성표/교육과정/실습실 등은 교수소개가 아님 → 교수 질의에서 하향.
+        if any(term in title_section_text for term in ("이수표", "편성표", "교육과정", "이수체계")):
+            penalty -= 2.5
+        if any(term in title_section_text for term in ("실습실", "실험실", "강의실")):
+            penalty -= 2.0
+        # 교수 인물·소개 맥락이 전혀 없는 전공소개/학과소개 정적 페이지 하향.
+        if any(term in title_section_text for term in ("전공소개", "학과소개", "교육목표", "교육과정")) and not any(
+            term in title_section_text for term in ("교수소개", "교수진", "교수")
+        ):
+            penalty -= 1.5
+        # 무관한 공지/뉴스(예: 타학과 교수 표창 기사)는 교수소개 질의에서 노이즈.
+        if source_type in {"notice", "academic_notice", "external_notice"} and not any(
+            term in title_section_text for term in ("교수소개", "교수진")
+        ):
+            penalty -= 1.5
+        return penalty
     if query_family == "department_curriculum":
         penalty = 0.0
+        page_kind = _normalize_value(doc.metadata.get("page_kind"))
+        positive_hits_all = _term_hits(_DEPARTMENT_CURRICULUM_POSITIVE_TERMS, f"{title_section_text}\n{full_text}")
         if any(term in title_section_text for term in ("실습실", "마이크로디그리")) and "이수표" not in title_section_text:
             penalty -= 1.2
+        # advising(다전공 워크시트 등)·게시판 공지는 이수표가 아님 → 모든 이수표 질의에서 감점
+        if source_type == "advising":
+            penalty -= 2.5
+        elif page_kind == "board_detail" and positive_hits_all == 0:
+            penalty -= 1.6
+        # 교육과정/이수표 용어가 전혀 없는 학과 안내(전공소개 등)는 이수표 질의에서 하향
+        elif positive_hits_all == 0 and "이수표" not in title_section_text:
+            penalty -= 1.0
         if _is_department_graduation_credit_query(query_text):
-            positive_hits = _term_hits(_DEPARTMENT_CURRICULUM_POSITIVE_TERMS, f"{title_section_text}\n{full_text}")
+            positive_hits = positive_hits_all
             if positive_hits == 0:
                 penalty -= 2.0
             if _term_hits(_DEPARTMENT_CURRICULUM_NOISE_TERMS, title_section_text) > 0:

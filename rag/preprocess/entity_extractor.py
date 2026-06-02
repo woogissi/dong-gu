@@ -19,6 +19,18 @@ _ENTITY_GROUP_RULES: dict[str, list[str]] = {
     "action": ["신청", "확인", "제출", "조회", "변경", "취소", "납부", "연장", "문의"],
 }
 
+# 실제 학과명 추출 패턴 (행정부서가 아닌 학과/학부/학전공).
+# bare "전공"은 "복수전공/다전공/전공선택" 오탐을 유발하므로 "학전공"만 허용한다.
+# "교육과/예과"는 유아교육과·한의예과처럼 "학과"로 끝나지 않는 학과명을 포착한다.
+_DEPARTMENT_NAME_PATTERN = re.compile(
+    r"[가-힣A-Za-z0-9]{2,}(?:학과|학부|학전공|교육과|예과)"
+)
+# suffix 매칭으로 잘못 잡히는 일반어 제외
+_DEPARTMENT_NAME_STOPWORDS = {"교육과정", "정규교육과", "재교육과", "평생교육과"}
+
+# 학년(1~4학년) 추출 패턴 — 이수표의 해당 학년 섹션 타겟에 사용
+_GRADE_PATTERN = re.compile(r"([1-4])\s*학년")
+
 _TIME_EXACT_MATCHES = ["오늘", "내일", "이번학기", "1학기", "2학기", "상반기", "하반기"]
 _TIME_PATTERN_RULES: list[tuple[str, str]] = [
     (r"(언제|기간|일정|마감|기한|까지)", "기간"),
@@ -46,6 +58,17 @@ def _extract_group_entities(text: str, keywords: set[str], entity_names: list[st
     return matched
 
 
+def _extract_grade_entities(text: str) -> list[str]:
+    # "3학년" 등 학년 표현 추출 (순서 보존, 중복 제거)
+    return [f"{g}학년" for g in dict.fromkeys(_GRADE_PATTERN.findall(text or ""))]
+
+
+def _extract_department_names(text: str) -> list[str]:
+    # 질문에 등장한 실제 학과명을 순서 보존하며 추출 (정규화 쿼리 기준)
+    matches = _DEPARTMENT_NAME_PATTERN.findall(text or "")
+    return [m for m in dict.fromkeys(matches) if m not in _DEPARTMENT_NAME_STOPWORDS]
+
+
 def _extract_time_entities(text: str) -> list[str]:
     time_entities = _pick_matches(text, _TIME_EXACT_MATCHES)
 
@@ -71,7 +94,17 @@ def extract_entities(query: str, keywords: list[str] | None = None) -> dict[str,
         # 추출 후 중복 제거 (순서 보장)
         extracted = _extract_group_entities(text, kw, names)
         entities[field] = list(dict.fromkeys(extracted))
-        
+
+    # 실제 학과명을 department 슬롯에 주입 (행정부서 term보다 구체적이므로 앞에 배치).
+    # 이로써 build_filters → filters['department'] → reranker 학과 일치(±) 가 작동한다.
+    dept_names = _extract_department_names(text)
+    if dept_names:
+        entities["department"] = list(dict.fromkeys([*dept_names, *entities.get("department", [])]))
+
+    grade = _extract_grade_entities(text)
+    if grade:
+        entities["grade"] = grade
+
     entities["time"] = _extract_time_entities(text)
     domain, _ = detect_domain(text, kw)
     if domain:

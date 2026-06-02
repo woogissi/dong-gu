@@ -1,0 +1,90 @@
+{
+  "summary": {
+    "tag": "probe_after",
+    "n": 6,
+    "dept_filter_rate": 1.0,
+    "context_hit_rate": 0.833,
+    "top1_match_rate": 0.833,
+    "top5_hit_rate": 1.0
+  },
+  "rows": [
+    {
+      "id": "P001",
+      "question": "심리학과 정보",
+      "dept_filter": [
+        "심리학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_e87bf1fb6757d917",
+      "top1_title": "교과목 개요 | 교육 | 심리학과"
+    },
+    {
+      "id": "P002",
+      "question": "심리학과 소개",
+      "dept_filter": [
+        "심리학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_e87bf1fb6757d917",
+      "top1_title": "교과목 개요 | 교육 | 심리학과"
+    },
+    {
+      "id": "P003",
+      "question": "심리학과 교육과정",
+      "dept_filter": [
+        "심리학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "deu_department_71664",
+      "top1_title": "2025학년도 심리학과 교육과정"
+    },
+    {
+      "id": "P004",
+      "question": "심리학과 교수",
+      "dept_filter": [
+        "심리학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": false,
+      "top1_match": false,
+      "top5_hit": true,
+      "top1_doc": "static_2c4c4ad85480a1a1",
+      "top1_title": "교수소개 게시판목록 | 태권도학과"
+    },
+    {
+      "id": "P005",
+      "question": "컴퓨터공학과 교육과정",
+      "dept_filter": [
+        "컴퓨터공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_06b9d3809cb12e19",
+      "top1_title": "이수표 | 교육과정 | 컴퓨터공학과"
+    },
+    {
+      "id": "P006",
+      "question": "기계공학과 교육과정",
+      "dept_filter": [
+        "기계공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_b772f75e284ed5ca",
+      "top1_title": "이수표 | 교육과정 | 기계공학과"
+    }
+  ]
+}

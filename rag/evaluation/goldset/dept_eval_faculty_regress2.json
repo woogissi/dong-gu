@@ -1,0 +1,168 @@
+{
+  "summary": {
+    "tag": "faculty_regress2",
+    "n": 12,
+    "dept_filter_rate": 1.0,
+    "context_hit_rate": 1.0,
+    "top1_match_rate": 1.0,
+    "top5_hit_rate": 1.0
+  },
+  "rows": [
+    {
+      "id": "F001",
+      "question": "컴퓨터공학과 교수 정보",
+      "dept_filter": [
+        "컴퓨터공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_b961137b5fa98968",
+      "top1_title": "교수소개 게시판목록 | 컴퓨터공학과"
+    },
+    {
+      "id": "F002",
+      "question": "컴퓨터공학과 교수 목록",
+      "dept_filter": [
+        "컴퓨터공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_b961137b5fa98968",
+      "top1_title": "교수소개 게시판목록 | 컴퓨터공학과"
+    },
+    {
+      "id": "F003",
+      "question": "응용소프트웨어공학과 교수 알려줘",
+      "dept_filter": [
+        "응용소프트웨어공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_04c18a4fc433394b",
+      "top1_title": "교수소개 게시판목록 | 응용소프트웨어공학전공"
+    },
+    {
+      "id": "F004",
+      "question": "화학공학과 교수 정보",
+      "dept_filter": [
+        "화학공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_f7b64d71169a9bad",
+      "top1_title": "교수소개 게시판목록 | 화학공학과"
+    },
+    {
+      "id": "F005",
+      "question": "전자공학과 교수 목록",
+      "dept_filter": [
+        "전자공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_85a2ffcebb7cc641",
+      "top1_title": "교수소개 게시판목록 | 전자공학과"
+    },
+    {
+      "id": "F006",
+      "question": "전기공학과 교수 알려줘",
+      "dept_filter": [
+        "전기공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_97f876b5d638befd",
+      "top1_title": "교수소개 게시판목록 | 전기공학과"
+    },
+    {
+      "id": "F007",
+      "question": "간호학과 교수",
+      "dept_filter": [
+        "간호학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_fa28316f840066f3",
+      "top1_title": "교수소개 게시판목록 | 간호학과"
+    },
+    {
+      "id": "F008",
+      "question": "기계공학과 교수 정보",
+      "dept_filter": [
+        "기계공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_bd7ae6cd64d2be6b",
+      "top1_title": "교수소개 게시판목록 | 기계공학과"
+    },
+    {
+      "id": "F009",
+      "question": "국어국문학과 교수 목록",
+      "dept_filter": [
+        "국어국문학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_cefcaaa52f295fc8",
+      "top1_title": "교수소개 게시판목록 | 국어국문학과"
+    },
+    {
+      "id": "F010",
+      "question": "사회복지학과 교수",
+      "dept_filter": [
+        "사회복지학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_1ab3ce390eeaa1c0",
+      "top1_title": "교수소개 게시판목록 | 사회복지학과"
+    },
+    {
+      "id": "F011",
+      "question": "물리치료학과 교수 알려줘",
+      "dept_filter": [
+        "물리치료학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_114b47637e3cd464",
+      "top1_title": "교수소개 게시판목록 | 물리치료학과"
+    },
+    {
+      "id": "F012",
+      "question": "식품영양학과 교수 정보",
+      "dept_filter": [
+        "식품영양학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_a32e5f195b6afb71",
+      "top1_title": "교수소개 게시판목록 | 식품영양학과"
+    }
+  ]
+}

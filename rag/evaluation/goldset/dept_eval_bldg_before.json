@@ -1,0 +1,192 @@
+{
+  "summary": {
+    "tag": "bldg_before",
+    "n": 16,
+    "dept_filter_rate": 0.125,
+    "context_hit_rate": 0.562,
+    "top1_match_rate": 0.438,
+    "top5_hit_rate": 0.688
+  },
+  "rows": [
+    {
+      "id": "B001",
+      "question": "대학본관 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": false,
+      "top5_hit": true,
+      "top1_doc": "static_cff8c4c4c8b95109",
+      "top1_title": "학과사무실 위치 및 연락처 | 학과소개 | 바이오의약학"
+    },
+    {
+      "id": "B002",
+      "question": "대학본관 어디",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": false,
+      "top1_match": false,
+      "top5_hit": false,
+      "top1_doc": "deu_council_notice_85699",
+      "top1_title": "제141차 대학평의원회 회의록"
+    },
+    {
+      "id": "B003",
+      "question": "대학본관 어디야",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": false,
+      "top1_match": false,
+      "top5_hit": false,
+      "top1_doc": "deu_council_notice_85699",
+      "top1_title": "제141차 대학평의원회 회의록"
+    },
+    {
+      "id": "B004",
+      "question": "본관 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": false,
+      "top1_match": false,
+      "top5_hit": false,
+      "top1_doc": "static_cff8c4c4c8b95109",
+      "top1_title": "학과사무실 위치 및 연락처 | 학과소개 | 바이오의약학"
+    },
+    {
+      "id": "B005",
+      "question": "법정관 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": false,
+      "top5_hit": true,
+      "top1_doc": "deu_notice_81190",
+      "top1_title": "2026학년도 신입생 수강신청 관련 안내(신입생 필독)"
+    },
+    {
+      "id": "B006",
+      "question": "상경관 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": false,
+      "top1_match": false,
+      "top5_hit": true,
+      "top1_doc": "deu_notice_81190",
+      "top1_title": "2026학년도 신입생 수강신청 관련 안내(신입생 필독)"
+    },
+    {
+      "id": "B007",
+      "question": "제1인문관 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_19b132e7ab559d4e",
+      "top1_title": "캠퍼스맵 | 캠퍼스안내 | DEU"
+    },
+    {
+      "id": "B008",
+      "question": "인문관 어디야",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": false,
+      "top1_match": false,
+      "top5_hit": false,
+      "top1_doc": "deu_scholarship_82456",
+      "top1_title": "2026-1학기 인문100년장학금 및 예술체육비전장학금"
+    },
+    {
+      "id": "B009",
+      "question": "정보공학관 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_19b132e7ab559d4e",
+      "top1_title": "캠퍼스맵 | 캠퍼스안내 | DEU"
+    },
+    {
+      "id": "B010",
+      "question": "정보관 어디 있어",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_19b132e7ab559d4e",
+      "top1_title": "캠퍼스맵 | 캠퍼스안내 | DEU"
+    },
+    {
+      "id": "B011",
+      "question": "중도 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": false,
+      "top1_match": false,
+      "top5_hit": false,
+      "top1_doc": "local_f0c13b8b1c93df06",
+      "top1_title": "동의대학교 신입생 가이드"
+    },
+    {
+      "id": "B012",
+      "question": "도서관 어디야",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_fe13eff7c2d54884",
+      "top1_title": "도서관소개"
+    },
+    {
+      "id": "B013",
+      "question": "효긱 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_9da619eb2fa46324",
+      "top1_title": "동의대학교 효민생활관"
+    },
+    {
+      "id": "B014",
+      "question": "외국인기숙사 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_8d1affc7e6b882f1",
+      "top1_title": "동의대학교 효민생활관"
+    },
+    {
+      "id": "B015",
+      "question": "컴퓨터공학과 학과사무실 위치",
+      "dept_filter": [
+        "컴퓨터공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_01840b5a30b433c1",
+      "top1_title": "학과사무실 위치 및 연락처 | 학과소개 | 컴퓨터공학과"
+    },
+    {
+      "id": "B016",
+      "question": "컴공 교수님 연구실 어디야",
+      "dept_filter": [
+        "컴퓨터공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": false,
+      "top1_match": false,
+      "top5_hit": true,
+      "top1_doc": "static_06b9d3809cb12e19",
+      "top1_title": "이수표 | 교육과정 | 컴퓨터공학과"
+    }
+  ]
+}

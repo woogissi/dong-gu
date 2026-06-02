@@ -819,6 +819,49 @@ class RerankerTest(unittest.TestCase):
             "불일치 문서의 department_entity_match는 음수여야 한다",
         )
 
+    def test_department_entity_match_uses_boundary_not_substring(self) -> None:
+        # '경영' 질의가 '창업투자경영학과'에 substring으로 매칭되어 +1.5를 받던 문제(G049)를
+        # 경계 매칭으로 차단한다. 정확히 일치하는 '경영학과'만 양수, 합성 학과명은 음수여야 한다.
+        docs = [
+            RetrievedDoc(
+                doc_id="superset_dept",
+                chunk_id="superset_dept_1",
+                title="이수표 | 교육과정 | 창업투자경영학과",
+                content="창업투자경영학과 전공필수 교육과정 이수표",
+                score=10.0,
+                metadata={"source_type": "department", "section_type": "attachment"},
+            ),
+            RetrievedDoc(
+                doc_id="exact_dept",
+                chunk_id="exact_dept_1",
+                title="경영학과 교육과정",
+                content="경영학과 1학년 2학기 전공필수 교육과정",
+                score=8.0,
+                metadata={"source_type": "static", "section_type": "body"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="경영학과 1학년 2학기 전공필수 알려줘",
+            keywords=["경영학과", "전공필수"],
+            category="department_curriculum",
+            ranking_hints={"department_entity": "경영학과"},
+        )
+
+        exact = next(d for d in reranked if d.doc_id == "exact_dept")
+        superset = next(d for d in reranked if d.doc_id == "superset_dept")
+        self.assertGreater(
+            exact.metadata["rerank_signals"]["department_entity_match"],
+            0.0,
+            "정확히 일치하는 경영학과 문서는 양수여야 한다",
+        )
+        self.assertLess(
+            superset.metadata["rerank_signals"]["department_entity_match"],
+            0.0,
+            "'경영'을 부분 포함하는 창업투자경영학과 문서는 음수여야 한다",
+        )
+
     def test_department_entity_match_inactive_outside_curriculum_families(self) -> None:
         # department_curriculum·graduation 이외 패밀리에서는 department_entity_match가 0이어야 한다.
         docs = [
@@ -910,6 +953,141 @@ class RerankerTest(unittest.TestCase):
             0.0,
             "학과명이 쿼리에 있으면 department 문서에 페널티 없어야 한다",
         )
+
+
+    def test_department_board_notice_penalized_for_non_department_query(self) -> None:
+        # 비학과 쿼리(심리상담)에서 전 학과 복제 게시판 공지가
+        # 공식 안내 페이지(상담센터)보다 하위여야 한다 (G036 회귀 방지).
+        docs = [
+            RetrievedDoc(
+                doc_id="dept_board_notice",
+                chunk_id="dept_board_notice_1",
+                title="컴퓨터공학과 공지사항",
+                content="심리 상담 관련 비교과 프로그램 안내 공지",
+                score=10.0,
+                source="https://swcc.deu.ac.kr/computer/sub06_03.do?article.offset=0&articleLimit=10&articleNo=85750&mode=view",
+                metadata={"source_type": "department"},
+            ),
+            RetrievedDoc(
+                doc_id="counsel_page",
+                chunk_id="counsel_page_1",
+                title="심리검사 | 심리검사 | 학생상담센터",
+                content="학생상담센터 심리상담 신청 및 이용 안내",
+                score=8.0,
+                source="https://www.deu.ac.kr/counsel/sub03_01.do",
+                metadata={"source_type": "advising"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="심리상담 어디서 받아?",
+            keywords=["심리상담", "상담"],
+        )
+
+        board_doc = next(d for d in reranked if d.doc_id == "dept_board_notice")
+        self.assertLess(
+            board_doc.metadata["rerank_signals"]["department_board_noise"],
+            0.0,
+            "비학과 쿼리에서 학과 게시판 복제 공지는 페널티를 받아야 한다",
+        )
+        self.assertEqual(
+            reranked[0].doc_id,
+            "counsel_page",
+            "공식 안내 페이지가 학과 게시판 복제 공지보다 상위여야 한다",
+        )
+
+    def test_department_board_notice_not_penalized_when_department_named(self) -> None:
+        # 쿼리에 학과명이 명시되면 해당 학과 게시판 글에 페널티가 없어야 한다.
+        docs = [
+            RetrievedDoc(
+                doc_id="dept_board_notice",
+                chunk_id="dept_board_notice_1",
+                title="컴퓨터공학과 공지사항",
+                content="컴퓨터공학과 졸업논문 제출 안내",
+                score=10.0,
+                source="https://swcc.deu.ac.kr/computer/sub06_03.do?article.offset=0&articleLimit=10&articleNo=85750&mode=view",
+                metadata={"source_type": "department"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="컴퓨터공학과 공지사항 알려줘",
+            keywords=["컴퓨터공학과", "공지사항"],
+        )
+
+        self.assertEqual(
+            reranked[0].metadata["rerank_signals"]["department_board_noise"],
+            0.0,
+            "학과명이 쿼리에 있으면 학과 게시판 글에 페널티가 없어야 한다",
+        )
+
+    def test_department_static_page_not_treated_as_board_notice(self) -> None:
+        # articleNo 없는 정적 안내 페이지(이수표)는 게시판 복제 공지가 아니다 (G060 회귀 방지).
+        docs = [
+            RetrievedDoc(
+                doc_id="curriculum_page",
+                chunk_id="curriculum_page_1",
+                title="이수표 | 교육과정 | 경찰행정학과",
+                content="경찰행정학과 3학년 2학기 전공선택 과목",
+                score=10.0,
+                source="https://police2001.deu.ac.kr/police/sub01_04_01.do",
+                metadata={"source_type": "department"},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="경찰행정학과 3학년 2학기 전공선택 알려줘",
+            keywords=["경찰행정학과", "전공선택"],
+        )
+
+        self.assertEqual(
+            reranked[0].metadata["rerank_signals"]["department_board_noise"],
+            0.0,
+            "articleNo 없는 정적 안내 페이지는 게시판 복제 공지 페널티 대상이 아니다",
+        )
+
+
+    def test_content_required_match_prefers_chunk_with_answer_keyword(self) -> None:
+        # 같은 문서(제목 동일)의 청크 중 required_term('보강')이 본문에 있는 청크가
+        # 없는 청크보다 상위여야 한다 (G001 회귀 방지).
+        docs = [
+            RetrievedDoc(
+                doc_id="schedule",
+                chunk_id="schedule_march",
+                title="학사일정 | 학사정보 | 대학생활",
+                content="3월 1일 학기개시일 2일 대체휴일 개강",
+                score=5.0,
+                metadata={"source_type": "academic_calendar", "section_title": ""},
+            ),
+            RetrievedDoc(
+                doc_id="schedule",
+                chunk_id="schedule_june",
+                title="학사일정 | 학사정보 | 대학생활",
+                content="6월 9일~12일 지정보강일 보강 16~22일 기말시험",
+                score=5.0,
+                metadata={"source_type": "academic_calendar", "section_title": ""},
+            ),
+        ]
+
+        reranked = rerank_documents(
+            docs,
+            query="보강 일정 알려줘",
+            keywords=["보강", "일정"],
+            category="academic_schedule",
+            ranking_hints={"query_family": "academic_schedule"},
+        )
+
+        june = next(d for d in reranked if d.chunk_id == "schedule_june")
+        march = next(d for d in reranked if d.chunk_id == "schedule_march")
+        self.assertGreater(
+            june.metadata["rerank_signals"]["content_required_match"],
+            march.metadata["rerank_signals"]["content_required_match"],
+            "'보강'이 본문에 있는 청크의 content_required_match가 더 커야 한다",
+        )
+        self.assertEqual(reranked[0].chunk_id, "schedule_june", "보강 청크가 상위여야 한다")
 
 
 if __name__ == "__main__":

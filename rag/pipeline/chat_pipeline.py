@@ -650,6 +650,10 @@ class ChatPipeline:
         max_chunks_per_doc = 4 if query_family == "department_curriculum" else 1
         if query_family in {"academic_schedule", "course_registration", "seasonal_course_registration"}:
             max_chunks_per_doc = 3
+        # 정적/시설 페이지(기숙사·도서관·시설·건물 위치)는 정보가 여러 청크에 흩어져 있어
+        # 문서당 1청크만 넣으면 근거가 단편화된다. 2청크까지 허용해 근거 단편화를 완화한다.
+        elif query_family in {"dormitory", "library", "campus_facility", "building_location"}:
+            max_chunks_per_doc = 2
         selection_result = select_topk_with_diagnostics(
             candidate_docs,
             k=selection_k,
@@ -1183,6 +1187,7 @@ class ChatPipeline:
             context=state.context,
             selected_docs=state.selected_docs,
             query=state.original_query,
+            keywords=state.keywords,
         )
         state.metadata["answer_generation_output"].update(
             {

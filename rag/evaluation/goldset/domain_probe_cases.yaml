@@ -1,0 +1,32 @@
+# 도메인 분류 오탐 probe (Fix 3: 심리학과→support 오분류, Fix 5: 컴공 하드코딩 비대칭)
+# context_hit = 해당 학과 페이지(psychology.deu.ac.kr 등)가 selected_docs에 포함되는지.
+# 심리학과 일반 질의가 상담센터(support)가 아닌 심리학과 페이지로 가야 한다.
+goldset:
+
+  # --- Fix 3: 심리학과 일반 질의 (상담센터로 새면 안 됨) ---
+  - id: "P001"
+    category: "department"
+    question: "심리학과 정보"
+    gold_documents: [{url: "psychology.deu.ac.kr"}]
+  - id: "P002"
+    category: "department"
+    question: "심리학과 소개"
+    gold_documents: [{url: "psychology.deu.ac.kr"}]
+  - id: "P003"
+    category: "department"
+    question: "심리학과 교육과정"
+    gold_documents: [{document_id: "static_c5d020f2db1c6cc0", url: "psychology.deu.ac.kr/psychology/sub02_02.do"}]
+  - id: "P004"
+    category: "faculty"
+    question: "심리학과 교수"
+    gold_documents: [{url: "psychology.deu.ac.kr"}]
+
+  # --- Fix 5: 컴공 외 학과도 동일하게 동작하는지 (비대칭 제거 확인) ---
+  - id: "P005"
+    category: "department"
+    question: "컴퓨터공학과 교육과정"
+    gold_documents: [{document_id: "static_06b9d3809cb12e19", url: "swcc.deu.ac.kr/computer/sub03_01.do"}]
+  - id: "P006"
+    category: "department"
+    question: "기계공학과 교육과정"
+    gold_documents: [{document_id: "static_b772f75e284ed5ca", url: "nme.deu.ac.kr/me/sub03_01.do"}]

@@ -16,3 +16,5 @@ easyocr==1.7.2
 
 pyhwp
 PyMuPDF
+
+playwright==1.48.0

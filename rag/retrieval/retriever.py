@@ -253,6 +253,15 @@ def retrieve_documents(
                 regulation_documents = _retrieve_curriculum_regulation_documents(request)
                 if regulation_documents:
                     documents = _prepend_unique_docs(regulation_documents, documents)
+                dept_curriculum_documents = _retrieve_department_curriculum_documents(request)
+                if dept_curriculum_documents:
+                    documents = _prepend_unique_docs(dept_curriculum_documents, documents)
+                location_documents = _retrieve_location_documents(request)
+                if location_documents:
+                    documents = _prepend_unique_docs(location_documents, documents)
+                faculty_documents = _retrieve_faculty_documents(request)
+                if faculty_documents:
+                    documents = _prepend_unique_docs(faculty_documents, documents)
                 return _postprocess_retrieved_docs(documents, request)
 
             if retrieval_mode == "hybrid":
@@ -263,6 +272,15 @@ def retrieve_documents(
                     policy_documents = _retrieve_graduation_policy_documents_from_database(request)
                     if policy_documents:
                         documents = _prepend_unique_docs(policy_documents, documents)
+                    dept_curriculum_documents = _retrieve_department_curriculum_documents(request)
+                    if dept_curriculum_documents:
+                        documents = _prepend_unique_docs(dept_curriculum_documents, documents)
+                    location_documents = _retrieve_location_documents(request)
+                    if location_documents:
+                        documents = _prepend_unique_docs(location_documents, documents)
+                    faculty_documents = _retrieve_faculty_documents(request)
+                    if faculty_documents:
+                        documents = _prepend_unique_docs(faculty_documents, documents)
                     return _postprocess_retrieved_docs(documents, request)
 
             documents = _retrieve_documents_from_database(request)
@@ -508,6 +526,26 @@ def _feature_log_fields(request: RetrievalRequest) -> dict[str, Any]:
         "required_terms": query_features.get("required_terms", []),
         "query_family": query_features.get("family"),
     }
+
+
+# 교수 조회 쿼리에서는 교수 연락처·소개가 정답 콘텐츠이므로
+# 연락처/소개 noise_penalty를 면제한다. (매칭되지 않는 더미 패턴으로 치환)
+_FACULTY_LOOKUP_TERMS = ("교수", "교수님", "교수진", "교수소개", "전임교수", "faculty")
+_NEVER_MATCH_NOISE_PATTERN = "__never_match_noise__"
+_CONTACT_NOISE_PATTERN = "전화|연락처|담당부서|담당자"
+_INTRO_NOISE_PATTERN = "기관소개|부서소개|소개"
+_INTRO_NOISE_PATTERN_FACULTY = "기관소개|부서소개"
+
+
+def _is_faculty_lookup_query(request: RetrievalRequest) -> bool:
+    text = " ".join(
+        [
+            request.query or "",
+            *(request.query_variants or []),
+            *(request.keywords or []),
+        ]
+    ).lower()
+    return any(term in text for term in _FACULTY_LOOKUP_TERMS)
 
 
 def _is_weak_db_search_term(term: str) -> bool:
@@ -1180,6 +1218,402 @@ def _retrieve_curriculum_regulation_documents(request: RetrievalRequest) -> list
                     "content_hash": row["content_hash"],
                     "version": row["version"],
                     "document_version_id": row["document_version_id"],
+                },
+            )
+        )
+    return docs
+
+
+_DEPARTMENT_SUFFIXES = ("학과", "학부", "전공")
+
+
+def _normalize_department(name: str) -> str:
+    text = re.sub(r"\s+", "", str(name or ""))
+    for suffix in _DEPARTMENT_SUFFIXES:
+        if text.endswith(suffix) and len(text) > len(suffix):
+            return text[: -len(suffix)]
+    return text
+
+
+def _title_department_matches(title: str, dept: str) -> bool:
+    """제목에 질의 학과명이 '경계 단위'로 등장하는지 확인.
+
+    '경영'을 '스마트창업경영학과'에서 부분 일치시키지 않도록, 학과명 앞 글자가
+    한글이면(=더 긴 합성 학과명의 일부이면) 불일치로 본다.
+    """
+    haystack = re.sub(r"\s+", "", str(title or ""))
+    base = _normalize_department(dept)
+    if not base:
+        return False
+    candidates = {base, *(base + suffix for suffix in _DEPARTMENT_SUFFIXES)}
+    for cand in candidates:
+        start = haystack.find(cand)
+        while start != -1:
+            prev = haystack[start - 1] if start > 0 else ""
+            if not re.match(r"[가-힣]", prev):
+                return True
+            start = haystack.find(cand, start + 1)
+    return False
+
+
+def _curriculum_row_matches_department(row: Any, dept: str) -> bool:
+    """이수표/교육과정 행이 질의 학과와 정확히 일치하는지 판정."""
+    target = _normalize_department(dept)
+    doc_dept = _normalize_department(row["department"] or "")
+    if doc_dept:
+        return doc_dept == target
+    # department 컬럼이 비어 있으면 제목 기반 경계 매칭으로 보수적으로 판단한다.
+    return _title_department_matches(row["title"] or "", dept)
+
+
+def _retrieve_department_curriculum_documents(request: RetrievalRequest) -> list[RetrievedDoc]:
+    """department_curriculum 쿼리에서 해당 학과의 이수표/교육과정 문서를 직접 보충 검색.
+
+    학과명(ranking_hints.department_entity)이 추출됐어도 일반 벡터/렉시컬 검색이
+    학과소개·자유전공·공지로 드리프트해 정작 이수표가 top-k에서 누락되는 recall 문제를
+    보완한다. 학과명이 제목에 포함된 이수표/교육과정 문서를 직접 끌어와 prepend 한다.
+    """
+    query_family = ""
+    if isinstance(request.log_fields, dict):
+        query_family = str(request.log_fields.get("query_family") or "")
+    if query_family != "department_curriculum":
+        return []
+    ranking_hints = request.ranking_hints or {}
+    dept = str(ranking_hints.get("department_entity") or "").strip()
+    if len(dept) < 2:
+        return []
+
+    # 의도 가드: "홈페이지/사이트" 등 학과 웹페이지를 묻는 질의는 이수표를 보충하면
+    # index.do 정답을 밀어낸다(G046). 이 경우 커리큘럼 보충검색을 건너뛴다.
+    query_text = str(request.query or "").lower()
+    if any(term in query_text for term in ("홈페이지", "홈피", "사이트", "누리집", "url", "링크")):
+        return []
+
+    curriculum_title_patterns = ["%이수표%", "%교육과정%", "%편성표%", "%이수체계%"]
+    dept_pattern = f"%{dept}%"
+    sql = """
+    WITH latest_document_versions AS (
+        SELECT doc_id, max(version) AS latest_version
+        FROM document_versions GROUP BY doc_id
+    )
+    SELECT
+        chunks.chunk_id, chunks.doc_id, chunks.chunk_index, chunks.section_index,
+        chunks.section_type, chunks.section_title, chunks.content,
+        chunks.content_length, chunks.content_hash, document_versions.version,
+        chunks.document_version_id, chunks.metadata AS chunk_metadata,
+        documents.title, documents.source_url, documents.source_type,
+        documents.department, documents.published_at, documents.metadata AS document_metadata
+    FROM documents
+    JOIN chunks ON chunks.doc_id = documents.doc_id
+    LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
+    LEFT JOIN latest_document_versions ON latest_document_versions.doc_id = chunks.doc_id
+    WHERE documents.title ILIKE %s
+      AND documents.title ILIKE ANY(%s)
+      AND (
+          chunks.document_version_id IS NULL
+          OR document_versions.version = latest_document_versions.latest_version
+      )
+    ORDER BY
+        CASE WHEN documents.title ILIKE '%%이수표%%' THEN 0 ELSE 1 END,
+        CASE WHEN coalesce(chunks.metadata->>'manual_override', '') = 'true' THEN 0 ELSE 1 END,
+        CASE WHEN chunks.section_type IN ('attachment', 'table') THEN 0 ELSE 1 END,
+        chunks.chunk_index ASC
+    LIMIT 5
+    """
+    # psycopg2의 `with conn`은 연결을 닫지 않으므로(트랜잭션만 종료) 명시적으로 close 한다.
+    conn = None
+    try:
+        conn = _open_db_connection()
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute(sql, (dept_pattern, curriculum_title_patterns))
+            rows = cur.fetchall()
+    except psycopg2.Error as exc:
+        logger.warning(
+            "department_curriculum_supplement_failed query=%r dept=%s error=%s",
+            request.query, dept, exc,
+        )
+        return []
+    finally:
+        if conn is not None:
+            conn.close()
+
+    # 학과 정확 일치: ILIKE '%경영%'는 '스마트창업경영학과' 같은 다른 학과 이수표까지
+    # 매칭해 오상위를 만든다(G049). 문서의 department/제목을 질의 학과와 경계 단위로
+    # 대조해 정확히 일치하는 학과만 prepend 한다.
+    rows = [row for row in rows if _curriculum_row_matches_department(row, dept)]
+
+    docs: list[RetrievedDoc] = []
+    for row in rows:
+        document_metadata = _dict_or_empty(row["document_metadata"])
+        chunk_metadata = _dict_or_empty(row["chunk_metadata"])
+        docs.append(
+            RetrievedDoc(
+                doc_id=row["doc_id"],
+                chunk_id=row["chunk_id"],
+                content=row["content"],
+                score=1.2,
+                title=row["title"] or "",
+                source=row["source_url"] or row["source_type"] or "",
+                category=request.category or row["source_type"],
+                metadata={
+                    **document_metadata,
+                    **chunk_metadata,
+                    **request.log_fields,
+                    **_feature_log_fields(request),
+                    "search_mode": "department_curriculum_supplement",
+                    "canonical_source_supplement": True,
+                    "source_type": row["source_type"],
+                    "department": row["department"],
+                    "published_at": row["published_at"],
+                    "chunk_index": row["chunk_index"],
+                    "section_index": row["section_index"],
+                    "section_type": row["section_type"],
+                    "section_title": row["section_title"],
+                    "content_length": row["content_length"],
+                    "content_hash": row["content_hash"],
+                    "version": row["version"],
+                    "document_version_id": row["document_version_id"],
+                    "filters": request.filters,
+                    "query": request.query,
+                    "keywords": request.keywords,
+                },
+            )
+        )
+    return docs
+
+
+_LOC_BUILDING_RE = re.compile(r"[가-힣0-9]{1,10}(?:본관|관|생활관|기숙사)")
+
+
+def _retrieve_location_documents(request: RetrievalRequest) -> list[RetrievedDoc]:
+    """건물 위치 질의의 canonical 문서를 직접 보충 검색 (H5) + 학과사무실/교수 구분 (H4).
+
+    building_location/campus_address family에서:
+    - 학과사무실/행정실 의도 + 학과 → 해당 학과 '학과사무실' 페이지
+    - 교수/연구실 의도 + 학과 → 해당 학과 '교수소개' 페이지
+    - 그 외 → 캠퍼스맵(전 건물 위치) 문서
+    일반 검색이 학과소개·공지·회의록으로 드리프트하는 recall/혼동 문제를 보완한다.
+    """
+    query_family = ""
+    if isinstance(request.log_fields, dict):
+        query_family = str(request.log_fields.get("query_family") or "")
+    if query_family not in {"building_location", "campus_address"}:
+        return []
+
+    ranking_hints = request.ranking_hints or {}
+    dept = str(ranking_hints.get("department_entity") or "").strip()
+    text = " ".join([request.query or "", *(request.query_variants or []), *(request.keywords or [])])
+
+    dept_pattern: str | None = None
+    if dept and any(term in text for term in ("학과사무실", "행정실")):
+        title_patterns = ["%학과사무실%", "%사무실%"]
+        dept_pattern = f"%{dept}%"
+    elif dept and any(term in text for term in ("교수", "연구실", "교수실")):
+        title_patterns = ["%교수소개%", "%교수진%"]
+        dept_pattern = f"%{dept}%"
+    else:
+        # 캠퍼스맵 catch-all은 위치/건물 의도가 분명할 때만 prepend 한다.
+        # family 오분류(예: '교환학생 신청 방법'이 building_location으로 분류)로
+        # 캠퍼스맵이 무관 질의 상단을 score 1.2로 점유하는 것을 방지한다(G044).
+        location_intent_terms = (
+            "위치", "어디", "어딨", "건물", "캠퍼스", "지도", "약도",
+            "오시는", "찾아오", "찾아가", "주소", "맵", "가는 길", "가는길",
+        )
+        if not any(term in text for term in location_intent_terms):
+            return []
+        title_patterns = ["%캠퍼스맵%"]
+
+    match = _LOC_BUILDING_RE.search(request.query or "")
+    bld_pattern = f"%{match.group(0)}%" if match else "%__never_match__%"
+
+    sql = """
+    WITH latest_document_versions AS (
+        SELECT doc_id, max(version) AS latest_version FROM document_versions GROUP BY doc_id
+    )
+    SELECT
+        chunks.chunk_id, chunks.doc_id, chunks.chunk_index, chunks.section_index,
+        chunks.section_type, chunks.section_title, chunks.content,
+        chunks.content_length, chunks.content_hash, document_versions.version,
+        chunks.document_version_id, chunks.metadata AS chunk_metadata,
+        documents.title, documents.source_url, documents.source_type,
+        documents.department, documents.published_at, documents.metadata AS document_metadata
+    FROM documents
+    JOIN chunks ON chunks.doc_id = documents.doc_id
+    LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
+    LEFT JOIN latest_document_versions ON latest_document_versions.doc_id = chunks.doc_id
+    WHERE documents.title ILIKE ANY(%s)
+    """
+    params: list[Any] = [title_patterns]
+    if dept_pattern is not None:
+        sql += "      AND documents.title ILIKE %s\n"
+        params.append(dept_pattern)
+    sql += """
+      AND (
+          chunks.document_version_id IS NULL
+          OR document_versions.version = latest_document_versions.latest_version
+      )
+    ORDER BY
+        CASE WHEN chunks.content ILIKE %s THEN 0 ELSE 1 END,
+        chunks.chunk_index ASC
+    LIMIT 4
+    """
+    params.append(bld_pattern)
+
+    conn = None
+    try:
+        conn = _open_db_connection()
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute(sql, tuple(params))
+            rows = cur.fetchall()
+    except psycopg2.Error as exc:
+        logger.warning("location_supplement_failed query=%r dept=%s error=%s", request.query, dept, exc)
+        return []
+    finally:
+        if conn is not None:
+            conn.close()
+
+    docs: list[RetrievedDoc] = []
+    for row in rows:
+        document_metadata = _dict_or_empty(row["document_metadata"])
+        chunk_metadata = _dict_or_empty(row["chunk_metadata"])
+        docs.append(
+            RetrievedDoc(
+                doc_id=row["doc_id"],
+                chunk_id=row["chunk_id"],
+                content=row["content"],
+                score=1.2,
+                title=row["title"] or "",
+                source=row["source_url"] or row["source_type"] or "",
+                category=request.category or row["source_type"],
+                metadata={
+                    **document_metadata,
+                    **chunk_metadata,
+                    **request.log_fields,
+                    **_feature_log_fields(request),
+                    "search_mode": "location_supplement",
+                    "canonical_source_supplement": True,
+                    "source_type": row["source_type"],
+                    "department": row["department"],
+                    "published_at": row["published_at"],
+                    "chunk_index": row["chunk_index"],
+                    "section_index": row["section_index"],
+                    "section_type": row["section_type"],
+                    "section_title": row["section_title"],
+                    "content_length": row["content_length"],
+                    "content_hash": row["content_hash"],
+                    "version": row["version"],
+                    "document_version_id": row["document_version_id"],
+                    "filters": request.filters,
+                    "query": request.query,
+                    "keywords": request.keywords,
+                },
+            )
+        )
+    return docs
+
+
+_FACULTY_DEPT_SUFFIX_RE = re.compile(r"(?:학과|학부|전공)$")
+
+
+def _retrieve_faculty_documents(request: RetrievalRequest) -> list[RetrievedDoc]:
+    """faculty 질의에서 해당 학과의 교수소개/교수진 페이지를 직접 보충 검색.
+
+    'OO학과 교수 정보/목록' 질의가 일반 벡터 검색에서 이수표/편성표/타학과 교수소개로
+    드리프트하는 문제를 보완한다. 학과명이 제목에 포함된 교수소개 페이지를 prepend 한다.
+    학과명 접미사(학과/학부/전공)는 제거해 stem으로 매칭한다
+    (예: '응용소프트웨어공학과' → '응용소프트웨어공학' → '...공학전공' 페이지도 매칭).
+    """
+    query_family = ""
+    if isinstance(request.log_fields, dict):
+        query_family = str(request.log_fields.get("query_family") or "")
+    if query_family != "faculty":
+        return []
+    ranking_hints = request.ranking_hints or {}
+    dept = str(ranking_hints.get("department_entity") or "").strip()
+    if len(dept) < 2:
+        return []
+    dept_stem = _FACULTY_DEPT_SUFFIX_RE.sub("", dept) or dept
+    dept_pattern = f"%{dept_stem}%"
+    faculty_title_patterns = ["%교수소개%", "%교수진%", "%교수%"]
+    sql = """
+    WITH latest_document_versions AS (
+        SELECT doc_id, max(version) AS latest_version
+        FROM document_versions GROUP BY doc_id
+    )
+    SELECT
+        chunks.chunk_id, chunks.doc_id, chunks.chunk_index, chunks.section_index,
+        chunks.section_type, chunks.section_title, chunks.content,
+        chunks.content_length, chunks.content_hash, document_versions.version,
+        chunks.document_version_id, chunks.metadata AS chunk_metadata,
+        documents.title, documents.source_url, documents.source_type,
+        documents.department, documents.published_at, documents.metadata AS document_metadata
+    FROM documents
+    JOIN chunks ON chunks.doc_id = documents.doc_id
+    LEFT JOIN document_versions ON document_versions.id = chunks.document_version_id
+    LEFT JOIN latest_document_versions ON latest_document_versions.doc_id = chunks.doc_id
+    WHERE documents.title ILIKE %s
+      AND documents.title ILIKE ANY(%s)
+      AND documents.source_type = 'department'
+      AND (
+          chunks.document_version_id IS NULL
+          OR document_versions.version = latest_document_versions.latest_version
+      )
+    ORDER BY
+        CASE WHEN documents.title ILIKE '%%교수소개%%' THEN 0 ELSE 1 END,
+        CASE WHEN documents.title ILIKE '%%외래%%' THEN 1 ELSE 0 END,
+        chunks.chunk_index ASC
+    LIMIT 5
+    """
+    conn = None
+    try:
+        conn = _open_db_connection()
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute(sql, (dept_pattern, faculty_title_patterns))
+            rows = cur.fetchall()
+    except psycopg2.Error as exc:
+        logger.warning(
+            "faculty_supplement_failed query=%r dept=%s error=%s",
+            request.query, dept, exc,
+        )
+        return []
+    finally:
+        if conn is not None:
+            conn.close()
+
+    docs: list[RetrievedDoc] = []
+    for row in rows:
+        document_metadata = _dict_or_empty(row["document_metadata"])
+        chunk_metadata = _dict_or_empty(row["chunk_metadata"])
+        docs.append(
+            RetrievedDoc(
+                doc_id=row["doc_id"],
+                chunk_id=row["chunk_id"],
+                content=row["content"],
+                score=1.2,
+                title=row["title"] or "",
+                source=row["source_url"] or row["source_type"] or "",
+                category=request.category or row["source_type"],
+                metadata={
+                    **document_metadata,
+                    **chunk_metadata,
+                    **request.log_fields,
+                    **_feature_log_fields(request),
+                    "search_mode": "faculty_supplement",
+                    "canonical_source_supplement": True,
+                    "source_type": row["source_type"],
+                    "department": row["department"],
+                    "published_at": row["published_at"],
+                    "chunk_index": row["chunk_index"],
+                    "section_index": row["section_index"],
+                    "section_type": row["section_type"],
+                    "section_title": row["section_title"],
+                    "content_length": row["content_length"],
+                    "content_hash": row["content_hash"],
+                    "version": row["version"],
+                    "document_version_id": row["document_version_id"],
+                    "filters": request.filters,
+                    "query": request.query,
+                    "keywords": request.keywords,
                 },
             )
         )
@@ -2234,6 +2668,11 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
     if not search_terms:
         return []
 
+    # 교수 조회 쿼리에서는 교수 연락처/소개가 정답이므로 해당 noise_penalty를 면제한다.
+    faculty_lookup = _is_faculty_lookup_query(request)
+    contact_noise_pattern = _NEVER_MATCH_NOISE_PATTERN if faculty_lookup else _CONTACT_NOISE_PATTERN
+    intro_noise_pattern = _INTRO_NOISE_PATTERN_FACULTY if faculty_lookup else _INTRO_NOISE_PATTERN
+
     # TODO: Move search_text/search_vector to generated columns with a GIN index
     # in a separate migration. Keep this rollout read-only and behavior-preserving.
     ilike_patterns = [f"%{term}%" for term in search_terms]
@@ -2245,6 +2684,11 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
     title_match_sql = " + ".join(
         ["CASE WHEN title_text ILIKE %s THEN 0.35 ELSE 0 END" for _ in boost_patterns]
     ) or "0"
+    # 교수 조회 쿼리에서 제목에 '교수'가 있는 페이지(교수소개 목록 등)에 boost.
+    # 정답 본문에 키워드가 없어 ts_rank가 낮은 교수소개 페이지를 상위로 끌어올린다.
+    faculty_title_boost_sql = (
+        "CASE WHEN title_text ~* '교수' THEN 0.9 ELSE 0 END" if faculty_lookup else "0"
+    )
     section_match_sql = " + ".join(
         ["CASE WHEN section_text ILIKE %s THEN 0.25 ELSE 0 END" for _ in boost_patterns]
     ) or "0"
@@ -2354,6 +2798,7 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
             LEAST(({term_match_sql}), %s) AS term_match_score,
             LEAST(({title_match_sql}), %s) AS title_match_score,
             LEAST(({section_match_sql}), %s) AS section_match_score,
+            {faculty_title_boost_sql} AS faculty_title_boost,
             {category_bonus_sql} AS category_bonus,
             LEAST(
                 CASE WHEN search_text ~* %s THEN 1.10 ELSE 0 END
@@ -2400,6 +2845,7 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
             + title_match_score
             + section_match_score
             + category_bonus
+            + faculty_title_boost
         ) AS raw_lexical_score,
         GREATEST(
             ts_rank_score
@@ -2408,6 +2854,7 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
             + title_match_score
             + section_match_score
             + category_bonus
+            + faculty_title_boost
             - noise_penalty,
             0
         ) AS lexical_score,
@@ -2418,6 +2865,7 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
             + title_match_score
             + section_match_score
             + category_bonus
+            + faculty_title_boost
             - noise_penalty,
             0
         ) / (
@@ -2428,6 +2876,7 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
                 + title_match_score
                 + section_match_score
                 + category_bonus
+                + faculty_title_boost
                 - noise_penalty,
                 0
             ) + 1
@@ -2462,10 +2911,10 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
         _SECTION_MATCH_SCORE_CAP,
         *category_bonus_params,
         "\uc785\ucc30|\uad6c\ub9e4|\uc6a9\uc5ed|\uacf5\uace0\ubc88\ud638",
-        "\uc804\ud654|\uc5f0\ub77d\ucc98|\ub2f4\ub2f9\ubd80\uc11c|\ub2f4\ub2f9\uc790",
-        "\uc804\ud654|\uc5f0\ub77d\ucc98|\ub2f4\ub2f9\ubd80\uc11c|\ub2f4\ub2f9\uc790",
+        contact_noise_pattern,
+        contact_noise_pattern,
         "\ub300\ud45c \ud398\uc774\uc9c0|\ubcf8\ubb38\ubc14\ub85c\uac00\uae30|\uba54\ub274|\uc0ac\uc774\ud2b8\ub9f5|footer|navigation",
-        "\uae30\uad00\uc18c\uac1c|\ubd80\uc11c\uc18c\uac1c|\uc18c\uac1c",
+        intro_noise_pattern,
         has_boost_terms,
         boost_patterns,
         _NOISE_PENALTY_CAP,

@@ -71,8 +71,12 @@ DOMAIN_RULES: dict[str, dict[str, object]] = {
         "source_boosts": ["notice", "academic_notice", "external_notice"],
     },
     "department_major": {
-        "keywords": ["학과", "전공", "학부", "단과대학", "컴퓨터공학과", "학과사무실"],
-        "synonyms": {"컴퓨터공학과": ["컴공", "컴퓨터", "computer", "computer engineering"]},
+        # 특정 학과명(컴퓨터공학과) 하드코딩은 해당 학과만 점수 특혜를 줘 학과 간
+        # 분류 비대칭을 유발하므로 제거. 일반 용어(학과/전공/학부)로 통일.
+        # 컴공→컴퓨터공학과 별칭은 normalizer(_CONTEXTUAL_REPLACEMENTS)가 처리하므로
+        # 도메인 synonym에서도 제거해 점수 비대칭을 없앤다.
+        "keywords": ["학과", "전공", "학부", "단과대학", "학과사무실"],
+        "synonyms": {},
         "intent_boost": "RAG",
         "category": "department",
         "source_boosts": ["department"],
@@ -151,7 +155,9 @@ DOMAIN_RULES: dict[str, dict[str, object]] = {
         "source_boosts": ["notice", "institution"],
     },
     "counseling_support": {
-        "keywords": ["상담", "학생지원", "장애학생", "인권센터", "심리"],
+        # "심리" 단독 키워드는 '심리학과'(학과)를 support로 오분류시키므로 제외.
+        # 상담 intent는 "상담" 키워드 + "심리상담" 동의어가 커버한다.
+        "keywords": ["상담", "학생지원", "장애학생", "인권센터"],
         "synonyms": {"상담": ["심리상담"], "학생지원": ["학생지원팀"]},
         "intent_boost": "RAG",
         "category": "support",

@@ -1,0 +1,60 @@
+# 교수(faculty) 질의 평가셋 (오탐 측정용)
+# 2026-06-01 query_logs 분석에서 도출. "OO학과 교수 정보/목록/알려줘" → 이수표/편성표/타학과 교수소개로 빠지는 오탐.
+# 근본원인: ① detect_query_family가 "컴퓨터공학과 교수"를 CURRICULUM_TERMS(컴퓨터공학과)로 잡아 department_curriculum로 라우팅
+#          ② faculty family에 canonical 보충검색(교수소개 페이지) 부재
+# context_hit = 해당 학과 교수소개 페이지가 selected_docs에 포함되는지.
+goldset:
+
+  # --- 라우팅 오분류 핵심 케이스 (컴퓨터공학과 교수 → 이수표) ---
+  - id: "F001"
+    category: "faculty"
+    question: "컴퓨터공학과 교수 정보"
+    gold_documents: [{document_id: "static_b961137b5fa98968", url: "https://swcc.deu.ac.kr/computer/sub02.do"}]
+  - id: "F002"
+    category: "faculty"
+    question: "컴퓨터공학과 교수 목록"
+    gold_documents: [{document_id: "static_b961137b5fa98968", url: "https://swcc.deu.ac.kr/computer/sub02.do"}]
+  - id: "F003"
+    category: "faculty"
+    question: "응용소프트웨어공학과 교수 알려줘"
+    gold_documents: [{document_id: "static_04c18a4fc433394b", url: "https://swcc.deu.ac.kr/asw/sub02.do"}]
+
+  # --- 타학과 혼동 방지 (컴공↔화학공학↔전자) ---
+  - id: "F004"
+    category: "faculty"
+    question: "화학공학과 교수 정보"
+    gold_documents: [{document_id: "static_f7b64d71169a9bad", url: "https://cheng.deu.ac.kr/che/sub02.do"}]
+  - id: "F005"
+    category: "faculty"
+    question: "전자공학과 교수 목록"
+    gold_documents: [{document_id: "static_85a2ffcebb7cc641", url: "https://ee.deu.ac.kr/ee/sub02.do"}]
+  - id: "F006"
+    category: "faculty"
+    question: "전기공학과 교수 알려줘"
+    gold_documents: [{document_id: "static_97f876b5d638befd", url: "https://elec.deu.ac.kr/elec/sub02.do"}]
+
+  # --- 일반 학과 교수 목록/정보 ---
+  - id: "F007"
+    category: "faculty"
+    question: "간호학과 교수"
+    gold_documents: [{document_id: "static_fa28316f840066f3", url: "https://nursing.deu.ac.kr/nursing/sub02.do"}]
+  - id: "F008"
+    category: "faculty"
+    question: "기계공학과 교수 정보"
+    gold_documents: [{document_id: "static_bd7ae6cd64d2be6b", url: "https://nme.deu.ac.kr/me/sub02.do"}]
+  - id: "F009"
+    category: "faculty"
+    question: "국어국문학과 교수 목록"
+    gold_documents: [{document_id: "static_cefcaaa52f295fc8", url: "https://koreanl.deu.ac.kr/koreanl/sub02_02.do"}]
+  - id: "F010"
+    category: "faculty"
+    question: "사회복지학과 교수"
+    gold_documents: [{document_id: "static_1ab3ce390eeaa1c0", url: "https://socialwelfare.deu.ac.kr/socialwelfare/sub02.do"}]
+  - id: "F011"
+    category: "faculty"
+    question: "물리치료학과 교수 알려줘"
+    gold_documents: [{document_id: "static_114b47637e3cd464", url: "https://pt.deu.ac.kr/pt/sub02.do"}]
+  - id: "F012"
+    category: "faculty"
+    question: "식품영양학과 교수 정보"
+    gold_documents: [{document_id: "static_a32e5f195b6afb71", url: "https://fn.deu.ac.kr/food/sub02.do"}]

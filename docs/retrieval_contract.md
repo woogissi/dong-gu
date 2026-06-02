@@ -21,7 +21,7 @@ Week 3에서는 실제 DB 검색 구현보다 검색 단계의 입력/출력 계
   },
   "category": "수강",
   "strategy": "lexical",
-  "top_k": 10,
+  "top_k": 20,
   "fallback_triggers": [],
   "log_fields": {
     "strategy": "lexical",
@@ -35,7 +35,7 @@ Week 3에서는 실제 DB 검색 구현보다 검색 단계의 입력/출력 계
     },
     "category": "수강",
     "document_category_hints": ["academic_notice"],
-    "top_k": 10,
+    "top_k": 20,
     "fallback_triggers": [],
     "filter_rules_applied": [
       "category_filter",

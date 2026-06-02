@@ -14,6 +14,7 @@ from crawler.utils.text_quality import is_binary_like_text
 from crawler.config.domains import DEPARTMENT_HOSTS
 from crawler.utils.attachment_utils import dedupe_attachments_by_url
 from crawler.utils.http_client import INSECURE_SSL_HOSTS, LegacyTLSAdapter
+from crawler.utils.rendered_fetch import js_render_enabled, render_html, render_min_chars
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -443,13 +444,25 @@ class StaticPageExtractor(BaseExtractor):
             "#board_skin",
         ]
 
+        # include-selector 중 본문 텍스트가 가장 긴 노드를 선택한다.
+        # (first-match 방식은 `.cont`/`.info` 등 앞쪽 selector가 빈 노드를 먼저
+        #  매칭해 본문이 있는 `#content`/`.subConBox`를 놓치는 문제가 있었다.)
+        best_sel = None
+        best_node = None
+        best_len = 0
         for sel in selectors:
             node = soup.select_one(sel)
-            if node:
-                cloned = BeautifulSoup(str(node), "html.parser")        #필요없는 정보 제거 전 원본 DOM 노드를 문자열로 만든 뒤 다시 파싱해서 복제본을 만듬
-                candidate = cloned.select_one(sel) or cloned
-                self.remove_noise_nodes(candidate, is_main_page=is_main_page)                      #필요없는 거 제거
-                return candidate
+            if not node:
+                continue
+            text_len = len(self.normalize_text(node.get_text(" ", strip=True)))
+            if text_len > best_len:
+                best_sel, best_node, best_len = sel, node, text_len
+
+        if best_node is not None:
+            cloned = BeautifulSoup(str(best_node), "html.parser")        #필요없는 정보 제거 전 원본 DOM 노드를 문자열로 만든 뒤 다시 파싱해서 복제본을 만듬
+            candidate = cloned.select_one(best_sel) or cloned
+            self.remove_noise_nodes(candidate, is_main_page=is_main_page)                      #필요없는 거 제거
+            return candidate
 
         best = None                                                     #fallback
         best_score = -1
@@ -1045,8 +1058,37 @@ class StaticPageExtractor(BaseExtractor):
 
     def extract_static_page(self, source_type: str, page_url: str) -> dict:         # 외부에서 호출하는 정적 페이지 추출 메인 함수
         fetch_result = self.fetch_result(page_url)
+        raw_doc = self._extract_from_html(
+            source_type, page_url, fetch_result, fetch_result.raw_html, rendered=False
+        )
+
+        # JS 렌더링 폴백: 정적 페치로 받은 본문이 빈약하면(동적 렌더링 페이지로 판단)
+        # Chromium으로 실제 렌더링한 HTML을 받아 1회 재추출한다.
+        if js_render_enabled():
+            before_len = raw_doc["metadata"]["quality_filter"]["raw_text_length_before"]
+            if before_len < render_min_chars():
+                target_url = fetch_result.final_url or page_url
+                ignore_https = any(host in target_url for host in INSECURE_SSL_HOSTS)
+                rendered_html = render_html(target_url, ignore_https_errors=ignore_https)
+                if rendered_html:
+                    rendered_doc = self._extract_from_html(
+                        source_type, page_url, fetch_result, rendered_html, rendered=True
+                    )
+                    rendered_len = rendered_doc["metadata"]["quality_filter"]["raw_text_length_before"]
+                    # 렌더링 결과가 더 풍부할 때만 채택
+                    if rendered_len > before_len:
+                        return rendered_doc
+        return raw_doc
+
+    def _extract_from_html(
+        self,
+        source_type: str,
+        page_url: str,
+        fetch_result: FetchResult,
+        html: str,
+        rendered: bool = False,
+    ) -> dict:
         canonical_page_url = self.canonicalize_url(fetch_result.final_url or page_url)
-        html = fetch_result.raw_html
         soup = BeautifulSoup(html, "html.parser")
 
         title = self.find_title(soup)       # 제목
@@ -1112,6 +1154,7 @@ class StaticPageExtractor(BaseExtractor):
                 "\n".join(value for value in (raw_text, table_text, merged_image_text) if value),
             ),
             "fetch": self.fetch_metadata(fetch_result),
+            "js_rendered": rendered,
             "static_extraction_policy": "main_page" if is_main_page else "static_page",
             "quality_filter": {
                 "raw_text_length_before": len(raw_text_before_filter),

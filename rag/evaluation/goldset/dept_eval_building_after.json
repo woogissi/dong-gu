@@ -1,0 +1,192 @@
+{
+  "summary": {
+    "tag": "building_after",
+    "n": 16,
+    "dept_filter_rate": 0.125,
+    "context_hit_rate": 1.0,
+    "top1_match_rate": 1.0,
+    "top5_hit_rate": 1.0
+  },
+  "rows": [
+    {
+      "id": "B001",
+      "question": "대학본관 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_19b132e7ab559d4e",
+      "top1_title": "캠퍼스맵 | 캠퍼스안내 | DEU"
+    },
+    {
+      "id": "B002",
+      "question": "대학본관 어디",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_19b132e7ab559d4e",
+      "top1_title": "캠퍼스맵 | 캠퍼스안내 | DEU"
+    },
+    {
+      "id": "B003",
+      "question": "대학본관 어디야",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_19b132e7ab559d4e",
+      "top1_title": "캠퍼스맵 | 캠퍼스안내 | DEU"
+    },
+    {
+      "id": "B004",
+      "question": "본관 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_19b132e7ab559d4e",
+      "top1_title": "캠퍼스맵 | 캠퍼스안내 | DEU"
+    },
+    {
+      "id": "B005",
+      "question": "법정관 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_19b132e7ab559d4e",
+      "top1_title": "캠퍼스맵 | 캠퍼스안내 | DEU"
+    },
+    {
+      "id": "B006",
+      "question": "상경관 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_19b132e7ab559d4e",
+      "top1_title": "캠퍼스맵 | 캠퍼스안내 | DEU"
+    },
+    {
+      "id": "B007",
+      "question": "제1인문관 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_19b132e7ab559d4e",
+      "top1_title": "캠퍼스맵 | 캠퍼스안내 | DEU"
+    },
+    {
+      "id": "B008",
+      "question": "인문관 어디야",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_19b132e7ab559d4e",
+      "top1_title": "캠퍼스맵 | 캠퍼스안내 | DEU"
+    },
+    {
+      "id": "B009",
+      "question": "정보공학관 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_19b132e7ab559d4e",
+      "top1_title": "캠퍼스맵 | 캠퍼스안내 | DEU"
+    },
+    {
+      "id": "B010",
+      "question": "정보관 어디 있어",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_19b132e7ab559d4e",
+      "top1_title": "캠퍼스맵 | 캠퍼스안내 | DEU"
+    },
+    {
+      "id": "B011",
+      "question": "중도 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_661ff6c2c252e378",
+      "top1_title": "도서관소개"
+    },
+    {
+      "id": "B012",
+      "question": "도서관 어디야",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_661ff6c2c252e378",
+      "top1_title": "도서관소개"
+    },
+    {
+      "id": "B013",
+      "question": "효긱 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_9da619eb2fa46324",
+      "top1_title": "동의대학교 효민생활관"
+    },
+    {
+      "id": "B014",
+      "question": "외국인기숙사 위치",
+      "dept_filter": null,
+      "dept_filter_ok": false,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_9da619eb2fa46324",
+      "top1_title": "동의대학교 효민생활관"
+    },
+    {
+      "id": "B015",
+      "question": "컴퓨터공학과 학과사무실 위치",
+      "dept_filter": [
+        "컴퓨터공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_01840b5a30b433c1",
+      "top1_title": "학과사무실 위치 및 연락처 | 학과소개 | 컴퓨터공학과"
+    },
+    {
+      "id": "B016",
+      "question": "컴공 교수님 연구실 어디야",
+      "dept_filter": [
+        "컴퓨터공학과"
+      ],
+      "dept_filter_ok": true,
+      "context_hit": true,
+      "top1_match": true,
+      "top5_hit": true,
+      "top1_doc": "static_b961137b5fa98968",
+      "top1_title": "교수소개 게시판목록 | 컴퓨터공학과"
+    }
+  ]
+}

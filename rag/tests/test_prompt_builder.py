@@ -1,6 +1,6 @@
 import unittest
 
-from rag.prompt.prompt_builder import build_prompt
+from rag.prompt.prompt_builder import build_prompt, build_system_prompt
 
 
 class PromptBuilderTest(unittest.TestCase):
@@ -14,6 +14,14 @@ class PromptBuilderTest(unittest.TestCase):
         self.assertIn("[질문]", prompt)
         self.assertIn("[문서]", prompt)
         self.assertIn("수강신청은 3월 4일부터", prompt)
+
+    def test_system_prompt_prefers_partial_answer_over_refusal(self) -> None:
+        # 거절을 적극 유도하던 문구를 약화하고, 부분 정보라도 우선 답하도록 지시해야 한다.
+        system_prompt = build_system_prompt()
+
+        self.assertIn("일부라도", system_prompt)
+        self.assertIn("완전히 무관", system_prompt)
+        self.assertNotIn("답을 찾기 어려우면", system_prompt)
 
 
 if __name__ == "__main__":
