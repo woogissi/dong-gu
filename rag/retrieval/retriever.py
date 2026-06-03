@@ -2421,8 +2421,8 @@ def _sigmoid(value: float) -> float:
 
 
 def _hybrid_score_mode() -> str:
-    mode = os.getenv(_HYBRID_SCORE_MODE_ENV_VAR, "weighted").strip().lower()
-    return mode if mode in {"weighted", "max", "rrf", "srrf"} else "weighted"
+    mode = os.getenv(_HYBRID_SCORE_MODE_ENV_VAR, "srrf").strip().lower()
+    return mode if mode in {"weighted", "max", "rrf", "srrf"} else "srrf"
 
 
 def _srrf_beta() -> float:
@@ -2718,6 +2718,28 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
         WHERE chunks.section_type = 'attachment'
         GROUP BY chunks.doc_id
     ),
+    -- 후보 청크 선별. 원본의 (tsquery OR ILIKE) 6-way OR과 집합 동치이나,
+    -- tsquery 분기를 컬럼별 UNION으로 분리해 GIN 인덱스(idx_chunks_*_tsvector_simple)를
+    -- 타게 하고, 행마다 to_tsvector를 인라인 계산하던 Join Filter seqscan을 제거한다.
+    -- 짧은 한국어 substring 매칭(ILIKE)은 trgm 인덱스로 색인 불가하므로 1패스 seqscan으로 유지
+    -- (recall 보존: ILIKE 분기를 빼면 후보 집합이 바뀌어 정확도가 달라진다).
+    candidate_chunks AS (
+        SELECT chunks.chunk_id FROM chunks
+        WHERE %s <> '' AND to_tsvector('simple', coalesce(chunks.content, '')) @@ to_tsquery('simple', %s)
+        UNION
+        SELECT chunks.chunk_id FROM chunks
+        WHERE %s <> '' AND to_tsvector('simple', coalesce(chunks.section_title, '')) @@ to_tsquery('simple', %s)
+        UNION
+        SELECT chunks.chunk_id FROM chunks
+        JOIN documents ON documents.doc_id = chunks.doc_id
+        WHERE %s <> '' AND to_tsvector('simple', coalesce(documents.title, '')) @@ to_tsquery('simple', %s)
+        UNION
+        SELECT chunks.chunk_id FROM chunks
+        JOIN documents ON documents.doc_id = chunks.doc_id
+        WHERE chunks.content ILIKE ANY(%s)
+           OR chunks.section_title ILIKE ANY(%s)
+           OR documents.title ILIKE ANY(%s)
+    ),
     searchable AS (
         SELECT
             chunks.chunk_id,
@@ -2768,19 +2790,7 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
         sql += "\n          AND " + filter_clause
 
     sql += f"""
-          AND (
-              (
-                  %s <> ''
-                  AND (
-                      to_tsvector('simple', coalesce(documents.title, '')) @@ to_tsquery('simple', %s)
-                      OR to_tsvector('simple', coalesce(chunks.section_title, '')) @@ to_tsquery('simple', %s)
-                      OR to_tsvector('simple', coalesce(chunks.content, '')) @@ to_tsquery('simple', %s)
-                  )
-              )
-              OR documents.title ILIKE ANY(%s)
-              OR chunks.section_title ILIKE ANY(%s)
-              OR chunks.content ILIKE ANY(%s)
-          )
+          AND chunks.chunk_id IN (SELECT chunk_id FROM candidate_chunks)
     ),
     score_components AS (
         SELECT
@@ -2890,14 +2900,18 @@ def _retrieve_documents_from_database(request: RetrievalRequest) -> list[Retriev
     )
 
     parameters = [
+        # candidate_chunks CTE (텍스트 순서): content/section/title tsquery 분기 각각 (guard, tsquery),
+        # 이어서 content/section/title ILIKE ANY 3개. 원본 6-way OR과 집합 동치.
+        tsquery,
+        tsquery,
+        tsquery,
+        tsquery,
+        tsquery,
+        tsquery,
+        ilike_patterns,
+        ilike_patterns,
+        ilike_patterns,
         *filter_params,
-        tsquery,
-        tsquery,
-        tsquery,
-        tsquery,
-        ilike_patterns,
-        ilike_patterns,
-        ilike_patterns,
         tsquery,
         tsquery,
         phrase_patterns,

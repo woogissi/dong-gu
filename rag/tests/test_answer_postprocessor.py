@@ -116,6 +116,42 @@ class AnswerPostprocessorTest(unittest.TestCase):
         self.assertNotIn("Download", repaired)
         self.assertEqual(metadata["negative_answer_repair"], "selected_context_extract")
 
+    def test_irrelevant_doc_does_not_replace_negative_answer(self) -> None:
+        # 학교명 등 변별력 없는 토큰만 겹친 무관 문서(예: "설립 연도" 질의에 매칭된 채용공고)는
+        # "확인된 내용"으로 출력하지 않고 원본 거절문을 유지해야 한다(q022 회귀).
+        metadata: dict[str, object] = {}
+        selected_docs = [
+            RetrievedDoc(
+                doc_id="job-1",
+                chunk_id="job-1-chunk-1",
+                title="동의대학교 융합부품소재 핵심연구지원센터 직원 채용 공고",
+                content=(
+                    "[TITLE] 동의대학교 융합부품소재 핵심연구지원센터 직원 채용 공고 [BODY] "
+                    "동의대학교 융합부품소재 핵심연구지원센터는 계약직 직원을 모집합니다. "
+                    "입사지원서 양식을 제출해 주시기 바랍니다."
+                ),
+                source="https://example.com/job-posting",
+            )
+        ]
+
+        repaired = repair_negative_answer_with_context(
+            "제공된 문서에서 관련 정보를 찾지 못했습니다.",
+            metadata,
+            context=(
+                "[문서 1]\n"
+                "title: 동의대학교 융합부품소재 핵심연구지원센터 직원 채용 공고\n"
+                "content:\n"
+                "동의대학교 융합부품소재 핵심연구지원센터는 계약직 직원을 모집합니다."
+            ),
+            selected_docs=selected_docs,
+            query="동의대 설립 연도 알려줘",
+        )
+
+        self.assertIn("찾지 못했습니다", repaired)
+        self.assertNotIn("선택된 문서 기준", repaired)
+        self.assertNotIn("채용 공고", repaired)
+        self.assertNotIn("negative_answer_repair", metadata)
+
     def test_strips_markdown_formatting(self) -> None:
         cleaned = strip_markdown_formatting("**중요**\n# 제목\n`코드`")
 

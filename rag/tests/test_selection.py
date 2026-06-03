@@ -87,6 +87,47 @@ class TopKSelectorTest(unittest.TestCase):
         self.assertEqual([doc.doc_id for doc in result["selected"]], ["notice_a", "notice_b", "academic"])
         self.assertTrue(any(item["reason"] == "source_type_diversity" for item in result["rejected_chunks"]))
 
+    def test_content_match_rescues_high_family_boost_doc(self) -> None:
+        """제목 매칭이 없어도 본문 매칭(content_match>=0.3)이 있으면 contamination에서 구제(G034).
+
+        '학생식당 위치' ↔ 제목 '교내식당'으로 title_match=0이지만 본문에 답이 담긴 경우.
+        """
+        gold = RetrievedDoc(
+            doc_id="dining",
+            chunk_id="dining_1",
+            title="교내식당 | 편의·복지 | 대학생활",
+            content="학생식당 위치와 운영시간 안내. 정보공학관 2층.",
+            score=8.0,
+            metadata={
+                "source_type": "static",
+                "rerank_signals": {
+                    "title_match": 0.0,
+                    "section_title_match": 0.0,
+                    "strong_term_match": 0.1,
+                    "exact_query_match": 0.0,
+                    "query_family_boost": 2.9,
+                    "content_match": 0.4,
+                    "noise_score": 1.2,
+                },
+            },
+        )
+        other = RetrievedDoc(
+            doc_id="other",
+            chunk_id="other_1",
+            title="복지문화시설",
+            content="복지문화시설 안내",
+            score=6.0,
+            metadata={"source_type": "static", "rerank_signals": {"content_match": 0.2, "strong_term_match": 0.1}},
+        )
+
+        result = select_topk_with_diagnostics([gold, other], k=3)
+
+        self.assertIn("dining", [doc.doc_id for doc in result["selected"]], "본문 매칭 정답 페이지가 선택돼야 한다")
+        self.assertFalse(
+            any(item["doc_id"] == "dining" and item["reason"] == "context_contamination" for item in result["rejected_chunks"]),
+            "content_match가 있는 정답은 contamination으로 탈락하면 안 된다",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

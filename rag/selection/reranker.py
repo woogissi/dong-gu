@@ -16,6 +16,17 @@ from rag.preprocess.query_features import (
 )
 from rag.retrieval.temporal import temporal_rerank_signals
 from rag.schemas.retrieved_doc import RetrievedDoc
+from rag.selection.cross_encoder import (
+    cross_encoder_enabled,
+    cross_encoder_top_n,
+    cross_encoder_weight,
+    score_pairs,
+)
+
+# rerank_score 합산에서 제외하는 신호 키. noise_score는 음수 신호의 절댓값 집계라
+# 이중 반영되므로, temporal_* 는 별도 단계에서 처리되므로 제외한다.
+# cross_encoder_score는 의도적으로 포함(합산되어 순위에 반영)된다.
+_SUM_EXCLUDED_SIGNALS = {"noise_score", "temporal_match", "temporal_mismatch", "temporal_recency"}
 
 _TOKEN_PATTERN = re.compile(r"[가-힣A-Za-z0-9]+")
 _WEAK_RELEVANCE_TOKENS = {
@@ -211,7 +222,7 @@ def rerank_documents(
     keyword_tokens = _dedupe_tokens([*query_features.strong_terms, *keyword_tokens])
     max_base_score = max((doc.score for doc in docs), default=0.0)
 
-    reranked: list[tuple[float, int, RetrievedDoc]] = []
+    scored: list[tuple[dict[str, float], int, RetrievedDoc]] = []
     for index, doc in enumerate(docs):
         signals = _score_doc(
             doc=doc,
@@ -224,19 +235,63 @@ def rerank_documents(
             ranking_hints=ranking_hints,
             max_base_score=max_base_score,
         )
-        rerank_score = round(
-            sum(
-                value
-                for key, value in signals.items()
-                if key not in {"noise_score", "temporal_match", "temporal_mismatch", "temporal_recency"}
-            ),
-            6,
-        )
+        scored.append((signals, index, doc))
+
+    # Tier 3: cross-encoder 의미 유사도 신호를 상위 후보에 가산 블렌딩(플래그 on일 때만).
+    # 플래그 off면 no-op이라 위 규칙신호만으로 정렬되어 기존 결정적 동작이 보존된다.
+    _blend_cross_encoder_signal(scored, query)
+
+    reranked: list[tuple[float, int, RetrievedDoc]] = []
+    for signals, index, doc in scored:
+        rerank_score = round(_rule_signal_sum(signals), 6)
         reranked_doc = _copy_with_rerank_metadata(doc, rerank_score, signals)
         reranked.append((rerank_score, index, reranked_doc))
 
     reranked.sort(key=lambda item: (-item[0], item[1]))
     return _dedup_by_content_hash(reranked)
+
+
+def _rule_signal_sum(signals: dict[str, float]) -> float:
+    """합산 제외 키를 빼고 신호값을 합한다(cross_encoder_score는 포함)."""
+    return sum(value for key, value in signals.items() if key not in _SUM_EXCLUDED_SIGNALS)
+
+
+def _blend_cross_encoder_signal(
+    scored: list[tuple[dict[str, float], int, RetrievedDoc]],
+    query: str,
+) -> None:
+    """규칙신호 상위 N개 후보에 cross-encoder 점수를 가산 신호로 주입한다(in-place).
+
+    - `RAG_CROSS_ENCODER_ENABLED`가 off면 즉시 반환(no-op) → 기존 동작 보존.
+    - 규칙 합산점수로 1차 정렬해 상위 top_n에만 CE를 적용(하위권은 selection k=3에
+      들지 못하므로 비용 낭비 방지).
+    - CE 점수(0~1)에 가중치를 곱해 `cross_encoder_score` 키로 signals에 더한다.
+      이 키는 `_SUM_EXCLUDED_SIGNALS`에 없으므로 자동으로 rerank_score에 합산된다.
+    - 모델 로드/추론 실패 시 `score_pairs`가 빈 리스트를 반환 → graceful no-op.
+    """
+    if not scored or not cross_encoder_enabled() or not query or not query.strip():
+        return
+
+    order = sorted(range(len(scored)), key=lambda i: _rule_signal_sum(scored[i][0]), reverse=True)
+    targets = order[: cross_encoder_top_n()]
+    if not targets:
+        return
+
+    texts: list[str] = []
+    for i in targets:
+        _, _, doc = scored[i]
+        section_title = str(doc.metadata.get("section_title") or "")
+        texts.append(f"{doc.title or ''}\n{section_title}\n{doc.content or ''}")
+
+    ce_scores = score_pairs(query, texts)
+    if not ce_scores:
+        return
+
+    weight = cross_encoder_weight()
+    for pos, i in enumerate(targets):
+        if pos >= len(ce_scores):
+            break
+        scored[i][0]["cross_encoder_score"] = round(ce_scores[pos] * weight, 6)
 
 
 def _dedup_by_content_hash(
@@ -336,6 +391,7 @@ def _score_doc(
         query_family=query_family,
         query_text=query.lower(),
     )
+    board_list_noise = _board_list_noise_penalty(doc, query.lower())
     query_family_penalty = _query_family_penalty(
         doc=doc,
         query_text=query.lower(),
@@ -360,6 +416,7 @@ def _score_doc(
         + min(query_family_penalty, 0.0)
         + min(department_entity_match, 0.0)
         + min(department_board_noise, 0.0)
+        + min(board_list_noise, 0.0)
     )
 
     return {
@@ -384,6 +441,7 @@ def _score_doc(
         "faculty_entity_penalty": round(faculty_entity_penalty, 6),
         "department_entity_match": round(department_entity_match, 6),
         "department_board_noise": round(department_board_noise, 6),
+        "board_list_noise": round(board_list_noise, 6),
         "query_family_penalty": round(query_family_penalty, 6),
         "category_match": round(category_match, 6),
         "recency": round(recency, 6),
@@ -586,6 +644,10 @@ _CURRICULUM_NOTICE_EXEMPT_TERMS = {
     "교양필수", "졸업학점", "졸업기준", "졸업요건", "커리큘럼", "편성표",
 }
 
+# 교육과정 어휘를 포함하더라도 '교육과정 정답 페이지'가 아니라 홍보/모집/협조 공지인
+# 경우(예: 'AX마이크로디그리 신설 안내 및 홍보 협조 요청') 면제에서 제외한다(G060).
+_CURRICULUM_NOTICE_PROMO_MARKERS = {"마이크로디그리", "홍보", "협조"}
+
 
 _SUBPAGE_BOARD_URL_PATTERN = re.compile(r"/sub\d+(?:_\d+)*\.do\?")
 
@@ -608,6 +670,44 @@ def _is_department_board_notice(doc: RetrievedDoc) -> bool:
     return bool(_SUBPAGE_BOARD_URL_PATTERN.search(source))
 
 
+# 게시판/목록 인덱스 페이지(공지 목록, 'LIB Today' 등) 식별용. 개별 게시물
+# (`/subN.do?articleNo`)이 아니라 **공지 제목을 나열하는 목록 페이지 자체**다.
+# 특정 사실 질의의 정답이 될 수 없는데도 최신성·도메인 일치로 상위에 오른다(G037/G038).
+_BOARD_LIST_URL_MARKERS = (
+    "_list.mir",
+    "notice_list",
+    "libtoday",
+    "default_notice",
+    "selectnttlist",
+)
+_BOARD_LIST_TITLE_MARKERS = ("공지사항", "게시판목록", "lib today")
+# 사용자가 명시적으로 공지/게시판/목록을 찾을 때는 목록 페이지가 정답일 수 있어 면제(G058).
+_BOARD_LIST_EXEMPT_QUERY_TERMS = ("공지", "공고", "게시판", "목록", "안내문")
+
+
+def _is_board_list_page(doc: RetrievedDoc) -> bool:
+    """공지/게시물 제목을 나열하는 목록·인덱스 페이지인지 판정한다.
+
+    `/subN.do?articleNo`(개별 게시물, `_is_department_board_notice`)와 달리
+    lib `.mir` 목록·'LIB Today'·'공지사항' 인덱스 등 목록 페이지 자체를 잡는다.
+    """
+    source = _normalize_value(doc.source)
+    if any(marker in source for marker in _BOARD_LIST_URL_MARKERS):
+        return True
+    title = (doc.title or "").lower()
+    return any(marker in title for marker in _BOARD_LIST_TITLE_MARKERS)
+
+
+def _board_list_noise_penalty(doc: RetrievedDoc, query_text: str) -> float:
+    """정보성 질의에서 게시판/목록 인덱스 페이지를 억제한다(G037/G038).
+
+    사용자가 공지/게시판/목록을 명시적으로 찾으면(예: '학사공지 어디서 봐') 면제한다.
+    """
+    if any(term in query_text for term in _BOARD_LIST_EXEMPT_QUERY_TERMS):
+        return 0.0
+    return -2.0 if _is_board_list_page(doc) else 0.0
+
+
 def _department_board_noise_penalty(
     *,
     doc: RetrievedDoc,
@@ -627,10 +727,13 @@ def _department_board_noise_penalty(
         if any(term in query_text for term in ("공지", "공고", "게시판")):
             return 0.0
         # (2) 교육과정/졸업 질의: 게시판 글이라도 교육과정 관련 내용이면 정답 가능성 → 면제.
-        #     무관 홍보 공지(예: 'AX마이크로디그리')는 정답 정적 교육과정 페이지를
-        #     밀어내므로 페널티를 적용한다(G060).
+        #     단, 'AX마이크로디그리'식 홍보·협조 공지는 교육과정 어휘를 포함해도 정답
+        #     정적 교육과정 페이지를 밀어내므로 면제하지 않고 페널티를 적용한다(G060).
         notice_text = f"{doc.title or ''}\n{doc.content or ''}".lower()
-        if _term_hits(_CURRICULUM_NOTICE_EXEMPT_TERMS, notice_text) > 0:
+        if (
+            _term_hits(_CURRICULUM_NOTICE_EXEMPT_TERMS, notice_text) > 0
+            and _term_hits(_CURRICULUM_NOTICE_PROMO_MARKERS, notice_text) == 0
+        ):
             return 0.0
         return -2.0
     if _has_department_anchor(query_text):

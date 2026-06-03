@@ -58,6 +58,18 @@ class RerankerTest(unittest.TestCase):
 
         self.assertEqual([doc.doc_id for doc in reranked], ["a", "b"])
 
+    def test_cross_encoder_signal_absent_by_default(self) -> None:
+        """CE 플래그 기본(off)에서는 cross_encoder_score 신호가 생성되지 않아야 한다.
+
+        CE 코드 도입이 기존 결정적 경로에 무영향임을 보장한다.
+        """
+        reranked = rerank_documents(
+            [RetrievedDoc(doc_id="a", chunk_id="a_1", title="장학 공지", content="장학 신청 안내", score=1.0)],
+            query="장학금 신청",
+            keywords=["장학금", "신청"],
+        )
+        self.assertNotIn("cross_encoder_score", reranked[0].metadata["rerank_signals"])
+
     def test_temporal_rerank_prefers_matching_year_and_semester(self) -> None:
         docs = [
             RetrievedDoc(
@@ -1088,6 +1100,54 @@ class RerankerTest(unittest.TestCase):
             "'보강'이 본문에 있는 청크의 content_required_match가 더 커야 한다",
         )
         self.assertEqual(reranked[0].chunk_id, "schedule_june", "보강 청크가 상위여야 한다")
+
+    def test_board_list_page_penalized_for_info_query(self) -> None:
+        """정보성 질의에서 게시판/목록 인덱스 페이지는 안내 페이지보다 낮아야 한다(G037)."""
+        docs = [
+            RetrievedDoc(
+                doc_id="board_list",
+                chunk_id="board_list_1",
+                title="공지사항",
+                content="중앙도서관 공지사항 목록. 최근 게시글 안내 목록.",
+                score=10.0,
+                metadata={"source_type": "static", "source": "https://lib.deu.ac.kr/sb/default_notice_list.mir"},
+            ),
+            RetrievedDoc(
+                doc_id="info_page",
+                chunk_id="info_page_1",
+                title="도서관소개",
+                content="도서관 이용시간 안내. 자료실 월요일~금요일 09:00~20:00 운영.",
+                score=9.0,
+                metadata={"source_type": "static", "source": "https://lib.deu.ac.kr/intro_rule.mir"},
+            ),
+        ]
+
+        reranked = rerank_documents(docs, query="도서관 이용 시간 알려줘", keywords=["도서관", "이용", "시간"])
+
+        board = next(d for d in reranked if d.doc_id == "board_list")
+        self.assertLess(
+            board.metadata["rerank_signals"]["board_list_noise"], 0.0,
+            "게시판 목록 페이지에 board_list_noise 페널티가 적용돼야 한다",
+        )
+        self.assertEqual(reranked[0].doc_id, "info_page", "안내 페이지가 목록 페이지보다 상위여야 한다")
+
+    def test_board_list_page_exempt_for_notice_query(self) -> None:
+        """사용자가 공지/게시판을 명시적으로 찾으면 목록 페이지를 페널티하지 않는다(G058)."""
+        doc = RetrievedDoc(
+            doc_id="board_list",
+            chunk_id="board_list_1",
+            title="학사공지 게시판",
+            content="학사공지 게시판 목록입니다.",
+            score=10.0,
+            metadata={"source_type": "static", "source": "https://www.deu.ac.kr/www/gra-notice.do"},
+        )
+
+        reranked = rerank_documents(doc and [doc], query="학사공지 게시판 어디서 봐", keywords=["학사공지", "게시판"])
+
+        self.assertEqual(
+            reranked[0].metadata["rerank_signals"]["board_list_noise"], 0.0,
+            "공지/게시판 명시 질의에서는 목록 페널티가 면제돼야 한다",
+        )
 
 
 if __name__ == "__main__":

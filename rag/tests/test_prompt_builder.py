@@ -23,6 +23,13 @@ class PromptBuilderTest(unittest.TestCase):
         self.assertIn("완전히 무관", system_prompt)
         self.assertNotIn("답을 찾기 어려우면", system_prompt)
 
+    def test_system_prompt_directs_concrete_value_extraction(self) -> None:
+        # 날짜·시간 등 구체값이 문서에 있으면 그대로 인용하라고 지시하고, 거절을 마지막 수단으로 둔다.
+        system_prompt = build_system_prompt()
+
+        self.assertIn("그대로 인용", system_prompt)
+        self.assertIn("마지막 수단", system_prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

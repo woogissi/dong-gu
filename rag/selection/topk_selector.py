@@ -188,6 +188,11 @@ def _is_context_contamination_candidate(doc: RetrievedDoc) -> bool:
     if verified_title_boost > 0.0:
         return False
     if query_family_boost >= 0.6 and heading_relevance <= 0.0 and exact_query_match <= 0.0 and strong_term_match <= 0.45:
+        # 제목/강한어휘 매칭은 없지만 본문에 질의어가 실제로 담긴 정답 페이지는 구제한다.
+        # (예: '학생식당 위치' ↔ 제목 '교내식당'으로 title_match=0이나 본문 매칭 존재 — G034)
+        # 다른 contamination 분기와 동일한 content_match 예외를 적용해 일관성 유지.
+        if _float_signal(signals, "content_match") >= 0.3:
+            return False
         return True
     if has_required_terms and required_entity_match <= 0.0 and heading_relevance <= 0.0:
         if _float_signal(signals, "content_match") >= 0.3:

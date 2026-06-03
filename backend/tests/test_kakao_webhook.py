@@ -116,6 +116,83 @@ class KakaoWebhookTest(unittest.TestCase):
         # 출처 텍스트는 답변 본문에 미포함
         self.assertNotIn("출처/사이트 바로가기", final_answer)
 
+    def test_primary_source_prefers_canonical_over_department_copy(self) -> None:
+        """학과 상세(rank 90)보다 공식 정적 페이지(rank 20)를 대표 출처로 선택"""
+        result = {
+            "sources": [
+                {
+                    "source": "https://archi.deu.ac.kr/archi/sub05_01.do",
+                    "title": "건축학과",
+                    "metadata": {"source_type": "department"},
+                },
+                {
+                    "source": "https://www.deu.ac.kr/www/deu-college.do",
+                    "title": "대학/대학원",
+                    "metadata": {"source_type": "homepage"},
+                },
+            ],
+        }
+
+        url = kakao._extract_primary_source_url(result, "동의대 학과 종류 알려줘")
+
+        self.assertEqual(url, "https://www.deu.ac.kr/www/deu-college.do")
+
+    def test_primary_source_tiebreak_by_title_relevance(self) -> None:
+        """동급(www 정적, rank 20)이면 질문-title 겹침으로 선택 — 역대총장 대신 조직도"""
+        result = {
+            "sources": [
+                {
+                    "source": "https://www.deu.ac.kr/www/deu-president.do",
+                    "title": "역대총장",
+                    "metadata": {"source_type": "homepage"},
+                },
+                {
+                    "source": "https://www.deu.ac.kr/www/deu-organization.do",
+                    "title": "조직도",
+                    "metadata": {"source_type": "homepage"},
+                },
+            ],
+        }
+
+        url = kakao._extract_primary_source_url(result, "동의대 조직도")
+
+        self.assertEqual(url, "https://www.deu.ac.kr/www/deu-organization.do")
+
+    def test_primary_source_no_regression_when_equivalent(self) -> None:
+        """canonical rank·관련도가 같으면 기존처럼 검색 1위(index 0) 유지"""
+        first = "https://www.deu.ac.kr/www/source-a.do"
+        second = "https://www.deu.ac.kr/www/source-b.do"
+        result = {
+            "sources": [
+                {"source": first, "title": "공지", "metadata": {"source_type": "homepage"}},
+                {"source": second, "title": "공지", "metadata": {"source_type": "homepage"}},
+            ],
+        }
+
+        url = kakao._extract_primary_source_url(result, "전혀 무관한 질문")
+
+        self.assertEqual(url, first)
+
+    def test_primary_source_empty_when_no_candidates(self) -> None:
+        """sources/selected_docs 모두 없으면 빈 문자열"""
+        self.assertEqual(kakao._extract_primary_source_url({}, "아무거나"), "")
+        self.assertEqual(
+            kakao._extract_primary_source_url(
+                {"sources": [], "retrieval_log": {"selected_docs": []}}, "질문"
+            ),
+            "",
+        )
+
+    def test_primary_source_falls_back_to_selected_docs(self) -> None:
+        """sources 가 비면 retrieval_log.selected_docs 로 폴백"""
+        rag_url = "https://www.deu.ac.kr/www/fallback-notice.do"
+        result = {
+            "sources": [],
+            "retrieval_log": {"selected_docs": [{"source": rag_url, "title": "공지"}]},
+        }
+
+        self.assertEqual(kakao._extract_primary_source_url(result, "질문"), rag_url)
+
     def test_kakao_summary_trims_long_answer_within_limit(self) -> None:
         """긴 답변은 500자 이내로 축약 (출처 줄 없는 경우)"""
         long_answer = "가" * 650

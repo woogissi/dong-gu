@@ -20,6 +20,7 @@ from backend.app.utils.kakao_ui import (
     get_title_by_category,
 )
 from backend.app.services.rag_client import ChatQuery, RagApiClient
+from rag.retrieval.canonical_source import canonical_source_rank
 
 
 router = APIRouter(tags=["kakao"])
@@ -382,7 +383,7 @@ def build_info_response(result, utterance):
         answer = answer.split("???:")[0].strip()
 
     # 실제 검색된 문서의 URL만 사용 — 문서 없으면 버튼 없음
-    link = _extract_primary_source_url(result_dict)
+    link = _extract_primary_source_url(result_dict, utterance)
     quick = get_quick_replies_by_context(category, utterance)
 
     answer = _normalize_answer_source_links(answer, link)
@@ -454,19 +455,62 @@ def _is_source_link_line(line: str, link: str) -> bool:
     return "\ucd9c\ucc98" in text and "\ubc14\ub85c\uac00\uae30" in text
 
 
-def _extract_primary_source_url(result_dict: dict) -> str:
-    for source in result_dict.get("sources") or []:
-        if isinstance(source, dict):
-            url = source.get("source") or source.get("source_url")
-            if url:
-                return str(url)
-    retrieval_log = result_dict.get("retrieval_log") or {}
-    for doc in retrieval_log.get("selected_docs") or []:
-        if isinstance(doc, dict):
-            url = doc.get("source") or doc.get("source_url")
-            if url:
-                return str(url)
-    return ""
+_TOKEN_PATTERN = re.compile(r"[0-9A-Za-z가-힣]+")
+
+
+def _collect_source_candidates(result_dict: dict) -> list[dict]:
+    """버튼 대표 출처 후보를 검색 순서대로 수집한다.
+
+    sources 가 있으면 그것만, 없으면 retrieval_log.selected_docs 로 폴백한다.
+    (검색 후보를 넓히지 않는다 — 기존 _extract_primary_source_url 의 우선순위를 그대로 유지.)
+    """
+    docs = result_dict.get("sources") or []
+    if not any(isinstance(d, dict) for d in docs):
+        retrieval_log = result_dict.get("retrieval_log") or {}
+        docs = retrieval_log.get("selected_docs") or []
+
+    candidates: list[dict] = []
+    for doc in docs:
+        if not isinstance(doc, dict):
+            continue
+        url = doc.get("source") or doc.get("source_url")
+        if not url:
+            continue
+        metadata = doc.get("metadata") if isinstance(doc.get("metadata"), dict) else {}
+        candidates.append(
+            {
+                "url": str(url),
+                "source_type": str(metadata.get("source_type") or doc.get("category") or ""),
+                "title": str(doc.get("title") or ""),
+                "index": len(candidates),
+            }
+        )
+    return candidates
+
+
+def _source_relevance(utterance: str, title: str) -> int:
+    """질문과 문서 title 의 토큰 겹침 개수 (동률 tie-break 용)."""
+    query_tokens = set(_TOKEN_PATTERN.findall((utterance or "").lower()))
+    if not query_tokens:
+        return 0
+    title_tokens = set(_TOKEN_PATTERN.findall((title or "").lower()))
+    return len(query_tokens & title_tokens)
+
+
+def _extract_primary_source_url(result_dict: dict, utterance: str = "") -> str:
+    candidates = _collect_source_candidates(result_dict)
+    if not candidates:
+        return ""
+
+    def sort_key(cand: dict) -> tuple[int, int, int]:
+        rank = canonical_source_rank(
+            source_url=cand["url"], source_type=cand["source_type"]
+        )
+        # canonical rank 오름차순 → 질문-title 겹침 내림차순 → 원래 검색 순서 오름차순
+        return (rank, -_source_relevance(utterance, cand["title"]), cand["index"])
+
+    best = min(candidates, key=sort_key)
+    return best["url"]
 
 
 _URL_PATTERN = re.compile(r"https?://[^\s)\]\}>\"']+")

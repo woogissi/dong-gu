@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 import sys
 import time
 from datetime import datetime
@@ -44,6 +45,18 @@ def _normalize_url(url: str) -> str:
     return url.rstrip("/").split("?")[0] if url else ""
 
 
+def _url_has_path(url: str) -> bool:
+    """정규화된 URL에 host 이후 경로가 있는지(= bare 도메인이 아닌지).
+
+    bare 도메인(예: https://www.deu.ac.kr)을 gold_url로 두면 같은 도메인의
+    무관한 페이지까지 부분문자열 매칭으로 Hit 처리되는 과대매칭(false positive)이
+    발생한다. path가 없는 bare 도메인은 URL 부분매칭에서 제외하고 document_id로만
+    매칭하도록 가드한다.
+    """
+    no_scheme = re.sub(r"^https?://", "", url or "").rstrip("/")
+    return "/" in no_scheme
+
+
 def _check_hit(doc_id: str, source_url: str, chunk_id: str, gold_documents: list[dict]) -> bool:
     for gold in gold_documents:
         gold_doc_id = gold.get("document_id", "")
@@ -52,11 +65,9 @@ def _check_hit(doc_id: str, source_url: str, chunk_id: str, gold_documents: list
             return True
         if gold_url:
             gold_url_norm = _normalize_url(gold_url)
-            if gold_url_norm and gold_url_norm in (source_url or ""):
+            # 가드: bare 도메인(path 없음)은 URL 부분매칭 금지 → document_id로만 매칭
+            if gold_url_norm and _url_has_path(gold_url_norm) and gold_url_norm in (source_url or ""):
                 return True
-            for part in [gold_url_norm, gold_url]:
-                if part and len(part) > 10 and part in (source_url or ""):
-                    return True
     return False
 
 
@@ -86,12 +97,50 @@ _NOT_FOUND_PHRASES = [
     "모릅니다", "찾을 수 없", "알 수 없", "정보는 확인할 수 없",
     "확인되지 않습니다", "제공되지 않", "찾지 못했", "찾을 수 없었",
     "정보를 찾지", "정보가 없", "답변을 제공할 수 없",
+    # 정직한 '정보 없음' 변형(거절로 분류돼야 하나 기존 목록에서 누락되던 표현)
+    "포함되어 있지 않", "포함하고 있지 않", "나와 있지 않", "나와있지 않",
+    "기재되어 있지 않", "언급이 없", "언급은 없", "확인할 수 없",
 ]
+
+# 구체 정보 없이 다음 단계만 안내하는 상투구 — 실질 내용 판정에서 제외한다.
+_GUIDANCE_PHRASES = ["문의", "홈페이지", "웹사이트", "확인해", "확인하시", "방문", "참고하시"]
+
+
+def _contains_not_found_phrase(text: str) -> bool:
+    return any(p in (text or "") for p in _NOT_FOUND_PHRASES)
+
+
+def _substantive_residual(answer: str) -> str:
+    """부정 문장과 안내성 상투구 문장을 제거하고 남은 실질 내용을 반환한다.
+
+    답변에 '찾을 수 없다'가 섞여 있어도, 그 외에 구체 정보가 남아 있으면 부분답변이다.
+    반대로 부정 문장과 '부서에 문의하세요' 류만 남으면 실질 내용이 없는 거절이다.
+    """
+    parts = re.split(r"(?<=[.!?。\n])", answer or "")
+    kept: list[str] = []
+    for sentence in parts:
+        stripped = sentence.strip()
+        if not stripped:
+            continue
+        if _contains_not_found_phrase(stripped):
+            continue
+        if any(g in stripped for g in _GUIDANCE_PHRASES):
+            continue
+        kept.append(stripped)
+    return re.sub(r"\s+", " ", " ".join(kept)).strip()
 
 
 def _is_refusal(answer: str) -> bool:
-    """답변이 '모른다/찾을 수 없다' 류의 거부 응답인지 판정."""
-    return bool(answer) and any(p in answer for p in _NOT_FOUND_PHRASES)
+    """답변이 '모른다/찾을 수 없다' 류의 거부 응답인지 판정.
+
+    부정 표현이 없으면 거절이 아니고, 부정 표현이 있어도 부정·안내 문장을 걷어낸
+    실질 내용이 충분히 남으면 부분답변으로 보아 거절이 아니다(표현 민감도 완화).
+    """
+    if not answer:
+        return False
+    if not _contains_not_found_phrase(answer):
+        return False
+    return len(_substantive_residual(answer)) < 20
 
 
 def _check_answer_grounded(answer: str, selected: list[dict]) -> bool:
@@ -156,7 +205,6 @@ def _check_answer_correct(answer: str, gold_documents: list[dict]) -> bool:
     """
     if not answer or _is_refusal(answer):
         return False
-    import re
 
     tokens: list[str] = []
     for gold in gold_documents:

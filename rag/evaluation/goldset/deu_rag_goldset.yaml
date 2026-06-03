@@ -1,6 +1,6 @@
 # 동의대학교 RAG 골드셋 평가 데이터셋
 # 버전: 1.0 (2026-05-31)
-# 총 질문 수: 62
+# 총 질문 수: 66
 # 카테고리: 학사일정, 수강신청, 장학, 등록금, 졸업, 휴학/복학, 다전공, 기숙사, 도서관,
 #           복지/시설, 취업, 국제교류, 학과별, 교직원, 증명서, 공지, 첨부파일/표 기반
 # 검증 방법: DB 조회(document_id), 웹페이지 직접 확인(URL)
@@ -476,7 +476,7 @@ goldset:
     source_type: "web"
     gold_documents:
       - title: "기숙사 신청 안내"
-        url: "https://dorm.deu.ac.kr"
+        url: "https://dorm.deu.ac.kr/30/3010.do"
         document_id: "static_9da619eb2fa46324"
         evidence_text: "학생생활관 홈페이지(dorm.deu.ac.kr)에서 입사 신청"
     evaluation_notes: "dorm.deu.ac.kr 또는 학생생활관이 언급되어야 한다."
@@ -493,7 +493,7 @@ goldset:
         url: "https://dorm.deu.ac.kr"
         document_id: ""
         evidence_text: "1인실 1,200,900원, 보증금 50,000원"
-    evaluation_notes: "기숙사 비용이 구체적으로 포함되어야 한다."
+    evaluation_notes: "기숙사 비용이 구체적으로 포함되어야 한다. [데이터 갭] 일반 기숙사 입사비는 현재 DB 미수집(게스트룸 1개월 495,000원만 존재). bare 도메인 매칭 제거 후 정직한 db_data_quality_issue 실패로 분류됨."
 
   - id: "G033"
     category: "기숙사"
@@ -504,7 +504,7 @@ goldset:
     source_type: "web"
     gold_documents:
       - title: "학생생활관 생활 규정"
-        url: "https://dorm.deu.ac.kr"
+        url: "https://dorm.deu.ac.kr/40/4020.do"
         document_id: "static_014ee735a1b20c1b"
         evidence_text: "상벌점 제도, 기숙사 생활수칙 포함"
     evaluation_notes: "기숙사 규칙이 구체적으로 포함되어야 한다."
@@ -563,11 +563,11 @@ goldset:
     difficulty: "easy"
     source_type: "web"
     gold_documents:
-      - title: "중앙도서관 이용 안내"
-        url: "https://lib.deu.ac.kr"
-        document_id: ""
-        evidence_text: "중앙도서관 이용 시간 안내 (lib.deu.ac.kr)"
-    evaluation_notes: "도서관 운영 시간이 포함되어야 한다."
+      - title: "도서관 이용시간 (도서관 규정) | 도서관소개"
+        url: "https://lib.deu.ac.kr/intro_rule.mir"
+        document_id: "static_28c37295f426efc7"
+        evidence_text: "도서관 이용시간 - 자료실 월~금 09:00~20:00, 제1열람실 00:00~24:00, 기타열람실 07:00~23:00"
+    evaluation_notes: "도서관 운영 시간이 포함되어야 한다. 이용시간 근거는 도서관 규정(제19조) 페이지(intro_rule.mir)에 있다."
 
   - id: "G038"
     category: "복지/시설"
@@ -581,7 +581,7 @@ goldset:
         url: "https://lib.deu.ac.kr"
         document_id: "static_fa25acc254f018a3"
         evidence_text: "콜라보라운지 9시~20시 운영"
-    evaluation_notes: "콜라보라운지 운영시간(9~20시)이 포함되어야 한다. 비슷한 시설과 혼동 가능."
+    evaluation_notes: "콜라보라운지 운영시간(9~20시)이 포함되어야 한다. [데이터 갭] 운영시간(9~20시)이 DB 전체에 미수집 — '콜라보라운지' 언급은 도서관소개 연혁/직원업무 페이지에만 있고 시간 정보는 없음. bare 도메인 매칭 제거 후 정직한 db_data_quality_issue 실패로 분류됨."
 
   - id: "G039"
     category: "복지/시설"
@@ -673,10 +673,10 @@ goldset:
     difficulty: "medium"
     source_type: "web"
     gold_documents:
-      - title: "교환학생 파견 신청 안내"
+      - title: "절차 | 교환학생 | 국제교류처 국제교류팀"
         url: "https://exchange.deu.ac.kr/exchange/sub02_02.do"
-        document_id: ""
-        evidence_text: "교환학생 신청 9단계 절차, 2-3학년 평점 3.0 이상 조건"
+        document_id: "static_8af8a64c80d62692"
+        evidence_text: "교환학생 신청자격(학부 2-3학년, 전체 평균평점 3.0 이상) 및 신청방법 절차"
     evaluation_notes: "교환학생 자격 조건(학년, 평점)이 포함되어야 한다."
 
   # ==============================
@@ -779,11 +779,11 @@ goldset:
     difficulty: "easy"
     source_type: "web"
     gold_documents:
-      - title: "동의대학교 캠퍼스 안내"
-        url: "https://www.deu.ac.kr"
-        document_id: ""
-        evidence_text: "동의대학교 부산광역시 부산진구 가야대로 995 위치 안내"
-    evaluation_notes: "캠퍼스 주소 또는 교통편이 포함되어야 한다."
+      - title: "가야 캠퍼스 | 찾아오시는 길 | 캠퍼스안내 | DEU"
+        url: "https://www.deu.ac.kr/www/deu-campus-gaya.do"
+        document_id: "static_deb2316f2f351b6c"
+        evidence_text: "동의대학교 가야캠퍼스 (47340) 부산광역시 부산진구 엄광로 176(가야동), 대표전화 051-890-1114, 지하철 동의대역 5번출구 셔틀버스"
+    evaluation_notes: "캠퍼스 주소 또는 교통편이 포함되어야 한다. 실제 주소는 '부산진구 엄광로 176'(원본 evidence의 '가야대로 995'는 오류)."
 
   - id: "G052"
     category: "캠퍼스 건물/위치"
@@ -793,11 +793,11 @@ goldset:
     difficulty: "medium"
     source_type: "web"
     gold_documents:
-      - title: "캠퍼스 건물 안내"
-        url: "https://www.deu.ac.kr"
-        document_id: ""
-        evidence_text: "정보공학관(정보관) 위치 안내"
-    evaluation_notes: "정보공학관(정보관) 위치가 포함되어야 한다."
+      - title: "캠퍼스맵 | 캠퍼스안내 | DEU"
+        url: "https://www.deu.ac.kr/www/deu-campus-map.do"
+        document_id: "static_19b132e7ab559d4e"
+        evidence_text: "정보공학관(소프트웨어융합대학·창업교육센터·교직원식당·학생식당 등) 캠퍼스맵 위치"
+    evaluation_notes: "정보공학관(정보관) 위치가 포함되어야 한다. 건물 위치 근거는 캠퍼스맵(deu-campus-map.do)에 있다."
 
   # ==============================
   # 16. 증명서
@@ -1017,8 +1017,8 @@ goldset:
     difficulty: "medium"
     source_type: "web"
     gold_documents:
-      - title: "학생지원처 안내"
-        url: "https://www.deu.ac.kr/www/deu-organization.do"
-        document_id: ""
-        evidence_text: "학생지원처 대표 051-890-1114, 장학지원팀 051-890-2750~2752"
-    evaluation_notes: "학생처 전화번호가 포함되어야 한다."
+      - title: "전화번호(학생지원처 학생지원팀) | 대학기관/규정 | DEU"
+        url: "https://www.deu.ac.kr/www/phone.do?schGubun=dept_nm&schKeyword=학생지원팀"
+        document_id: "static_52634667972a5f32"
+        evidence_text: "학생지원처 학생지원팀 팀장 051-890-1041, 학생지원팀 051-890-1042"
+    evaluation_notes: "학생처(학생지원처) 전화번호가 포함되어야 한다. 전화번호 근거는 조직도(deu-organization.do)가 아니라 전화번호 페이지(phone.do)에 있다. 원본 evidence의 051-890-1114(대학 대표번호)·2750(미존재)은 오류."

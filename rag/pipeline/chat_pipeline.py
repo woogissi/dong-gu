@@ -12,12 +12,13 @@ from rag.schemas.query import Query
 from rag.schemas.answer import Answer
 
 from rag.retrieval.retriever import retrieve_documents
+from rag.retrieval.multi_query import generate_query_variants, reciprocal_rank_fusion
 from rag.retrieval.search_strategy import build_retrieval_request
 from rag.retrieval.source_policy import forbidden_source_types_for_family
 from rag.retrieval.temporal import validate_temporal_evidence
 from rag.retrieval.quality import retrieval_quality_result, set_retrieval_quality_status
 from rag.selection.topk_selector import select_topk_with_diagnostics
-from rag.selection.context_builder import build_context
+from rag.selection.context_builder import build_context, build_llm_context
 from rag.selection.reranker import rerank_documents
 
 from rag.prompt.prompt_builder import build_prompt, build_system_prompt, build_user_message
@@ -32,6 +33,7 @@ from rag.fallback.policy import NO_RETRIEVAL_RESULTS_MESSAGE, has_not_found_answ
 
 from rag.embedding.koe5_embedder import KoE5Embedder
 
+from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 
 
@@ -47,6 +49,17 @@ _MAX_FALLBACK_ATTEMPTS_ENV_VAR = "RAG_MAX_FALLBACK_ATTEMPTS"
 _FALLBACK_ORDER_ENV_VAR = "RAG_FALLBACK_ORDER"
 _VECTOR_ONLY_FAMILIES_ENV_VAR = "RAG_VECTOR_ONLY_FAMILIES"
 _DISABLE_FALLBACK_FOR_MODES_ENV_VAR = "RAG_DISABLE_FALLBACK_FOR_MODES"
+_MULTI_QUERY_ENABLED_ENV_VAR = "RAG_MULTI_QUERY_ENABLED"
+_MULTI_QUERY_NUM_ENV_VAR = "RAG_MULTI_QUERY_NUM"
+_MULTI_QUERY_RRF_K_ENV_VAR = "RAG_MULTI_QUERY_RRF_K"
+_MULTI_QUERY_MAX_WORKERS_ENV_VAR = "RAG_MULTI_QUERY_MAX_WORKERS"
+# 기본 검색 경로: LLM 단일 Query Rewrite 1회 → 그 결과로 단일 hybrid(lexical+vector srrf).
+# 멀티쿼리 fan-out은 기본 OFF(아래 ENABLED 기본 False), 켜더라도 Layer-2 RRF에 quality_score
+# 분리가 적용돼 quality gate가 깨지지 않는다.
+_SINGLE_QUERY_REWRITE_ENABLED_ENV_VAR = "RAG_SINGLE_QUERY_REWRITE_ENABLED"
+_DEFAULT_MULTI_QUERY_NUM = 3
+_DEFAULT_MULTI_QUERY_RRF_K = 60
+_DEFAULT_MULTI_QUERY_MAX_WORKERS = 4
 _STARTUP_WARMUP_QUERY = "동의대학교 정보 안내"
 
 
@@ -102,6 +115,15 @@ class ChatPipeline:
         finally:
             state.metadata.setdefault("timings_ms", []).append(
                 {"stage": name, "elapsed_ms": self._elapsed_ms(started)}
+            )
+
+    def _timed_substage(self, state: PipelineState, parent: str, name: str, callback):
+        started = time.perf_counter()
+        try:
+            return callback()
+        finally:
+            state.metadata.setdefault("substage_timings_ms", []).append(
+                {"parent": parent, "substage": name, "elapsed_ms": self._elapsed_ms(started)}
             )
 
     def _elapsed_ms(self, started: float) -> int:
@@ -206,7 +228,7 @@ class ChatPipeline:
         if branch_log:
             state.metadata["retrieval_branch_candidates"] = branch_log
         retrieve_started = time.perf_counter()
-        state.retrieved_docs = retrieve_documents(request=request)
+        state.retrieved_docs = self._multi_query_retrieve(request, state)
         self._record_retrieval_timing(
             state,
             label="main",
@@ -288,6 +310,151 @@ class ChatPipeline:
             return default
         return [value.strip() for value in raw_value.split(",") if value.strip()]
 
+    def _bool_env(self, name: str, *, default: bool) -> bool:
+        raw_value = os.getenv(name, "")
+        if not raw_value.strip():
+            return default
+        return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+    def _int_env(self, name: str, *, default: int) -> int:
+        try:
+            value = int(os.getenv(name, ""))
+        except ValueError:
+            return default
+        return value if value >= 0 else default
+
+    def _multi_query_retrieve(self, base_request, state: PipelineState) -> list:
+        """검색 진입점 디스패처.
+
+        - 기본(멀티쿼리 OFF): LLM 단일 Query Rewrite 1회 → 단일 hybrid 검색
+          (``_single_query_rewrite_retrieve``).
+        - 멀티쿼리 ON(opt-in): 원질의를 K개 재표현으로 확장해 병렬 fan-out 후 RRF 융합.
+          이때 Layer-2 RRF는 quality_score 분리(아래 ``reciprocal_rank_fusion``)로 gate를 깨지 않는다.
+        임베더 부재/LLM 실패/빈결과 시 기존 단일 검색으로 폴백한다(무회귀).
+        """
+
+        if self.embedder is None:
+            return retrieve_documents(request=base_request)
+
+        if not self._bool_env(_MULTI_QUERY_ENABLED_ENV_VAR, default=False):
+            return self._single_query_rewrite_retrieve(base_request, state)
+
+        num = self._int_env(_MULTI_QUERY_NUM_ENV_VAR, default=_DEFAULT_MULTI_QUERY_NUM)
+        if num <= 0:
+            return self._single_query_rewrite_retrieve(base_request, state)
+
+        llm_started = time.perf_counter()
+        variants = generate_query_variants(state.original_query, num=num)
+        llm_ms = self._elapsed_ms(llm_started)
+        if not variants:
+            state.metadata["multi_query"] = {
+                "enabled": True,
+                "generated": [],
+                "fell_back_to_single": True,
+                "llm_ms": llm_ms,
+            }
+            return retrieve_documents(request=base_request)
+
+        # 원질의 request(기존 벡터/변형 재사용) + 변형 질의별 request(개별 임베딩)
+        requests = [base_request]
+        for variant in variants:
+            variant_vector = self.embedder.embed_query(variant)
+            requests.append(
+                base_request.model_copy(
+                    update={
+                        "query": variant,
+                        "query_variants": [variant],
+                        "query_vector": list(variant_vector or []),
+                    }
+                )
+            )
+
+        max_workers = self._int_env(
+            _MULTI_QUERY_MAX_WORKERS_ENV_VAR, default=_DEFAULT_MULTI_QUERY_MAX_WORKERS
+        ) or 1
+
+        def _search(req):
+            try:
+                return retrieve_documents(request=req)
+            except Exception:
+                return []
+
+        fanout_started = time.perf_counter()
+        with ThreadPoolExecutor(max_workers=min(len(requests), max_workers)) as executor:
+            result_lists = list(executor.map(_search, requests))
+        fanout_ms = self._elapsed_ms(fanout_started)
+
+        rrf_k = self._int_env(_MULTI_QUERY_RRF_K_ENV_VAR, default=_DEFAULT_MULTI_QUERY_RRF_K)
+        fused = reciprocal_rank_fusion(result_lists, rrf_k=rrf_k, top_k=base_request.top_k)
+
+        state.metadata["multi_query"] = {
+            "enabled": True,
+            "generated": variants,
+            "query_count": len(requests),
+            "per_query_counts": [len(docs) for docs in result_lists],
+            "fused_count": len(fused),
+            "fell_back_to_single": False,
+            "llm_ms": llm_ms,
+            "fanout_ms": fanout_ms,
+        }
+        return fused
+
+    def _single_query_rewrite_retrieve(self, base_request, state: PipelineState) -> list:
+        """LLM 단일 Query Rewrite 1회 → 그 결과로 단일 hybrid(lexical+vector) 검색.
+
+        멀티쿼리 fan-out과 달리 검색은 1회뿐이고 RRF 융합이 없으므로 doc.score는 Layer-1
+        보너스 보정 final_score(0~1 스케일)를 유지 → quality gate 그대로 안전.
+        rewrite는 query_variants(어휘 검색)와 query_vector(벡터 검색) 양쪽에 반영한다.
+        비활성/LLM 실패/빈결과 시 원질의 단일 검색으로 폴백(무회귀)."""
+
+        if not self._bool_env(_SINGLE_QUERY_REWRITE_ENABLED_ENV_VAR, default=True):
+            return retrieve_documents(request=base_request)
+
+        llm_started = time.perf_counter()
+        variants = generate_query_variants(state.original_query, num=1)
+        llm_ms = self._elapsed_ms(llm_started)
+        rewrite = variants[0] if variants else ""
+        if not rewrite:
+            state.metadata["single_query_rewrite"] = {
+                "enabled": True,
+                "generated": [],
+                "applied": False,
+                "llm_ms": llm_ms,
+            }
+            return retrieve_documents(request=base_request)
+
+        existing_variants = list(base_request.query_variants or [])
+        merged_variants = [rewrite, *[v for v in existing_variants if v != rewrite]]
+        update = {"query_variants": merged_variants}
+        try:
+            rewrite_vector = self.embedder.embed_query(rewrite)
+            if rewrite_vector:
+                update["query_vector"] = list(rewrite_vector)
+        except Exception:
+            pass  # 임베딩 실패 시 원질의 벡터 유지(무회귀)
+        enriched_request = base_request.model_copy(update=update)
+        docs = retrieve_documents(request=enriched_request)
+        state.metadata["single_query_rewrite"] = {
+            "enabled": True,
+            "generated": [rewrite],
+            "applied": True,
+            "revectorized": "query_vector" in update,
+            "llm_ms": llm_ms,
+        }
+        return docs
+
+    @staticmethod
+    def _doc_quality_score(doc) -> float:
+        """quality gate가 읽는 점수. RRF 융합 시 doc.score는 순위(ordinal) 점수라
+        절대 매칭 강도를 반영하지 못하므로, Layer-1 보정 relevance를 보존한
+        metadata['quality_score']를 우선 사용한다. 단일/비융합 경로는 quality_score가
+        없어 doc.score(=Layer-1 final_score)를 그대로 쓴다(동작 불변)."""
+        metadata = doc.metadata or {}
+        quality_score = metadata.get("quality_score")
+        if quality_score is not None:
+            return float(quality_score or 0.0)
+        return float(doc.score or 0.0)
+
     def _evaluate_retrieval_quality(
         self,
         docs: list,
@@ -302,7 +469,7 @@ class ChatPipeline:
         required_entity = self._extract_faculty_entity(query, keywords or [])
         entity_match_count = sum(1 for doc in top_docs[:3] if self._doc_contains_entity(doc, required_entity))
         top1_entity_match = self._doc_contains_entity(top_docs[0], required_entity) if required_entity else False
-        scores = [float(doc.score or 0.0) for doc in top_docs]
+        scores = [self._doc_quality_score(doc) for doc in top_docs]
         top1_score = scores[0] if scores else 0.0
         avg_topk_score = sum(scores) / len(scores) if scores else 0.0
         context_chars = sum(len(doc.content or "") for doc in top_docs)
@@ -630,43 +797,59 @@ class ChatPipeline:
         strategy_log = state.metadata.get("retrieval_strategy_log", {})
         hard_filters = strategy_log.get("filters", {}) if isinstance(strategy_log, dict) else {}
         ranking_hints = strategy_log.get("ranking_hints", {}) if isinstance(strategy_log, dict) else {}
-        state.reranked_docs = rerank_documents(
-            state.retrieved_docs,
-            query=state.rewritten_query or state.normalized_query or state.original_query,
-            keywords=state.keywords,
-            category=state.category,
-            filters=hard_filters if isinstance(hard_filters, dict) else {},
-            ranking_hints=ranking_hints if isinstance(ranking_hints, dict) else {},
+        state.reranked_docs = self._timed_substage(
+            state,
+            "select_and_build_context",
+            "rerank",
+            lambda: rerank_documents(
+                state.retrieved_docs,
+                query=state.rewritten_query or state.normalized_query or state.original_query,
+                keywords=state.keywords,
+                category=state.category,
+                filters=hard_filters if isinstance(hard_filters, dict) else {},
+                ranking_hints=ranking_hints if isinstance(ranking_hints, dict) else {},
+            ),
         )
         query_features = self._query_features(state)
         query_family = query_features.get("family") if isinstance(query_features, dict) else None
-        candidate_docs = state.reranked_docs or state.retrieved_docs
-        candidate_docs = self._filter_forbidden_source_docs(query_family, candidate_docs)
-        if query_family == "department_curriculum":
-            candidate_docs = self._filter_department_curriculum_docs(state, candidate_docs)
-        if query_family in {"academic_schedule", "course_registration", "seasonal_course_registration"}:
-            candidate_docs = self._filter_canonical_notice_docs(state, candidate_docs)
-        selection_k = 3
-        max_chunks_per_doc = 4 if query_family == "department_curriculum" else 1
-        if query_family in {"academic_schedule", "course_registration", "seasonal_course_registration"}:
-            max_chunks_per_doc = 3
-        # 정적/시설 페이지(기숙사·도서관·시설·건물 위치)는 정보가 여러 청크에 흩어져 있어
-        # 문서당 1청크만 넣으면 근거가 단편화된다. 2청크까지 허용해 근거 단편화를 완화한다.
-        elif query_family in {"dormitory", "library", "campus_facility", "building_location"}:
-            max_chunks_per_doc = 2
-        selection_result = select_topk_with_diagnostics(
-            candidate_docs,
-            k=selection_k,
-            max_chunks_per_doc=max_chunks_per_doc,
+
+        def _filter_and_select():
+            candidate_docs = state.reranked_docs or state.retrieved_docs
+            candidate_docs = self._filter_forbidden_source_docs(query_family, candidate_docs)
+            if query_family == "department_curriculum":
+                candidate_docs = self._filter_department_curriculum_docs(state, candidate_docs)
+            if query_family in {"academic_schedule", "course_registration", "seasonal_course_registration"}:
+                candidate_docs = self._filter_canonical_notice_docs(state, candidate_docs)
+            selection_k = 3
+            max_chunks_per_doc = 4 if query_family == "department_curriculum" else 1
+            if query_family in {"academic_schedule", "course_registration", "seasonal_course_registration"}:
+                max_chunks_per_doc = 3
+            # 정적/시설 페이지(기숙사·도서관·시설·건물 위치)는 정보가 여러 청크에 흩어져 있어
+            # 문서당 1청크만 넣으면 근거가 단편화된다. 2청크까지 허용해 근거 단편화를 완화한다.
+            elif query_family in {"dormitory", "library", "campus_facility", "building_location"}:
+                max_chunks_per_doc = 2
+            selection_result = select_topk_with_diagnostics(
+                candidate_docs,
+                k=selection_k,
+                max_chunks_per_doc=max_chunks_per_doc,
+            )
+            return candidate_docs, selection_result
+
+        candidate_docs, selection_result = self._timed_substage(
+            state, "select_and_build_context", "filter_and_select", _filter_and_select
         )
         state.selected_docs = selection_result["selected"]
         state.metadata["retrieved_candidate_trace"] = self._candidate_trace(state.retrieved_docs, limit=10)
         state.metadata["reranked_candidate_trace"] = self._candidate_trace(state.reranked_docs, limit=10)
         state.metadata["selected_candidate_trace"] = self._candidate_trace(state.selected_docs, limit=3)
         state.metadata["rejected_candidate_trace"] = selection_result.get("rejected_chunks", [])[:20]
-        self._correct_department_faculty_list_selection(state, candidate_docs)
-        self._correct_faculty_selection(state, candidate_docs)
-        self._correct_facility_selection(state, candidate_docs)
+
+        def _corrections():
+            self._correct_department_faculty_list_selection(state, candidate_docs)
+            self._correct_faculty_selection(state, candidate_docs)
+            self._correct_facility_selection(state, candidate_docs)
+
+        self._timed_substage(state, "select_and_build_context", "corrections", _corrections)
         state.metadata["selected_candidate_trace"] = self._candidate_trace(state.selected_docs, limit=3)
         state.metadata["selection_diagnostics"] = selection_result
         state.metadata["rerank_comparison"] = self._build_rerank_comparison(state.retrieved_docs, state.reranked_docs, state.selected_docs)
@@ -678,7 +861,12 @@ class ChatPipeline:
         if isinstance(retrieval_quality, dict):
             retrieval_quality["selection_quality"] = selection_quality
         state.metadata["citation_trace"] = self._build_citation_trace(state.selected_docs)
-        state.context = build_context(state.selected_docs)
+        state.context = self._timed_substage(
+            state,
+            "select_and_build_context",
+            "build_context",
+            lambda: build_context(state.selected_docs),
+        )
 
     def _validate_selected_temporal_evidence(self, state: PipelineState) -> dict:
         temporal_signals = self._temporal_signals_from_state(state)
@@ -1133,7 +1321,9 @@ class ChatPipeline:
 
     def _generate(self, state: PipelineState) -> None:
         temporal_validation = state.metadata.get("temporal_validation")
-        effective_context = state.context
+        # LLM에는 진단 메타데이터를 뺀 슬림 컨텍스트를 보낸다(needle 희석 완화).
+        # state.context(추적용 전체 메타데이터 포함)는 로깅을 위해 그대로 유지한다.
+        effective_context = build_llm_context(state.selected_docs)
         if (
             isinstance(temporal_validation, dict)
             and temporal_validation.get("needs_validation")
@@ -1162,32 +1352,49 @@ class ChatPipeline:
                 else temporal_mismatch_hint
             )
 
-        state.prompt = build_prompt(
-            query=state.original_query,
-            context=effective_context,
-        )
-        system_prompt = build_system_prompt()
-        user_message = build_user_message(
-            query=state.original_query,
-            context=effective_context,
+        def _prompt_build():
+            state.prompt = build_prompt(
+                query=state.original_query,
+                context=effective_context,
+            )
+            system_prompt = build_system_prompt()
+            user_message = build_user_message(
+                query=state.original_query,
+                context=effective_context,
+            )
+            return system_prompt, user_message
+
+        system_prompt, user_message = self._timed_substage(
+            state, "generate_answer", "prompt_build", _prompt_build
         )
         state.metadata["answer_generation_input"] = {
             "selected_doc_count": len(state.selected_docs or []),
             "context_chars": len(state.context or ""),
             "prompt_chars": len(state.prompt or ""),
         }
-        generated_answer = generate_answer(user_message, system_prompt=system_prompt)
+        state.metadata["llm_called"] = True
+        generated_answer = self._timed_substage(
+            state,
+            "generate_answer",
+            "llm_call",
+            lambda: generate_answer(user_message, system_prompt=system_prompt),
+        )
         state.metadata["answer_generation_output"] = {
             "raw_answer_chars": len(generated_answer or ""),
             "raw_answer_has_not_found": has_not_found_answer(generated_answer),
         }
-        state.answer_text = repair_negative_answer_with_context(
-            generated_answer,
-            state.metadata,
-            context=state.context,
-            selected_docs=state.selected_docs,
-            query=state.original_query,
-            keywords=state.keywords,
+        state.answer_text = self._timed_substage(
+            state,
+            "generate_answer",
+            "repair",
+            lambda: repair_negative_answer_with_context(
+                generated_answer,
+                state.metadata,
+                context=state.context,
+                selected_docs=state.selected_docs,
+                query=state.original_query,
+                keywords=state.keywords,
+            ),
         )
         state.metadata["answer_generation_output"].update(
             {

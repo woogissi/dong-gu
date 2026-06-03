@@ -9,7 +9,7 @@ from rag.preprocess.normalizer import normalize_query
 from rag.retrieval.retriever import merge_retrieval_candidates
 from rag.retrieval.canonical_source import canonical_notice_metadata
 from rag.schemas.retrieved_doc import RetrievedDoc
-from rag.selection.context_builder import build_context
+from rag.selection.context_builder import build_context, build_llm_context
 from rag.selection.reranker import rerank_documents
 from rag.selection.topk_selector import select_topk_with_diagnostics
 
@@ -307,6 +307,31 @@ class RagQualityFixTest(unittest.TestCase):
         self.assertIn("chunk_id: chunk1", context)
         self.assertIn("source_url: https://example.test/doc1", context)
         self.assertIn("lexical=0.8", context)
+
+    def test_llm_context_excludes_diagnostic_noise(self) -> None:
+        # LLM에 보내는 컨텍스트는 근거 본문/제목/출처만 남기고 내부 ID·점수 노이즈는 제거해야 한다.
+        docs = [
+            RetrievedDoc(
+                doc_id="doc1",
+                chunk_id="chunk1",
+                title="중앙도서관 이용 안내",
+                source="https://example.test/doc1",
+                content="중앙도서관 평일 이용 시간은 09:00~22:00입니다.",
+                score=1.0,
+                metadata={"source_type": "static", "lexical_score": 0.8, "final_score": 0.9},
+            )
+        ]
+        llm_context = build_llm_context(docs)
+
+        # 근거 파악에 필요한 정보는 유지
+        self.assertIn("중앙도서관 평일 이용 시간은 09:00~22:00입니다.", llm_context)
+        self.assertIn("source_url: https://example.test/doc1", llm_context)
+        self.assertIn("중앙도서관 이용 안내", llm_context)
+        # 진단 노이즈는 제거
+        self.assertNotIn("chunk_id", llm_context)
+        self.assertNotIn("doc_id", llm_context)
+        self.assertNotIn("scores:", llm_context)
+        self.assertNotIn("lexical=", llm_context)
 
     def test_department_curriculum_selection_keeps_exact_department_chunks_only(self) -> None:
         pipeline = ChatPipeline()

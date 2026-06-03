@@ -1,0 +1,1131 @@
+{
+  "generated_at": "20260603_154604",
+  "runs": 3,
+  "run_summaries": [
+    {
+      "total": 66,
+      "top1_hit_rate": 0.727,
+      "top3_hit_rate": 0.818,
+      "top5_hit_rate": 0.894,
+      "context_hit_rate": 0.879,
+      "answer_grounded_rate": 0.939,
+      "answer_refused_rate": 0.061,
+      "answer_correct_rate": 0.803,
+      "answer_correct_judgable": 66,
+      "fallback_used_rate": 0.03,
+      "failure_stage_counts": {
+        "answer_generation_issue": 2,
+        "rerank_issue": 3,
+        "db_data_quality_issue": 5
+      },
+      "by_category": {
+        "학사일정": {
+          "total": 6,
+          "top5_hit": 6,
+          "context_hit": 6
+        },
+        "수강신청": {
+          "total": 5,
+          "top5_hit": 5,
+          "context_hit": 5
+        },
+        "장학": {
+          "total": 5,
+          "top5_hit": 5,
+          "context_hit": 5
+        },
+        "등록금": {
+          "total": 4,
+          "top5_hit": 4,
+          "context_hit": 4
+        },
+        "졸업": {
+          "total": 3,
+          "top5_hit": 3,
+          "context_hit": 3
+        },
+        "휴학/복학": {
+          "total": 2,
+          "top5_hit": 1,
+          "context_hit": 2
+        },
+        "전과/복수전공/부전공": {
+          "total": 3,
+          "top5_hit": 3,
+          "context_hit": 3
+        },
+        "성적": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "기숙사": {
+          "total": 3,
+          "top5_hit": 1,
+          "context_hit": 0
+        },
+        "복지/시설": {
+          "total": 6,
+          "top5_hit": 5,
+          "context_hit": 5
+        },
+        "통학버스": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "취업/현장실습": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 1
+        },
+        "국제교류": {
+          "total": 1,
+          "top5_hit": 1,
+          "context_hit": 1
+        },
+        "학과별": {
+          "total": 6,
+          "top5_hit": 5,
+          "context_hit": 5
+        },
+        "캠퍼스 건물/위치": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "증명서": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "교직원": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "공지사항": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "첨부파일 기반": {
+          "total": 2,
+          "top5_hit": 1,
+          "context_hit": 1
+        },
+        "표 기반": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "규정/시행세칙": {
+          "total": 2,
+          "top5_hit": 1,
+          "context_hit": 1
+        },
+        "학적": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        }
+      },
+      "by_difficulty": {
+        "easy": {
+          "total": 24,
+          "context_hit": 22
+        },
+        "medium": {
+          "total": 28,
+          "context_hit": 25
+        },
+        "hard": {
+          "total": 14,
+          "context_hit": 11
+        }
+      }
+    },
+    {
+      "total": 66,
+      "top1_hit_rate": 0.697,
+      "top3_hit_rate": 0.818,
+      "top5_hit_rate": 0.894,
+      "context_hit_rate": 0.894,
+      "answer_grounded_rate": 0.955,
+      "answer_refused_rate": 0.045,
+      "answer_correct_rate": 0.803,
+      "answer_correct_judgable": 66,
+      "fallback_used_rate": 0.03,
+      "failure_stage_counts": {
+        "answer_generation_issue": 2,
+        "rerank_issue": 2,
+        "db_data_quality_issue": 5
+      },
+      "by_category": {
+        "학사일정": {
+          "total": 6,
+          "top5_hit": 6,
+          "context_hit": 6
+        },
+        "수강신청": {
+          "total": 5,
+          "top5_hit": 5,
+          "context_hit": 5
+        },
+        "장학": {
+          "total": 5,
+          "top5_hit": 5,
+          "context_hit": 5
+        },
+        "등록금": {
+          "total": 4,
+          "top5_hit": 4,
+          "context_hit": 4
+        },
+        "졸업": {
+          "total": 3,
+          "top5_hit": 3,
+          "context_hit": 3
+        },
+        "휴학/복학": {
+          "total": 2,
+          "top5_hit": 1,
+          "context_hit": 2
+        },
+        "전과/복수전공/부전공": {
+          "total": 3,
+          "top5_hit": 3,
+          "context_hit": 3
+        },
+        "성적": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "기숙사": {
+          "total": 3,
+          "top5_hit": 1,
+          "context_hit": 0
+        },
+        "복지/시설": {
+          "total": 6,
+          "top5_hit": 5,
+          "context_hit": 5
+        },
+        "통학버스": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "취업/현장실습": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "국제교류": {
+          "total": 1,
+          "top5_hit": 1,
+          "context_hit": 1
+        },
+        "학과별": {
+          "total": 6,
+          "top5_hit": 5,
+          "context_hit": 5
+        },
+        "캠퍼스 건물/위치": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "증명서": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "교직원": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "공지사항": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "첨부파일 기반": {
+          "total": 2,
+          "top5_hit": 1,
+          "context_hit": 1
+        },
+        "표 기반": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "규정/시행세칙": {
+          "total": 2,
+          "top5_hit": 1,
+          "context_hit": 1
+        },
+        "학적": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        }
+      },
+      "by_difficulty": {
+        "easy": {
+          "total": 24,
+          "context_hit": 22
+        },
+        "medium": {
+          "total": 28,
+          "context_hit": 26
+        },
+        "hard": {
+          "total": 14,
+          "context_hit": 11
+        }
+      }
+    },
+    {
+      "total": 66,
+      "top1_hit_rate": 0.712,
+      "top3_hit_rate": 0.818,
+      "top5_hit_rate": 0.894,
+      "context_hit_rate": 0.879,
+      "answer_grounded_rate": 0.955,
+      "answer_refused_rate": 0.045,
+      "answer_correct_rate": 0.833,
+      "answer_correct_judgable": 66,
+      "fallback_used_rate": 0.03,
+      "failure_stage_counts": {
+        "rerank_issue": 3,
+        "db_data_quality_issue": 5,
+        "answer_generation_issue": 1
+      },
+      "by_category": {
+        "학사일정": {
+          "total": 6,
+          "top5_hit": 6,
+          "context_hit": 6
+        },
+        "수강신청": {
+          "total": 5,
+          "top5_hit": 5,
+          "context_hit": 5
+        },
+        "장학": {
+          "total": 5,
+          "top5_hit": 5,
+          "context_hit": 5
+        },
+        "등록금": {
+          "total": 4,
+          "top5_hit": 4,
+          "context_hit": 4
+        },
+        "졸업": {
+          "total": 3,
+          "top5_hit": 3,
+          "context_hit": 3
+        },
+        "휴학/복학": {
+          "total": 2,
+          "top5_hit": 1,
+          "context_hit": 2
+        },
+        "전과/복수전공/부전공": {
+          "total": 3,
+          "top5_hit": 3,
+          "context_hit": 3
+        },
+        "성적": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "기숙사": {
+          "total": 3,
+          "top5_hit": 1,
+          "context_hit": 0
+        },
+        "복지/시설": {
+          "total": 6,
+          "top5_hit": 5,
+          "context_hit": 5
+        },
+        "통학버스": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "취업/현장실습": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 1
+        },
+        "국제교류": {
+          "total": 1,
+          "top5_hit": 1,
+          "context_hit": 1
+        },
+        "학과별": {
+          "total": 6,
+          "top5_hit": 5,
+          "context_hit": 5
+        },
+        "캠퍼스 건물/위치": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "증명서": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "교직원": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "공지사항": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "첨부파일 기반": {
+          "total": 2,
+          "top5_hit": 1,
+          "context_hit": 1
+        },
+        "표 기반": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        },
+        "규정/시행세칙": {
+          "total": 2,
+          "top5_hit": 1,
+          "context_hit": 1
+        },
+        "학적": {
+          "total": 2,
+          "top5_hit": 2,
+          "context_hit": 2
+        }
+      },
+      "by_difficulty": {
+        "easy": {
+          "total": 24,
+          "context_hit": 22
+        },
+        "medium": {
+          "total": 28,
+          "context_hit": 25
+        },
+        "hard": {
+          "total": 14,
+          "context_hit": 11
+        }
+      }
+    }
+  ],
+  "per_case_correct": {
+    "G001": [
+      true,
+      true,
+      true
+    ],
+    "G002": [
+      true,
+      true,
+      true
+    ],
+    "G003": [
+      true,
+      true,
+      true
+    ],
+    "G004": [
+      true,
+      true,
+      true
+    ],
+    "G005": [
+      true,
+      true,
+      true
+    ],
+    "G006": [
+      false,
+      false,
+      false
+    ],
+    "G007": [
+      true,
+      true,
+      true
+    ],
+    "G008": [
+      false,
+      false,
+      false
+    ],
+    "G009": [
+      false,
+      false,
+      false
+    ],
+    "G010": [
+      true,
+      false,
+      true
+    ],
+    "G011": [
+      true,
+      true,
+      true
+    ],
+    "G012": [
+      true,
+      true,
+      true
+    ],
+    "G013": [
+      true,
+      true,
+      true
+    ],
+    "G014": [
+      true,
+      true,
+      true
+    ],
+    "G015": [
+      true,
+      true,
+      true
+    ],
+    "G016": [
+      false,
+      false,
+      true
+    ],
+    "G017": [
+      true,
+      true,
+      true
+    ],
+    "G018": [
+      true,
+      true,
+      true
+    ],
+    "G019": [
+      true,
+      true,
+      true
+    ],
+    "G020": [
+      true,
+      true,
+      true
+    ],
+    "G021": [
+      true,
+      true,
+      true
+    ],
+    "G022": [
+      true,
+      true,
+      true
+    ],
+    "G023": [
+      true,
+      false,
+      false
+    ],
+    "G024": [
+      true,
+      true,
+      true
+    ],
+    "G025": [
+      true,
+      true,
+      true
+    ],
+    "G026": [
+      false,
+      false,
+      false
+    ],
+    "G027": [
+      true,
+      true,
+      true
+    ],
+    "G028": [
+      true,
+      true,
+      true
+    ],
+    "G029": [
+      false,
+      false,
+      true
+    ],
+    "G030": [
+      false,
+      false,
+      false
+    ],
+    "G031": [
+      false,
+      false,
+      false
+    ],
+    "G032": [
+      false,
+      false,
+      false
+    ],
+    "G033": [
+      false,
+      false,
+      false
+    ],
+    "G034": [
+      true,
+      true,
+      true
+    ],
+    "G035": [
+      true,
+      true,
+      true
+    ],
+    "G036": [
+      true,
+      true,
+      true
+    ],
+    "G037": [
+      false,
+      false,
+      false
+    ],
+    "G038": [
+      true,
+      true,
+      false
+    ],
+    "G039": [
+      true,
+      true,
+      true
+    ],
+    "G040": [
+      true,
+      true,
+      true
+    ],
+    "G041": [
+      true,
+      true,
+      true
+    ],
+    "G042": [
+      true,
+      true,
+      true
+    ],
+    "G043": [
+      false,
+      true,
+      true
+    ],
+    "G044": [
+      false,
+      true,
+      true
+    ],
+    "G045": [
+      true,
+      true,
+      true
+    ],
+    "G046": [
+      true,
+      true,
+      true
+    ],
+    "G047": [
+      true,
+      true,
+      true
+    ],
+    "G048": [
+      true,
+      true,
+      true
+    ],
+    "G049": [
+      true,
+      true,
+      true
+    ],
+    "G050": [
+      true,
+      true,
+      true
+    ],
+    "G051": [
+      true,
+      true,
+      true
+    ],
+    "G052": [
+      true,
+      true,
+      true
+    ],
+    "G053": [
+      true,
+      true,
+      true
+    ],
+    "G054": [
+      true,
+      true,
+      true
+    ],
+    "G055": [
+      true,
+      true,
+      true
+    ],
+    "G056": [
+      true,
+      true,
+      true
+    ],
+    "G057": [
+      true,
+      true,
+      true
+    ],
+    "G058": [
+      true,
+      true,
+      true
+    ],
+    "G059": [
+      true,
+      true,
+      true
+    ],
+    "G060": [
+      true,
+      true,
+      true
+    ],
+    "G061": [
+      true,
+      true,
+      true
+    ],
+    "G062": [
+      true,
+      true,
+      true
+    ],
+    "G063": [
+      true,
+      true,
+      true
+    ],
+    "G064": [
+      true,
+      true,
+      true
+    ],
+    "G065": [
+      true,
+      true,
+      true
+    ],
+    "G066": [
+      true,
+      true,
+      true
+    ]
+  },
+  "per_case_refused": {
+    "G001": [
+      false,
+      false,
+      false
+    ],
+    "G002": [
+      false,
+      false,
+      false
+    ],
+    "G003": [
+      false,
+      false,
+      false
+    ],
+    "G004": [
+      false,
+      false,
+      false
+    ],
+    "G005": [
+      false,
+      false,
+      false
+    ],
+    "G006": [
+      false,
+      false,
+      false
+    ],
+    "G007": [
+      false,
+      false,
+      false
+    ],
+    "G008": [
+      false,
+      false,
+      false
+    ],
+    "G009": [
+      false,
+      false,
+      false
+    ],
+    "G010": [
+      false,
+      false,
+      false
+    ],
+    "G011": [
+      false,
+      false,
+      false
+    ],
+    "G012": [
+      false,
+      false,
+      false
+    ],
+    "G013": [
+      false,
+      false,
+      false
+    ],
+    "G014": [
+      false,
+      false,
+      false
+    ],
+    "G015": [
+      false,
+      false,
+      false
+    ],
+    "G016": [
+      true,
+      true,
+      false
+    ],
+    "G017": [
+      false,
+      false,
+      false
+    ],
+    "G018": [
+      false,
+      false,
+      false
+    ],
+    "G019": [
+      false,
+      false,
+      false
+    ],
+    "G020": [
+      false,
+      false,
+      false
+    ],
+    "G021": [
+      false,
+      false,
+      false
+    ],
+    "G022": [
+      false,
+      false,
+      false
+    ],
+    "G023": [
+      false,
+      false,
+      false
+    ],
+    "G024": [
+      false,
+      false,
+      false
+    ],
+    "G025": [
+      false,
+      false,
+      false
+    ],
+    "G026": [
+      false,
+      false,
+      false
+    ],
+    "G027": [
+      false,
+      false,
+      false
+    ],
+    "G028": [
+      false,
+      false,
+      false
+    ],
+    "G029": [
+      false,
+      false,
+      false
+    ],
+    "G030": [
+      false,
+      false,
+      false
+    ],
+    "G031": [
+      false,
+      false,
+      false
+    ],
+    "G032": [
+      true,
+      true,
+      true
+    ],
+    "G033": [
+      false,
+      false,
+      false
+    ],
+    "G034": [
+      false,
+      false,
+      false
+    ],
+    "G035": [
+      false,
+      false,
+      false
+    ],
+    "G036": [
+      false,
+      false,
+      false
+    ],
+    "G037": [
+      true,
+      true,
+      true
+    ],
+    "G038": [
+      false,
+      false,
+      true
+    ],
+    "G039": [
+      false,
+      false,
+      false
+    ],
+    "G040": [
+      false,
+      false,
+      false
+    ],
+    "G041": [
+      false,
+      false,
+      false
+    ],
+    "G042": [
+      false,
+      false,
+      false
+    ],
+    "G043": [
+      true,
+      false,
+      false
+    ],
+    "G044": [
+      false,
+      false,
+      false
+    ],
+    "G045": [
+      false,
+      false,
+      false
+    ],
+    "G046": [
+      false,
+      false,
+      false
+    ],
+    "G047": [
+      false,
+      false,
+      false
+    ],
+    "G048": [
+      false,
+      false,
+      false
+    ],
+    "G049": [
+      false,
+      false,
+      false
+    ],
+    "G050": [
+      false,
+      false,
+      false
+    ],
+    "G051": [
+      false,
+      false,
+      false
+    ],
+    "G052": [
+      false,
+      false,
+      false
+    ],
+    "G053": [
+      false,
+      false,
+      false
+    ],
+    "G054": [
+      false,
+      false,
+      false
+    ],
+    "G055": [
+      false,
+      false,
+      false
+    ],
+    "G056": [
+      false,
+      false,
+      false
+    ],
+    "G057": [
+      false,
+      false,
+      false
+    ],
+    "G058": [
+      false,
+      false,
+      false
+    ],
+    "G059": [
+      false,
+      false,
+      false
+    ],
+    "G060": [
+      false,
+      false,
+      false
+    ],
+    "G061": [
+      false,
+      false,
+      false
+    ],
+    "G062": [
+      false,
+      false,
+      false
+    ],
+    "G063": [
+      false,
+      false,
+      false
+    ],
+    "G064": [
+      false,
+      false,
+      false
+    ],
+    "G065": [
+      false,
+      false,
+      false
+    ],
+    "G066": [
+      false,
+      false,
+      false
+    ]
+  },
+  "latency": {
+    "total_mean_ms": 8145.986067752852,
+    "total_p95_ms": 14530.453102298268,
+    "stage_mean_ms": {
+      "classify_primary_intent": 0.0,
+      "preprocess": 22.69191919191919,
+      "embed_query": 158.4949494949495,
+      "retrieve": 5581.484848484848,
+      "select_and_build_context": 8.914141414141413,
+      "generate_answer": 2373.469696969697,
+      "postprocess": 0.0
+    },
+    "substage_mean_ms": {
+      "select_and_build_context › rerank": 7.55050505050505,
+      "select_and_build_context › filter_and_select": 0.6919191919191919,
+      "select_and_build_context › corrections": 0.18686868686868688,
+      "select_and_build_context › build_context": 0.3181818181818182,
+      "generate_answer › prompt_build": 0.0,
+      "generate_answer › llm_call": 2372.9747474747473,
+      "generate_answer › repair": 0.020202020202020204
+    },
+    "retrieval_call_mean_ms": {
+      "main": {
+        "count": 198,
+        "mean_ms": 5455.282828282829
+      },
+      "fallback_relaxed_filters": {
+        "count": 6,
+        "mean_ms": 4125.166666666667
+      }
+    }
+  }
+}

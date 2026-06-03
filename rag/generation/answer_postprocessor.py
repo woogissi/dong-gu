@@ -7,6 +7,28 @@ from typing import MutableMapping
 
 from rag.fallback.policy import NO_ANSWER_MESSAGE, has_not_found_answer, strip_not_found_answer, NOT_FOUND_ANSWER_PATTERNS
 
+# 거의 모든 학교 문서에 등장해 변별력이 없는 토큰 — repair 스니펫 매칭에서 제외한다.
+_GENERIC_MATCH_TERMS = {
+    "동의대",
+    "동의대학교",
+    "동의",
+    "대학교",
+    "학교",
+    "학생",
+    "알려줘",
+    "알려",
+    "어디",
+    "어디서",
+    "언제",
+    "뭐야",
+    "무엇",
+    "방법",
+    "안내",
+}
+
+# 스니펫이 답변으로 채택되려면 변별 토큰이 최소 이만큼 겹쳐야 한다.
+_MIN_SNIPPET_OVERLAP = 1
+
 
 def repair_negative_answer_with_context(
     answer: str,
@@ -87,11 +109,18 @@ def _ranked_doc_snippets(
     query_terms = set(_tokenize(query or ""))
     for keyword in keywords or []:
         query_terms.update(_tokenize(str(keyword)))
+    # 거의 모든 학교 문서에 등장하는 변별력 없는 토큰은 제거해, 학교명/의문형만
+    # 겹친 무관 문서(예: "설립 연도" 질의에 매칭된 채용공고)가 답변으로 새지 않게 한다.
+    query_terms -= _GENERIC_MATCH_TERMS
     snippets: list[dict[str, str]] = []
     for doc in selected_docs:
         content = _clean_snippet_markup(_doc_value(doc, "content"))
         snippet = _best_content_snippet(content, query_terms)
         if not snippet:
+            continue
+        # 변별 토큰이 하나도 겹치지 않는 스니펫(=무관 문서)은 채택하지 않는다.
+        # 통과 스니펫이 없으면 호출자가 빈 결과를 받아 원본 거절문으로 안전하게 fallback한다.
+        if _term_overlap_score(snippet, query_terms) < _MIN_SNIPPET_OVERLAP:
             continue
         snippets.append(
             {
@@ -127,7 +156,11 @@ def _best_content_snippet(content: str, query_terms: set[str]) -> str:
         key=lambda sentence: (_term_overlap_score(sentence, query_terms), len(sentence)),
         reverse=True,
     )
-    return ranked[0][:240].strip()
+    best = ranked[0]
+    # 변별 토큰이 하나도 안 겹치는 문서는 무관 문서로 보고 스니펫을 만들지 않는다.
+    if query_terms and _term_overlap_score(best, query_terms) < _MIN_SNIPPET_OVERLAP:
+        return ""
+    return best[:240].strip()
 
 
 def _split_content_sentences(content: str) -> list[str]:
@@ -140,7 +173,10 @@ def _split_content_sentences(content: str) -> list[str]:
 def _term_overlap_score(text: str, query_terms: set[str]) -> int:
     if not query_terms:
         return 0
-    return len(set(_tokenize(text)) & query_terms)
+    # 한국어는 조사가 붙어 토큰 정확일치가 자주 실패한다("학생상담센터" vs "학생상담센터에서").
+    # 부분문자열 매칭으로 겹치는 변별 토큰 수를 센다.
+    normalized = (text or "").lower()
+    return sum(1 for term in query_terms if term and term in normalized)
 
 
 def _tokenize(text: str) -> list[str]:

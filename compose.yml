@@ -33,7 +33,9 @@ services:
       - .env
     environment:
       PYTHONPATH: /app
-      RAG_LOG_BRANCH_CANDIDATES: "1"
+      # 진단용 분기 후보(lexical+vector) 수집은 매 요청 retrieve를 1회 더 실행해 ~8s/건 오버헤드.
+      # 평가/프로덕션 경로에서는 끈다. 분기 후보 로깅이 필요할 때만 일시적으로 "1"로 설정.
+      RAG_LOG_BRANCH_CANDIDATES: "0"
     command: uvicorn rag.app.main:app --host 0.0.0.0 --port 8001 --reload
     depends_on:
       postgres:
