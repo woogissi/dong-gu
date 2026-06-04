@@ -65,6 +65,7 @@ class AnswerGeneratorTest(unittest.TestCase):
         self.assertEqual(payload["model"], OPENAI_MODEL)
         self.assertEqual(payload["messages"][0]["role"], "user")
         self.assertIn("When is registration?", payload["messages"][0]["content"])
+        self.assertEqual(payload["seed"], 42)  # 재현성: 고정 seed
         self.assertEqual(request.headers["Authorization"], "Bearer test-key")
 
     def test_generate_answer_calls_ollama_when_provider_is_ollama(self) -> None:

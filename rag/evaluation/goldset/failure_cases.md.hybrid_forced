@@ -1,0 +1,291 @@
+# RAG Goldset Failure Cases
+
+생성일시: 2026-06-04 02:37:11
+총 실패 케이스: 12
+
+---
+
+### G021: 졸업요건 알려줘
+
+- **카테고리**: 졸업 | **난이도**: medium | **소스**: db
+- **실패 단계**: `topk_selector_issue`
+- **Top5 Hit**: True | **Context Hit**: False
+
+**정답 문서:**
+  - [학사정보 종합안내 가이드(2026)](https://www.deu.ac.kr/www/gra-notice.do?article.offset=0&articleLimit=10&articleNo=80309&mode=view) (doc_id: deu_academic_notice_80309)
+
+**검색된 문서 (상위 3개):**
+  - rank 1: [학사정보 종합안내 가이드(2026)](https://www.deu.ac.kr/www/gra-notice.do?article.offset=0&articleLimit=10&articleNo=80309&mode=view) (score=1.180)
+  - rank 2: [졸업기준(졸업시험) | 학과 행정 | 경찰행정학과](https://police2001.deu.ac.kr/police/sub02_05.do) (score=0.525)
+  - rank 3: [[안내] 2026학년도 2학기 학·석사 연계과정 신청](https://swcc.deu.ac.kr/computer/sub06_03.do?article.offset=0&articleLimit=10&articleNo=86196&mode=view) (score=0.509)
+
+**생성 답변 (앞 200자):**
+```
+졸업요건은 다음과 같습니다:
+
+1. 학사과정 졸업학점 요건을 충족해야 하며, 졸업학기의 전체 평점평균이 3.0 이상이어야 합니다.
+2. 졸업논문은 면제됩니다.
+3. 졸업요건을 충족하지 못한 경우 자격이 상실될 수 있습니다.
+
+자세한 사항은 학과별로 다를 수 있으니, 해당 학과의 안내를 확인하는 것이 좋습니다.
+```
+
+---
+
+### G026: 복수전공 신청 어떻게 해?
+
+- **카테고리**: 전과/복수전공/부전공 | **난이도**: medium | **소스**: db
+- **실패 단계**: `db_data_quality_issue`
+- **Top5 Hit**: False | **Context Hit**: False
+
+**정답 문서:**
+  - [2026-1학기 제2전공(부ㆍ복수ㆍ융합ㆍ연계전공) 및 마이크로디그리 신청/변경 일정 및 이수기준 안내](https://www.deu.ac.kr/www/gra-notice.do?article.offset=30&articleLimit=10&articleNo=80071&mode=view) (doc_id: deu_academic_notice_80071)
+  - [다전공 안내 가이드(2026)](https://www.deu.ac.kr/www/gra-notice.do?article.offset=0&articleLimit=10&articleNo=80310&mode=view) (doc_id: deu_academic_notice_80310)
+
+**검색된 문서 (상위 3개):**
+  - rank 1: [이수체계 | 교육과정 | freemajor](https://www.deu.ac.kr/freemajor/sub03_01.do) (score=0.511)
+  - rank 2: [이수체계 | 교육과정 | freemajor](https://deuhome.deu.ac.kr/freemajor/sub03_01.do) (score=0.511)
+  - rank 3: [[안내] 2026학년도 2학기 학생설계전공(제2전공) 이수 신청](https://swcc.deu.ac.kr/computer/sub06_03.do?article.offset=0&articleLimit=10&articleNo=85313&mode=view) (score=0.513)
+
+**생성 답변 (앞 200자):**
+```
+복수전공 신청은 동의대학교 DAP(학생경력관리포털) 시스템을 통해 할 수 있습니다. 
+
+신청 방법은 다음과 같습니다:
+1. DAP 시스템에 로그인합니다.
+2. 학생정보시스템으로 이동합니다.
+3. 기타신청 메뉴에서 부/복수/융합/연계전공 신청을 선택합니다.
+
+신청 시기는 3학년 2학기 개강 이전입니다.
+```
+
+---
+
+### G027: 부전공 신청 방법 알려줘
+
+- **카테고리**: 전과/복수전공/부전공 | **난이도**: medium | **소스**: db
+- **실패 단계**: `db_data_quality_issue`
+- **Top5 Hit**: False | **Context Hit**: False
+
+**정답 문서:**
+  - [다전공 안내 가이드(2026)](https://www.deu.ac.kr/www/gra-notice.do?article.offset=0&articleLimit=10&articleNo=80310&mode=view) (doc_id: deu_academic_notice_80310)
+
+**검색된 문서 (상위 3개):**
+  - rank 1: [전공외 과정 | 교육과정 | 레저스포츠학과](https://leisure-tkd.deu.ac.kr/leisure/sub03_03.do) (score=0.525)
+  - rank 2: [이수체계 | 교육과정 | freemajor](https://www.deu.ac.kr/freemajor/sub03_01.do) (score=0.511)
+  - rank 3: [이수체계 | 교육과정 | freemajor](https://deuhome.deu.ac.kr/freemajor/sub03_01.do) (score=0.511)
+
+**생성 답변 (앞 200자):**
+```
+부전공 신청 방법은 다음과 같습니다:
+
+1. 동의대학교 DAP(학생경력관리포털) 시스템에 접속합니다.
+2. 학생정보시스템으로 이동한 후, '기타신청' 메뉴를 선택합니다.
+3. '부/복수/융합/연계전공 신청'을 클릭하여 신청을 진행합니다.
+
+부전공 신청은 4학년 1학기 개강 이전에 해야 하며, 이수학점은 21학점 이상입니다. 추가적인 정보가 필요하시면 확인해
+```
+
+---
+
+### G031: 기숙사 신청 어디서 해?
+
+- **카테고리**: 기숙사 | **난이도**: easy | **소스**: web
+- **실패 단계**: `rerank_issue`
+- **Top5 Hit**: True | **Context Hit**: False
+
+**정답 문서:**
+  - [기숙사 신청 안내](https://dorm.deu.ac.kr/30/3010.do) (doc_id: static_9da619eb2fa46324)
+
+**검색된 문서 (상위 3개):**
+  - rank 1: [동의대학교 효민생활관](https://dorm.deu.ac.kr/30/3010.do) (score=0.528)
+  - rank 2: [동의대학교 효민생활관](https://dorm.deu.ac.kr/60/6040.do) (score=0.523)
+  - rank 3: [동의대학교 효민생활관](https://dorm.deu.ac.kr/60/6010.do) (score=0.515)
+
+**생성 답변 (앞 200자):**
+```
+기숙사 신청은 동의대학교의 효민생활관 및 행복기숙사에서 진행됩니다. 자세한 모집 요강은 효민생활관 및 행복기숙사 관련 페이지에서 확인할 수 있습니다. 
+
+효민생활관과 행복기숙사 각각의 모집 요강은 다음 링크에서 확인 가능합니다:
+- 제2효민생활관 모집요강: https://myip.kr/wMjZl
+- 행복기숙사 모집요강: https://myip.kr/oQCm
+```
+
+---
+
+### G032: 기숙사 비용 알려줘
+
+- **카테고리**: 기숙사 | **난이도**: medium | **소스**: web
+- **실패 단계**: `db_data_quality_issue`
+- **Top5 Hit**: False | **Context Hit**: False
+
+**정답 문서:**
+  - [학생생활관 비용 안내](https://dorm.deu.ac.kr)
+
+**검색된 문서 (상위 3개):**
+  - rank 1: [동의대학교 효민생활관](https://dorm.deu.ac.kr/60/6023.do) (score=0.523)
+  - rank 2: [동의대학교 효민생활관](https://dorm.deu.ac.kr/60/6010.do) (score=0.515)
+  - rank 3: [기숙사 게시판목록](https://www.deu.ac.kr/www/deu-dormitory.do) (score=0.513)
+
+**생성 답변 (앞 200자):**
+```
+제공된 문서에서 기숙사 비용에 대한 구체적인 정보는 찾을 수 없었습니다. 기숙사 비용에 대한 자세한 내용은 동의대학교 기숙사 홈페이지를 참고하시거나 해당 학기의 모집 공고를 확인해 주시기 바랍니다.
+```
+
+---
+
+### G033: 기숙사 생활 규칙 알려줘
+
+- **카테고리**: 기숙사 | **난이도**: medium | **소스**: web
+- **실패 단계**: `db_data_quality_issue`
+- **Top5 Hit**: False | **Context Hit**: False
+
+**정답 문서:**
+  - [학생생활관 생활 규정](https://dorm.deu.ac.kr/40/4020.do) (doc_id: static_014ee735a1b20c1b)
+
+**검색된 문서 (상위 3개):**
+  - rank 1: [동의대학교 효민생활관](https://dorm.deu.ac.kr/60/6023.do) (score=0.525)
+  - rank 2: [동의대학교 효민생활관](https://dorm.deu.ac.kr/40/4030.do) (score=0.525)
+  - rank 3: [동의대학교 효민생활관](https://dorm.deu.ac.kr/40/4051.do) (score=0.525)
+
+**생성 답변 (앞 200자):**
+```
+제공된 문서에서 기숙사 생활 규칙에 대한 구체적인 내용은 확인되지 않았습니다. 그러나 기숙사 입사 지원 자격과 관련된 정보는 있습니다. 
+
+행복기숙사에 입사할 수 있는 자격은 다음과 같습니다:
+- 동의대학교 학부신입생 및 재학생, 대학원생으로 당해 학기 등록을 필한 학생
+- 학업에 정진하며 품행이 단정하고 신체 건강한 자
+- 기숙사 수칙의 준수를 서약한 자
+```
+
+---
+
+### G037: 도서관 이용 시간 알려줘
+
+- **카테고리**: 복지/시설 | **난이도**: easy | **소스**: web
+- **실패 단계**: `answer_generation_issue`
+- **Top5 Hit**: False | **Context Hit**: True
+
+**정답 문서:**
+  - [도서관 이용시간 (도서관 규정) | 도서관소개](https://lib.deu.ac.kr/intro_rule.mir) (doc_id: static_28c37295f426efc7)
+
+**검색된 문서 (상위 3개):**
+  - rank 1: [도서관소개](https://lib.deu.ac.kr/intro_staff.mir) (score=0.526)
+  - rank 2: [2026학년도 1학기 중앙도서관 신입생/학부생 비대면 정보활용교육 안내](https://urban.deu.ac.kr/urban/sub06_03.do?article.offset=50&articleLimit=10&articleNo=82487&mode=view) (score=0.520)
+  - rank 3: [2026학년도 1학기 중앙도서관 신입생/학부생 비대면 정보활용교육](https://mse.deu.ac.kr/mse/sub06_03.do?article.offset=10&articleLimit=10&articleNo=82469&mode=view) (score=0.520)
+
+**생성 답변 (앞 200자):**
+```
+제공된 문서에서 도서관 이용 시간에 대한 정보는 찾을 수 없었습니다. 도서관의 운영 시간에 대한 구체적인 내용은 문서에 포함되어 있지 않으므로, 도서관 홈페이지나 직접 문의를 통해 확인하시기 바랍니다.
+```
+
+---
+
+### G038: 중앙도서관 콜라보라운지 운영시간 알려줘
+
+- **카테고리**: 복지/시설 | **난이도**: hard | **소스**: db
+- **실패 단계**: `rerank_issue`
+- **Top5 Hit**: True | **Context Hit**: False
+
+**정답 문서:**
+  - [콜라보라운지 이용 안내](https://lib.deu.ac.kr) (doc_id: static_fa25acc254f018a3)
+
+**검색된 문서 (상위 3개):**
+  - rank 1: [LIB Today](https://lib.deu.ac.kr/sb/libtoday_libtoday_list.mir) (score=0.526)
+  - rank 2: [공지사항](https://lib.deu.ac.kr/sb/default_notice_list.mir) (score=0.526)
+  - rank 3: [도서관소개](https://lib.deu.ac.kr/intro_staff.mir) (score=0.525)
+
+**생성 답변 (앞 200자):**
+```
+제공된 문서에서 중앙도서관 콜라보라운지의 운영시간에 대한 정보는 찾을 수 없었습니다. 추가적인 정보가 필요하시면 도서관에 직접 문의하시기 바랍니다.
+```
+
+---
+
+### G043: 취업지원센터 위치 알려줘
+
+- **카테고리**: 취업/현장실습 | **난이도**: medium | **소스**: web
+- **실패 단계**: `db_data_quality_issue`
+- **Top5 Hit**: False | **Context Hit**: False
+
+**정답 문서:**
+  - [취업지원 기관 안내](https://www.deu.ac.kr/www/deu-administration-office.do) (doc_id: static_02b65ad8c77822f9)
+
+**검색된 문서 (상위 3개):**
+  - rank 1: [[취업지원팀]2026 취업 1 Day Class - 내 꿈을 이루는 취업 전략](https://www.deu.ac.kr/www/deu-education.do?article.offset=20&articleLimit=10&articleNo=84262&mode=view) (score=0.523)
+  - rank 2: [진로/취업 프로그램 | 진로/취업지원](https://www.deu.ac.kr/pluscenter/sub04_06.do) (score=0.521)
+  - rank 3: [진로/취업 로드맵 | 진로/취업지원](https://www.deu.ac.kr/pluscenter/sub04_05.do) (score=0.521)
+
+**생성 답변 (앞 200자):**
+```
+취업지원센터는 동의대학교 성파글로벌관 3층 301호에 위치해 있습니다. 추가로 궁금한 사항이 있으면 동의글로벌대학 행정지원실(☎ 051-890-3631~3)로 문의하시면 됩니다.
+```
+
+---
+
+### G046: 컴퓨터공학과 홈페이지 알려줘
+
+- **카테고리**: 학과별 | **난이도**: easy | **소스**: web
+- **실패 단계**: `db_data_quality_issue`
+- **Top5 Hit**: False | **Context Hit**: False
+
+**정답 문서:**
+  - [컴퓨터공학과 홈페이지](https://swcc.deu.ac.kr/computer/index.do) (doc_id: static_90734dd063deeb60)
+
+**검색된 문서 (상위 3개):**
+  - rank 1: [약사 | 학과소개 | 컴퓨터공학과](https://swcc.deu.ac.kr/computer/sub01_02.do) (score=0.446)
+  - rank 2: [컴퓨터 소프트웨어 실습실 | 실습실 | 컴퓨터공학과](https://swcc.deu.ac.kr/computer/sub04_03.do) (score=0.446)
+  - rank 3: [컴퓨터 응용 실습실 | 실습실 | 컴퓨터공학과](https://swcc.deu.ac.kr/computer/sub04_04.do) (score=0.446)
+
+**생성 답변 (앞 200자):**
+```
+컴퓨터공학과의 홈페이지는 다음 링크에서 확인하실 수 있습니다: https://swcc.deu.ac.kr/computer/sub03_01.do (https://swcc.deu.ac.kr/computer/sub03_01.do) 
+
+이 링크를 통해 이수표와 교육과정에 대한 정보를 찾아보실 수 있습니다. 추가적인 정보가 필요하시면 말씀해 주세요!
+```
+
+---
+
+### G060: 경찰행정학과 3학년 2학기 전공선택 알려줘
+
+- **카테고리**: 첨부파일 기반 | **난이도**: hard | **소스**: attachment
+- **실패 단계**: `db_data_quality_issue`
+- **Top5 Hit**: False | **Context Hit**: False
+
+**정답 문서:**
+  - [경찰행정학과 교육과정](https://police2001.deu.ac.kr) (doc_id: static_8bf177a16c1c540e)
+
+**검색된 문서 (상위 3개):**
+  - rank 1: [교과과정 | 학과소개 | 소방방재행정학과](https://fire.deu.ac.kr/fire/sub03_01.do) (score=0.512)
+  - rank 2: [이수표 | 학사정보 | 행정학과](https://pap.deu.ac.kr/pap/sub03_01.do) (score=0.512)
+  - rank 3: [진로취업 로드맵 | 교육과정 | 태권도학과](https://tkd.deu.ac.kr/tkd/sub03_04.do) (score=0.511)
+
+**생성 답변 (앞 200자):**
+```
+제공된 문서에서 경찰행정학과 3학년 2학기 전공선택 과목에 대한 정보는 확인되지 않았습니다. 다른 과목이나 학사 일정에 대한 질문이 있으시면 알려주세요.
+```
+
+---
+
+### G064: 전과하면 기존 학점 인정돼?
+
+- **카테고리**: 규정/시행세칙 | **난이도**: hard | **소스**: web
+- **실패 단계**: `db_data_quality_issue`
+- **Top5 Hit**: False | **Context Hit**: False
+
+**정답 문서:**
+  - [전과 관련 학사 규정](https://advising.deu.ac.kr) (doc_id: deu_advising_80352)
+
+**검색된 문서 (상위 3개):**
+  - rank 1: [군입대 휴학중 취득학점 인정절차 안내](https://www.deu.ac.kr/www/gra-notice.do?article.offset=20&articleLimit=10&articleNo=81144&mode=view) (score=0.511)
+  - rank 2: [AX마이크로디그리 K-MOOC강좌 수강 및 학점인정 관련 사항 안내](https://www.deu.ac.kr/www/gra-notice.do?article.offset=10&articleLimit=10&articleNo=81503&mode=view) (score=0.511)
+  - rank 3: [AX마이크로디그리 K-MOOC 수강 및 학점인정 관련 사항 안내](https://deuhome.deu.ac.kr/fre/sub06_03.do?article.offset=10&articleLimit=10&articleNo=81638&mode=view) (score=0.510)
+
+**생성 답변 (앞 200자):**
+```
+전과 시 기존 학점 인정에 대한 내용은 다음과 같습니다:
+
+1. 동일 계열로 전과할 경우, 이수한 계열교양(계열기초, 학문기초) 학점이 승계됩니다.
+2. 2016학년도 이전에 이수한 학문기초 학점은 전과 후 계열교양 이수 구분으로 인정됩니다.
+3. 2017학년도 이후에 이수한 계열기초 학점은 전과 전과 후 학과의 계열이 동일할 경우, 전과 후 학과의 계열교
+```

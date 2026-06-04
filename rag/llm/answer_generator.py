@@ -16,6 +16,9 @@ _DEFAULT_LLAMA_MODEL = "llama3.2:3b"
 _DEFAULT_TIMEOUT_SECONDS = 90
 _DEFAULT_MAX_TOKENS = 800
 _DEFAULT_NUM_PREDICT = 256
+# 고정 seed로 동일 입력의 출력 분산을 제거(재현성). rewrite·답변 생성 모두 적용된다.
+# 환경변수 OPENAI_SEED / LLAMA_SEED 로 덮어쓸 수 있다.
+_DEFAULT_LLM_SEED = 42
 
 
 def generate_answer(prompt: str, *, system_prompt: str | None = None) -> str:
@@ -58,6 +61,7 @@ def _generate_with_openai(prompt: str, *, system_prompt: str | None = None) -> s
         "temperature": 0.2,
         "top_p": 0.9,
         "max_tokens": max_tokens,
+        "seed": int(os.getenv("OPENAI_SEED", str(_DEFAULT_LLM_SEED))),
     }
     request = urllib.request.Request(
         url=f"{base_url}/chat/completions",
@@ -101,6 +105,7 @@ def _generate_with_ollama(prompt: str) -> str:
             "top_p": 0.9,
             "num_predict": num_predict,
             "repeat_penalty": 1.15,
+            "seed": int(os.getenv("LLAMA_SEED", str(_DEFAULT_LLM_SEED))),
         },
     }
     request = urllib.request.Request(

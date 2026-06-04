@@ -164,11 +164,13 @@ class MultiQueryRetrieveIntegrationTest(unittest.TestCase):
 
         self.assertEqual(len(calls), 1)  # 검색은 단 1회
         gen.assert_called_once_with("원질의", num=1)
-        self.assertEqual(self.pipeline.embedder.calls, ["재작성"])  # rewrite로 재임베딩(벡터)
-        applied = calls[0].query_variants  # rewrite가 어휘 검색 variants에 주입
+        # 벡터는 원질의 임베딩 유지 → rewrite 재임베딩 호출 없음(검색 벡터 비결정성 제거)
+        self.assertEqual(self.pipeline.embedder.calls, [])
+        applied = calls[0].query_variants  # rewrite는 어휘 검색 variants로만 주입
         self.assertIn("재작성", applied)
         meta = self.state.metadata["single_query_rewrite"]
         self.assertTrue(meta["applied"])
+        self.assertFalse(meta["revectorized"])
         self.assertEqual(meta["generated"], ["재작성"])
 
     def test_rewrite_off_runs_plain_single_search(self) -> None:

@@ -400,12 +400,14 @@ class ChatPipeline:
         return fused
 
     def _single_query_rewrite_retrieve(self, base_request, state: PipelineState) -> list:
-        """LLM 단일 Query Rewrite 1회 → 그 결과로 단일 hybrid(lexical+vector) 검색.
+        """LLM 단일 Query Rewrite 1회 → rewrite는 lexical(BM25) 보조 검색어로만 사용.
 
-        멀티쿼리 fan-out과 달리 검색은 1회뿐이고 RRF 융합이 없으므로 doc.score는 Layer-1
-        보너스 보정 final_score(0~1 스케일)를 유지 → quality gate 그대로 안전.
-        rewrite는 query_variants(어휘 검색)와 query_vector(벡터 검색) 양쪽에 반영한다.
-        비활성/LLM 실패/빈결과 시 원질의 단일 검색으로 폴백(무회귀)."""
+        **검색 벡터는 원질의 임베딩(base_request.query_vector)을 그대로 유지**한다.
+        rewrite를 재임베딩해 query_vector를 교체하면 rewrite의 비결정성(temperature)이
+        벡터 검색을 매 실행 흔들어 동일 질의 결과가 출렁인다(특히 vector-only family).
+        따라서 rewrite는 query_variants(어휘 검색)에만 합치고 벡터는 원질의로 고정한다.
+        검색은 1회뿐이고 RRF 융합이 없으므로 doc.score는 Layer-1 보정 final_score(0~1)를
+        유지 → quality gate 그대로 안전. 비활성/LLM 실패/빈결과 시 원질의 단일 검색 폴백."""
 
         if not self._bool_env(_SINGLE_QUERY_REWRITE_ENABLED_ENV_VAR, default=True):
             return retrieve_documents(request=base_request)
@@ -425,20 +427,15 @@ class ChatPipeline:
 
         existing_variants = list(base_request.query_variants or [])
         merged_variants = [rewrite, *[v for v in existing_variants if v != rewrite]]
-        update = {"query_variants": merged_variants}
-        try:
-            rewrite_vector = self.embedder.embed_query(rewrite)
-            if rewrite_vector:
-                update["query_vector"] = list(rewrite_vector)
-        except Exception:
-            pass  # 임베딩 실패 시 원질의 벡터 유지(무회귀)
-        enriched_request = base_request.model_copy(update=update)
+        # 벡터는 원질의 임베딩 유지(재임베딩 금지) → 검색 벡터의 비결정성 제거.
+        # rewrite는 어휘(BM25) 검색의 보조 variant로만 반영한다.
+        enriched_request = base_request.model_copy(update={"query_variants": merged_variants})
         docs = retrieve_documents(request=enriched_request)
         state.metadata["single_query_rewrite"] = {
             "enabled": True,
             "generated": [rewrite],
             "applied": True,
-            "revectorized": "query_vector" in update,
+            "revectorized": False,
             "llm_ms": llm_ms,
         }
         return docs
@@ -1324,6 +1321,17 @@ class ChatPipeline:
         # LLM에는 진단 메타데이터를 뺀 슬림 컨텍스트를 보낸다(needle 희석 완화).
         # state.context(추적용 전체 메타데이터 포함)는 로깅을 위해 그대로 유지한다.
         effective_context = build_llm_context(state.selected_docs)
+        # 이수표 표는 학년 라벨 없이 평탄화돼 1~4학년이 한 청크에 뒤섞인다(선택 청크에
+        # 'N학년' 문자열이 없음). 학년 지정 질의면 해당 학년 표 구간만 추려 라벨링해
+        # 앞에 주입한다 → 학년 미분리로 인한 거절·학년혼선을 막는다.
+        curriculum_year_context = self._build_curriculum_year_context(state)
+        if curriculum_year_context:
+            effective_context = (
+                f"{curriculum_year_context}\n\n{effective_context}"
+                if effective_context
+                else curriculum_year_context
+            )
+            state.metadata["curriculum_year_hint_injected"] = True
         if (
             isinstance(temporal_validation, dict)
             and temporal_validation.get("needs_validation")
@@ -1604,6 +1612,35 @@ class ChatPipeline:
             for match in plain_pattern.finditer(stripped):
                 add(match.group(1))
         return courses
+
+    def _build_curriculum_year_context(self, state: PipelineState) -> str | None:
+        """학과 이수표 질의에 학년이 지정되면, 선택 청크 결합본에서 해당 학년 표 구간만
+        추려 라벨링한 컨텍스트를 만든다.
+
+        이수표 표는 학년이 별도 문자열('2학년')이 아니라 지도교수멘토링 로마숫자/위치로만
+        구분된 채 평탄화돼, 한 청크에 1~4학년 과목이 뒤섞인다. 이대로 LLM에 넘기면 학년을
+        분리하지 못해 거절하거나 다른 학년 과목까지 섞어 답한다. 해당 학년 구간만 라벨링해
+        앞에 주입하면 두 문제가 함께 해소된다. 학년 구간을 못 찾으면 None(무주입)."""
+        query_features = self._query_features(state)
+        family = query_features.get("family") if isinstance(query_features, dict) else None
+        if family != "department_curriculum":
+            return None
+        year = self._extract_curriculum_year(state.original_query)
+        if year is None:
+            return None
+        combined = "\n".join((doc.content or "") for doc in (state.selected_docs or []))
+        if not combined.strip():
+            return None
+        department_name = self._extract_department_name(state.original_query, state.keywords) or ""
+        block = self._extract_curriculum_year_block(combined, year, department_name)
+        if not block or not self._extract_curriculum_courses(block):
+            return None
+        dept_label = department_name or "해당 학과"
+        return (
+            f"[{dept_label} {year}학년 교과목 — 이수표에서 추출한 {year}학년 표 구간]\n"
+            f"{block}\n"
+            f"위 구간은 {dept_label} {year}학년 교과목 표이다. 이 구간의 교과목명만 정리해 답하라."
+        )
 
     def _postprocess(self, state: PipelineState) -> None:
         state.answer_text = strip_markdown_formatting(state.answer_text)
